@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="th" data-density="spacious">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tan-pms — Enterprise PMS (Ollama Design System • Tailwind CSS + shadcn/ui)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"SF Pro Rounded"', '"Nunito"', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+            sans: ['ui-sans-serif', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+          },
+          colors: {
+            primary: '#000000',
+            'on-primary': '#ffffff',
+            ink: '#000000',
+            'ink-deep': '#090909',
+            charcoal: '#525252',
+            body: '#737373',
+            mute: '#a3a3a3',
+            canvas: '#ffffff',
+            'surface-soft': '#fafafa',
+            'surface-card': '#ffffff',
+            hairline: '#e5e5e5',
+            'hairline-strong': '#d4d4d4',
+            'on-dark': '#ffffff',
+            'surface-dark': '#171717',
+            'terminal-red': '#ff5f56',
+            'terminal-yellow': '#ffbd2e',
+            'terminal-green': '#27c93f',
+          },
+          borderRadius: {
+            none: '0px',
+            sm: '6px',
+            md: '8px',
+            lg: '12px',
+            full: '9999px',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --color-primary: #000000;
+      --color-on-primary: #ffffff;
+      --color-ink: #000000;
+      --color-ink-deep: #090909;
+      --color-charcoal: #525252;
+      --color-body: #737373;
+      --color-mute: #a3a3a3;
+      --color-canvas: #ffffff;
+      --color-surface-soft: #fafafa;
+      --color-surface-card: #ffffff;
+      --color-hairline: #e5e5e5;
+      --color-hairline-strong: #d4d4d4;
+      --color-on-dark: #ffffff;
+      --color-on-dark-mute: rgba(255, 255, 255, 0.7);
+      --color-surface-dark: #171717;
+      --color-focus-ring: rgba(59, 130, 246, 0.5);
+      --color-terminal-red: #ff5f56;
+      --color-terminal-yellow: #ffbd2e;
+      --color-terminal-green: #27c93f;
+      --pms-control-h: 40px;
+    }
+
+    html[data-density="spacious"] {
+      --pms-control-h: 40px;
+    }
+    html[data-density="compact"] {
+      --pms-control-h: 36px;
+    }
+
+    * {
+      box-sizing: border-box;
+      caret-color: #000000;
+    }
+
+    ::selection {
+      background-color: #000000;
+      color: #ffffff;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #ffffff;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #d4d4d4;
+      border-radius: 9999px;
+    }
+
+    body {
+      background-color: #ffffff;
+      color: #000000;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    h1 {
+      font-family: "SF Pro Rounded", "Nunito", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-size: 36px;
+      font-weight: 500;
+      line-height: 1.11;
+      letter-spacing: 0;
+      color: #000000;
+    }
+
+    h2 {
+      font-family: "SF Pro Rounded", "Nunito", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.33;
+      letter-spacing: 0;
+      color: #000000;
+    }
+
+    h3 {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+      line-height: 1.4;
+      letter-spacing: 0;
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .btn-primary {
+      background-color: #000000;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1;
+      border-radius: 9999px;
+      padding: 8px 20px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid #000000;
+    }
+    .btn-primary:active {
+      background-color: #090909;
+    }
+
+    .btn-secondary {
+      background-color: #ffffff;
+      color: #000000;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1;
+      border-radius: 9999px;
+      padding: 8px 20px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid #e5e5e5;
+    }
+    .btn-secondary:hover {
+      border-color: #d4d4d4;
+      background-color: #fafafa;
+    }
+
+    .btn-pill-on-dark {
+      background-color: #ffffff;
+      color: #000000;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1;
+      border-radius: 9999px;
+      padding: 8px 20px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .search-pill {
+      background-color: #fafafa;
+      color: #000000;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.43;
+      border-radius: 9999px;
+      padding: 8px 16px;
+      height: var(--pms-control-h);
+      border: 1px solid #e5e5e5;
+    }
+    .search-pill:focus {
+      background-color: #ffffff;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+    }
+
+    .text-input-pill {
+      background-color: #ffffff;
+      color: #000000;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.43;
+      border-radius: 9999px;
+      padding: 8px 16px;
+      height: var(--pms-control-h);
+      border: 1px solid #e5e5e5;
+    }
+    .text-input-pill:focus {
+      background-color: #ffffff;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+    }
+
+    .icon-btn-pill {
+      background-color: #ffffff;
+      color: #000000;
+      border-radius: 9999px;
+      height: var(--pms-control-h);
+      width: var(--pms-control-h);
+      min-height: var(--pms-control-h);
+      min-width: var(--pms-control-h);
+      padding: 8px;
+      border: 1px solid #e5e5e5;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon-btn-pill:hover {
+      background-color: #fafafa;
+      border-color: #d4d4d4;
+    }
+
+    .install-snippet {
+      background-color: #fafafa;
+      color: #000000;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.5;
+      border-radius: 9999px;
+      padding: 12px 20px;
+      height: 48px;
+      border: 1px solid #e5e5e5;
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .command-tag {
+      background-color: #fafafa;
+      color: #000000;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.43;
+      border-radius: 9999px;
+      padding: 5px 12px;
+      border: 1px solid #e5e5e5;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .terminal-card {
+      background-color: #ffffff;
+      color: #000000;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.43;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #e5e5e5;
+    }
+
+    .flat-card {
+      background-color: #ffffff;
+      color: #000000;
+      border-radius: 12px;
+      padding: 28px;
+      border: 1px solid #e5e5e5;
+    }
+
+    .inverted-card {
+      background-color: #171717;
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 28px;
+      border: 1px solid #171717;
+    }
+
+    .inverted-card h1,
+    .inverted-card h2,
+    .inverted-card h3 {
+      color: #ffffff;
+    }
+
+    .faq-row {
+      background-color: #ffffff;
+      color: #000000;
+      border-radius: 0px;
+      padding: 16px 0px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    :focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-canvas text-ink antialiased">
+
+  <header class="h-14 border-b border-hairline bg-canvas sticky top-0 z-30">
+    <div class="max-w-[1160px] mx-auto h-full px-6 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-6">
+        <a href="#top" class="flex items-center gap-2.5 text-ink font-medium text-sm">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 10V6a3 3 0 0 1 6 0v4"/>
+            <rect x="4" y="10" width="16" height="10" rx="4"/>
+            <circle cx="9" cy="15" r="1" fill="#000000"/>
+            <circle cx="15" cy="15" r="1" fill="#000000"/>
+          </svg>
+          <span class="font-display text-lg font-semibold tracking-tight">tan-pms</span>
+        </a>
+
+        <nav class="hidden md:flex items-center gap-1" aria-label="สลับหน้าจอหลัก">
+          <button type="button" onclick="switchSurface('client')" id="nav-client" class="btn-primary">
+            Client (จอง & ผู้เช่า)
+          </button>
+          <button type="button" onclick="switchSurface('admin-rack')" id="nav-admin-rack" class="btn-secondary">
+            Admin (ผังห้อง & เคาน์เตอร์)
+          </button>
+          <button type="button" onclick="switchSurface('admin-meter')" id="nav-admin-meter" class="btn-secondary">
+            <span>Admin (จดมิเตอร์ & สัญญา)</span>
+            <span class="w-2 h-2 rounded-full bg-terminal-red inline-block" title="มีแท็บที่มีข้อผิดพลาด"></span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <span class="command-tag hidden sm:inline-flex">prop: ratchada-01</span>
+        <div class="inline-flex items-center border border-hairline rounded-full p-0.5 bg-surface-soft text-xs">
+          <button type="button" onclick="setDensity('spacious')" id="density-spacious" class="px-3 py-1 rounded-full font-mono bg-primary text-on-primary">40px</button>
+          <button type="button" onclick="setDensity('compact')" id="density-compact" class="px-3 py-1 rounded-full font-mono text-charcoal">36px</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="surface-client" class="max-w-[1080px] mx-auto px-6 py-14 space-y-16">
+    <section class="text-center max-w-[680px] mx-auto space-y-5">
+      <div class="mx-auto w-14 h-14 rounded-full border border-hairline bg-surface-soft flex items-center justify-center">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1v-9.5z"/>
+        </svg>
+      </div>
+
+      <h1>
+        พักรายชั่วโมง รายวัน และรายเดือน ในระบบเดียว
+      </h1>
+
+      <p class="text-[#525252] text-base max-w-[54ch] mx-auto">
+        เช็กห้องว่างแบบเรียลไทม์ ล็อกโควตาห้องพักอัตโนมัติ 15 นาทีระหว่างโอนมัดจำ และดูเลขมิเตอร์น้ำ-ไฟพร้อมรูปถ่ายจริงทุกงวดบิล
+      </p>
+
+      <div class="pt-1 flex flex-col items-center gap-3">
+        <div class="install-snippet">
+          <span class="text-[#525252] select-none">$</span>
+          <span>pms hold unit=deluxe-28m mode=daily ttl=15m</span>
+          <button type="button" onclick="copyBookingCommand()" id="copy-cmd-btn" class="px-3 py-1 rounded-full bg-canvas border border-hairline text-xs font-sans font-medium text-ink hover:border-hairline-strong">
+            คัดลอกรหัสจอง
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+          <button type="button" onclick="switchSurface('admin-rack')" class="btn-primary">
+            สำรวจผังห้องว่างทันที
+          </button>
+          <button type="button" onclick="document.getElementById('tenant-ledger').scrollIntoView({behavior:'smooth'})" class="btn-secondary">
+            ดูบิลและพัสดุห้อง A-305
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="terminal-card">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-hairline">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-terminal-red inline-block"></span>
+          <span class="w-3 h-3 rounded-full bg-terminal-yellow inline-block"></span>
+          <span class="w-3 h-3 rounded-full bg-terminal-green inline-block"></span>
+          <span class="ml-2 text-xs text-[#525252]">tan-pms live availability &amp; tenant stream (ratchada-01)</span>
+        </div>
+        <span class="command-tag">tstzrange lock: active</span>
+      </div>
+
+      <div class="space-y-2 text-sm tabular-nums">
+        <div class="flex flex-wrap items-center justify-between gap-2 py-1">
+          <div>
+            <span class="text-[#525252]">[HOLD 14:22]</span>
+            <span class="font-semibold ml-2">RES-RCD-2611-0312</span>
+            <span class="text-[#525252] ml-2">Deluxe Studio 28m² (2 คืน • 08–10 พ.ย.)</span>
+          </div>
+          <span class="command-tag">รอแนบสลิปมัดจำ ฿1,580.00</span>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 py-1">
+          <div>
+            <span class="text-[#525252]">[INVOICE]</span>
+            <span class="font-semibold ml-2">INV-RCD-2611-0105</span>
+            <span class="text-[#525252] ml-2">ยูนิต A-305 • ค่าเช่า ฿6,500 + ไฟ 142 หน่วย (฿1,136) + น้ำ 8 หน่วย (฿144)</span>
+          </div>
+          <span class="command-tag">ยอดสุทธิ ฿7,780.00</span>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 py-1">
+          <div>
+            <span class="text-[#525252]">[PARCEL]</span>
+            <span class="font-semibold ml-2">PCL-RCD-2611-0042</span>
+            <span class="text-[#525252] ml-2">ยูนิต A-305 • พัสดุ Kerry Express มาถึงล็อบบี้เมื่อ 14:12 น.</span>
+          </div>
+          <span class="command-tag">พร้อมรับที่เคาน์เตอร์</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="space-y-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-4">
+        <h2>รูปแบบการเข้าพักและอัตราค่าบริการ</h2>
+        <span class="text-sm text-[#525252]">เลือกพักระยะสั้นหรือทำสัญญาระยะยาวบนมาตรฐานเดียวกัน</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+        <div class="flat-card flex flex-col justify-between space-y-6">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3>รายชั่วโมง (Hourly)</h3>
+              <span class="command-tag">Short-stay</span>
+            </div>
+            <div class="font-display text-3xl font-semibold tabular-nums">
+              ฿350 <span class="text-sm font-sans font-normal text-[#525252]">/ 3 ชม. แรก</span>
+            </div>
+            <p class="text-sm text-[#525252]">
+              เหมาะสำหรับพักผ่อนระหว่างวัน เปิดห้องด่วนหน้าเคาน์เตอร์พร้อมล็อกเวลาคลีนห้อง 30 นาทีทุกรอบ
+            </p>
+            <ul class="space-y-2 pt-2 text-sm text-[#525252]">
+              <li>• ชั่วโมงถัดไป ฿100 / ชม. (ปัดเป็นรายวันอัตโนมัติเมื่อครบเพดาน)</li>
+              <li>• เงินมัดจำคีย์การ์ด ฿300 คืนทันทีตอน Check-out</li>
+              <li>• บล็อกการเปิดห้องอัตโนมัติหากสถานะยังเป็น Dirty</li>
+            </ul>
+          </div>
+          <button type="button" onclick="switchSurface('admin-rack')" class="btn-secondary w-full">
+            ดูห้องว่างรายชั่วโมง
+          </button>
+        </div>
+
+        <div class="flat-card flex flex-col justify-between space-y-6">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3>รายวัน (Daily)</h3>
+              <span class="command-tag">Nightly</span>
+            </div>
+            <div class="font-display text-3xl font-semibold tabular-nums">
+              ฿790 <span class="text-sm font-sans font-normal text-[#525252]">/ คืน</span>
+            </div>
+            <p class="text-sm text-[#525252]">
+              จองออนไลน์แบบล็อกโควตาประเภทห้อง (UnitType) พร้อมถือห้องรอระหว่างโอนเงินมัดจำ 15 นาที
+            </p>
+            <ul class="space-y-2 pt-2 text-sm text-[#525252]">
+              <li>• Check-in 14:00 น. / Check-out 12:00 น.</li>
+              <li>• กระเป๋าค่าใช้จ่ายประจำห้อง (Guest Folio) รวมมินิบาร์</li>
+              <li>• รองรับการออกใบกำกับภาษีและทะเบียน ร.ร.4 / ตม.30</li>
+            </ul>
+          </div>
+          <button type="button" onclick="switchSurface('admin-rack')" class="btn-secondary w-full">
+            จองห้องพักรายวัน
+          </button>
+        </div>
+
+        <div class="inverted-card flex flex-col justify-between space-y-6">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-on-dark">รายเดือน (Monthly Lease)</h3>
+              <span class="px-3 py-1 rounded-full text-xs font-mono bg-[#262626] text-on-dark">Recommended</span>
+            </div>
+            <div class="font-display text-3xl font-semibold text-on-dark tabular-nums">
+              ฿6,500 <span class="text-sm font-sans font-normal text-[#d4d4d4]">/ เดือน</span>
+            </div>
+            <p class="text-sm text-[#d4d4d4]">
+              สัญญาเช่าระยะยาว 6–12 เดือน ค่าเช่าห้องได้รับยกเว้น VAT พร้อมระบบจดมิเตอร์น้ำ-ไฟและแจ้งพัสดุออนไลน์
+            </p>
+            <ul class="space-y-2 pt-2 text-sm text-[#d4d4d4]">
+              <li>• ค่าไฟ ฿8/หน่วย • ค่าน้ำ ฿18/หน่วย (พร้อมรูปถ่ายมิเตอร์จริง)</li>
+              <li>• เงินประกันสัญญา 2 เดือน แยกในบัญชี Deposit Ledger</li>
+              <li>• ลงทะเบียนผู้พักร่วม ทะเบียนรถยนต์ และแจ้งซ่อมผ่านเว็บ</li>
+            </ul>
+          </div>
+          <button type="button" onclick="document.getElementById('tenant-ledger').scrollIntoView({behavior:'smooth'})" class="btn-pill-on-dark w-full">
+            จัดการสัญญาและชำระบิลรายเดือน
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tenant-ledger" class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <h2>รายการประจำห้องชุด A-305 (คุณณัฐนิชา วงศ์สวัสดิ์)</h2>
+        <div class="flex items-center gap-2">
+          <span class="command-tag">LSE-RCD-2603-0018</span>
+          <button type="button" onclick="queueSlipUpload()" class="btn-primary">
+            แนบสลิปชำระเงิน (Deferred Upload)
+          </button>
+        </div>
+      </div>
+
+      <div id="slip-queue-banner" class="hidden terminal-card">
+        <div class="flex items-center justify-between text-xs">
+          <span>[QUEUE] เลือกไฟล์สลิปแล้ว: <strong>kbank_slip_20261106.jpg (184 KB)</strong> (รออัปโหลดจริงเมื่อกดยืนยันการส่งข้อมูล)</span>
+          <span class="command-tag">useDeferredFileUpload</span>
+        </div>
+      </div>
+
+      <div class="border-t border-hairline">
+        <div class="faq-row flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="font-medium text-base">ใบแจ้งหนี้เดือนพฤศจิกายน 2026 (INV-RCD-2611-0105)</div>
+            <div class="text-sm text-[#525252]">ค่าเช่าห้อง ฿6,500 (VAT Exempt) + ค่าไฟ 142 หน่วย (฿1,136) + ค่าน้ำ 8 หน่วย (฿144)</div>
+          </div>
+          <div class="flex items-center gap-3 tabular-nums">
+            <span class="font-mono text-base font-semibold">฿7,780.00</span>
+            <span class="command-tag">ครบกำหนด 05 พ.ย.</span>
+          </div>
+        </div>
+
+        <div class="faq-row flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="font-medium text-base">พัสดุมาส่งที่ล็อบบี้ (PCL-RCD-2611-0042)</div>
+            <div class="text-sm text-[#525252]">Kerry Express • รับเข้าระบบโดยกะเช้าเมื่อ 14:12 น.</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="command-tag">รอผู้เช่ามารับ</span>
+          </div>
+        </div>
+
+        <div class="faq-row flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="font-medium text-base">ใบแจ้งซ่อมและบริการตามรอบ (WKO-RCD-2611-0009)</div>
+            <div class="text-sm text-[#525252]">ล้างแอร์ประจำปี Daikin 12,000 BTU • นัดช่างวันพรุ่งนี้ 10:00–11:00 น.</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="command-tag">ไม่มีค่าใช้จ่าย</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <main id="surface-admin-rack" class="hidden max-w-[1160px] mx-auto px-6 py-10 space-y-8">
+    <section class="inverted-card flex flex-wrap items-center justify-between gap-6">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-terminal-green inline-block"></span>
+          <span class="font-mono text-xs text-[#d4d4d4]">ACTIVE CASHIER SHIFT • SHF-RCD-2611-0002 (กะเช้า: พิมพ์ชนก)</span>
+        </div>
+        <h2>ลิ้นชักเงินสดหน้าเคาน์เตอร์ ฿14,200.00 (รวมเงินมัดจำคีย์การ์ด ฿3,500)</h2>
+        <p class="text-sm text-[#d4d4d4]">
+          ยูนิตที่มีผู้เข้าพัก 101/120 (84.2%): รายเดือน 78 • รายวัน 16 • รายชั่วโมง 7 (เตือนใกล้หมดเวลา 1 ห้อง: A-102)
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button type="button" class="btn-pill-on-dark">
+          + เปิดห้องด่วน (Quick Walk-in)
+        </button>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+      <div class="md:col-span-5">
+        <div class="min-h-[20px] mb-1.5 flex items-center justify-between">
+          <label for="admin-search" class="text-xs font-medium text-ink">ค้นหาเลขห้อง / ชื่อผู้เข้าพัก / ทะเบียนรถ</label>
+          <span class="text-xs font-mono text-[#525252]">Ctrl+K</span>
+        </div>
+        <input id="admin-search" type="text" placeholder="เช่น A-102, กิตติพงศ์, 1กข-9988..." class="search-pill w-full" />
+      </div>
+
+      <div class="md:col-span-3">
+        <div class="min-h-[20px] mb-1.5 flex items-center justify-between">
+          <label for="admin-floor" class="text-xs font-medium text-ink">อาคารและชั้น</label>
+        </div>
+        <select id="admin-floor" class="text-input-pill w-full">
+          <option>อาคาร A (รัชดา): ทุกชั้น (1–5)</option>
+          <option>ชั้น 1: โซนรายชั่วโมง / รายวัน</option>
+          <option>ชั้น 2: โซนรายวัน</option>
+          <option>ชั้น 3–5: โซนสัญญารายเดือน</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <div class="min-h-[20px] mb-1.5 flex items-center justify-between">
+          <label for="admin-mode" class="text-xs font-medium text-ink">โหมดเข้าพัก</label>
+        </div>
+        <select id="admin-mode" class="text-input-pill w-full">
+          <option>ทุกโหมด</option>
+          <option>Hourly</option>
+          <option>Daily</option>
+          <option>Monthly</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2 flex items-center justify-end gap-2">
+        <button type="button" class="icon-btn-pill" title="กรองเฉพาะห้องพร้อมเปิด (Vacant + Clean)" aria-label="กรองเฉพาะห้องพร้อมเปิด">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button type="button" class="icon-btn-pill" title="ส่งออกรายงาน ร.ร.4 และ ตม.30" aria-label="ส่งออกรายงาน ร.ร.4 และ ตม.30">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <section class="lg:col-span-8 terminal-card overflow-x-auto">
+        <table class="w-full text-sm border-collapse tabular-nums font-sans">
+          <thead>
+            <tr class="border-b border-hairline text-left text-xs font-medium text-[#525252]">
+              <th class="py-3 pr-3">ยูนิต</th>
+              <th class="py-3 px-3">ประเภทห้อง</th>
+              <th class="py-3 px-3">โหมด</th>
+              <th class="py-3 px-3">สถานะห้อง</th>
+              <th class="py-3 px-3">ผู้เข้าพัก / เวลาคงเหลือ</th>
+              <th class="py-3 pl-3 text-right">ยอดค้าง Folio</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-hairline">
+            <tr class="bg-surface-soft">
+              <td class="py-3.5 pr-3 font-mono font-semibold">A-102</td>
+              <td class="py-3.5 px-3">Standard 24m²</td>
+              <td class="py-3.5 px-3"><span class="command-tag">hourly • 3h</span></td>
+              <td class="py-3.5 px-3"><span class="command-tag">occupied • clean</span></td>
+              <td class="py-3.5 px-3">
+                <div class="font-medium">คุณกิตติพงศ์ (Walk-in)</div>
+                <div class="text-xs font-mono text-[#525252]">เหลือ 00:14:20 (+Buffer 30m)</div>
+              </td>
+              <td class="py-3.5 pl-3 text-right font-mono font-semibold">฿120.00</td>
+            </tr>
+
+            <tr>
+              <td class="py-3.5 pr-3 font-mono font-semibold">A-103</td>
+              <td class="py-3.5 px-3">Standard 24m²</td>
+              <td class="py-3.5 px-3"><span class="command-tag">ready</span></td>
+              <td class="py-3.5 px-3">
+                <span class="command-tag">
+                  <span class="w-2 h-2 rounded-full bg-terminal-green inline-block"></span>
+                  <span>vacant • clean</span>
+                </span>
+              </td>
+              <td class="py-3.5 px-3">
+                <div class="text-xs text-[#525252]">คลีนเสร็จเมื่อ 15:40 น. • พร้อมเปิดทุกโหมด</div>
+              </td>
+              <td class="py-3.5 pl-3 text-right font-mono text-[#525252]">-</td>
+            </tr>
+
+            <tr>
+              <td class="py-3.5 pr-3 font-mono font-semibold">A-104</td>
+              <td class="py-3.5 px-3">Deluxe 28m²</td>
+              <td class="py-3.5 px-3"><span class="command-tag">turnaround</span></td>
+              <td class="py-3.5 px-3">
+                <span class="command-tag">
+                  <span class="w-2 h-2 rounded-full bg-terminal-red inline-block"></span>
+                  <span>vacant • dirty</span>
+                </span>
+              </td>
+              <td class="py-3.5 px-3">
+                <div class="text-xs text-[#525252]">แม่บ้านสมศรีกำลังทำความสะอาด (บล็อก Check-in)</div>
+              </td>
+              <td class="py-3.5 pl-3 text-right font-mono text-[#525252]">-</td>
+            </tr>
+
+            <tr>
+              <td class="py-3.5 pr-3 font-mono font-semibold">A-201</td>
+              <td class="py-3.5 px-3">Deluxe 28m²</td>
+              <td class="py-3.5 px-3"><span class="command-tag">daily • 2n</span></td>
+              <td class="py-3.5 px-3"><span class="command-tag">occupied • clean</span></td>
+              <td class="py-3.5 px-3">
+                <div class="font-medium">MR. KENJI SATO (ตม.30 ส่งแล้ว)</div>
+                <div class="text-xs font-mono text-[#525252]">05–07 พ.ย. (มัดจำ ฿500)</div>
+              </td>
+              <td class="py-3.5 pl-3 text-right font-mono">฿0.00</td>
+            </tr>
+
+            <tr>
+              <td class="py-3.5 pr-3 font-mono font-semibold">A-305</td>
+              <td class="py-3.5 px-3">Deluxe 28m²</td>
+              <td class="py-3.5 px-3"><span class="command-tag">monthly</span></td>
+              <td class="py-3.5 px-3"><span class="command-tag">occupied • lease</span></td>
+              <td class="py-3.5 px-3">
+                <div class="font-medium">คุณณัฐนิชา • ทะเบียน 3ขค-4512</div>
+                <div class="text-xs font-mono text-[#525252]">LSE-RCD-2603-0018</div>
+              </td>
+              <td class="py-3.5 pl-3 text-right font-mono font-semibold">฿7,780.00</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <aside class="lg:col-span-4 flat-card space-y-5">
+        <div class="flex items-center justify-between border-b border-hairline pb-3">
+          <div>
+            <h3>ยูนิต A-102 (Hourly Folio)</h3>
+            <p class="text-xs font-mono text-[#525252]">STY-RCD-2611-0089 • 13:30–16:30</p>
+          </div>
+          <span class="command-tag">
+            <span class="w-2 h-2 rounded-full bg-terminal-yellow inline-block"></span>
+            <span>14:20m</span>
+          </span>
+        </div>
+
+        <div class="space-y-1 text-xs text-[#525252]">
+          <div class="flex justify-between">
+            <span>ผู้เข้าพักหลัก (PDPA Masked)</span>
+            <span class="font-mono text-ink">1-1005-xxxxx-42-1</span>
+          </div>
+          <div class="flex justify-between">
+            <span>ทะเบียนรถ</span>
+            <span class="font-mono text-ink">1กข-9988 กทม</span>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="text-xs font-medium text-ink">ต่อเวลาเข้าพักด่วน (Extend Stay)</div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="btn-secondary text-xs">+1 ชม. (+฿100)</button>
+            <button type="button" class="btn-secondary text-xs">+2 ชม. (+฿200)</button>
+            <button type="button" class="btn-secondary text-xs">ปัดเป็นรายวัน (+฿440)</button>
+          </div>
+        </div>
+
+        <div class="border-t border-hairline pt-3 space-y-2 text-sm tabular-nums">
+          <div class="flex justify-between text-xs text-[#525252]">
+            <span>แพ็กเกจ 3 ชม. (ชำระแล้ว)</span>
+            <span class="font-mono text-ink">฿350.00</span>
+          </div>
+          <div class="flex justify-between text-xs text-[#525252]">
+            <span>น้ำดื่ม x2 + ขนม (VAT 7% Incl.)</span>
+            <span class="font-mono text-ink">฿120.00</span>
+          </div>
+          <div class="flex justify-between text-xs text-[#525252]">
+            <span>หักเงินมัดจำคีย์การ์ด (DEP-0041)</span>
+            <span class="font-mono text-ink">-฿300.00</span>
+          </div>
+          <div class="pt-2 border-t border-hairline flex justify-between font-medium">
+            <span>ต้องคืนเงินสดให้ลูกค้าสุทธิ</span>
+            <span class="font-mono font-semibold">฿180.00</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn-primary w-full">
+          Check-out &amp; คืนเงินสดสุทธิ ฿180.00
+        </button>
+      </aside>
+    </div>
+  </main>
+
+  <main id="surface-admin-meter" class="hidden max-w-[1160px] mx-auto px-6 py-10 space-y-10">
+    <section class="inverted-card flex flex-wrap items-center justify-between gap-4">
+      <div class="space-y-1">
+        <h2 class="text-on-dark">รอบบิลรายเดือน พฤศจิกายน 2026 (อาคาร A ชั้น 3)</h2>
+        <p class="text-sm text-[#d4d4d4]">
+          กรอกเลขมิเตอร์น้ำ-ไฟแบบตารางคำนวณสดไม่กระตุก (Zero-Layout-Shift) พร้อมตรวจจับหน่วยพุ่งผิดปกติก่อนออกใบแจ้งหนี้
+        </p>
+      </div>
+      <button type="button" class="btn-pill-on-dark">
+        ออกใบแจ้งหนี้ร่างทั้งชั้น (24 ยูนิต)
+      </button>
+    </section>
+
+    <section class="terminal-card overflow-x-auto">
+      <table class="w-full text-sm border-collapse tabular-nums font-sans">
+        <thead>
+          <tr class="border-b border-hairline text-left text-xs font-medium text-[#525252]">
+            <th class="p-3 w-28">ยูนิต / ผู้เช่า</th>
+            <th class="p-3 w-36">มิเตอร์ไฟ (ต.ค.)</th>
+            <th class="p-3 w-56">เลขไฟเดือนนี้ (8 ฿/หน่วย)</th>
+            <th class="p-3 w-36">มิเตอร์น้ำ (ต.ค.)</th>
+            <th class="p-3 w-56">เลขน้ำเดือนนี้ (18 ฿/หน่วย)</th>
+            <th class="p-3 w-48">แนบรูปมิเตอร์</th>
+            <th class="p-3 text-right">รวมค่าเช่า + น้ำไฟ</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-hairline">
+          <tr class="align-middle">
+            <td class="p-3 font-mono font-semibold">
+              A-305
+              <div class="mt-1 min-h-[16px] text-xs font-sans font-normal text-[#525252]">คุณณัฐนิชา</div>
+            </td>
+            <td class="p-3 font-mono">
+              <div class="search-pill flex items-center">4,120</div>
+              <div class="mt-1 min-h-[16px] text-xs font-sans text-[#525252]">25 ต.ค.</div>
+            </td>
+            <td class="p-3">
+              <input type="number" value="4262" placeholder="กรอกเลขไฟปัจจุบัน..." class="text-input-pill w-full font-mono" />
+              <div class="mt-1 min-h-[16px] text-xs font-mono text-[#525252]">= 142 หน่วย (฿1,136.00)</div>
+            </td>
+            <td class="p-3 font-mono">
+              <div class="search-pill flex items-center">310</div>
+              <div class="mt-1 min-h-[16px] text-xs font-sans text-[#525252]">25 ต.ค.</div>
+            </td>
+            <td class="p-3">
+              <input type="number" value="318" placeholder="กรอกเลขน้ำปัจจุบัน..." class="text-input-pill w-full font-mono" />
+              <div class="mt-1 min-h-[16px] text-xs font-mono text-[#525252]">= 8 หน่วย (฿144.00)</div>
+            </td>
+            <td class="p-3">
+              <button type="button" class="btn-secondary w-full justify-between">
+                <span>เลือกแล้ว 2 รูป</span>
+                <span class="font-mono text-xs text-[#525252]">queue</span>
+              </button>
+              <div class="mt-1 min-h-[16px] invisible select-none" aria-hidden="true">-</div>
+            </td>
+            <td class="p-3 text-right font-mono">
+              <div class="text-base font-semibold">฿7,780.00</div>
+              <div class="mt-1 min-h-[16px] text-xs font-sans text-[#525252]">ค่าห้อง ฿6,500 (No VAT)</div>
+            </td>
+          </tr>
+
+          <tr class="align-middle bg-surface-soft">
+            <td class="p-3 font-mono font-semibold">
+              A-306
+              <div class="mt-1 min-h-[16px] text-xs font-sans font-normal text-[#525252]">คุณปวีณา</div>
+            </td>
+            <td class="p-3 font-mono">
+              <div class="search-pill flex items-center">8,890</div>
+              <div class="mt-1 min-h-[16px] text-xs font-sans text-[#525252]">25 ต.ค.</div>
+            </td>
+            <td class="p-3">
+              <input type="number" value="9450" placeholder="กรอกเลขไฟปัจจุบัน..." class="text-input-pill w-full font-mono border-ink" />
+              <div class="mt-1 min-h-[16px] text-xs font-mono font-medium text-ink flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-terminal-yellow inline-block"></span>
+                <span>พุ่งสูง +560 หน่วย (฿4,480.00)</span>
+              </div>
+            </td>
+            <td class="p-3 font-mono">
+              <div class="search-pill flex items-center">195</div>
+              <div class="mt-1 min-h-[16px] text-xs font-sans text-[#525252]">25 ต.ค.</div>
+            </td>
+            <td class="p-3">
+              <input type="number" value="202" placeholder="กรอกเลขน้ำปัจจุบัน..." class="text-input-pill w-full font-mono" />
+              <div class="mt-1 min-h-[16px] text-xs font-mono text-[#525252]">= 7 หน่วย (฿126.00)</div>
+            </td>
+            <td class="p-3">
+              <button type="button" class="btn-secondary w-full">
+                + แนบรูปยืนยันมิเตอร์
+              </button>
+              <div class="mt-1 min-h-[16px] invisible select-none" aria-hidden="true">-</div>
+            </td>
+            <td class="p-3 text-right font-mono">
+              <div class="text-base font-semibold">฿11,106.00</div>
+              <div class="mt-1 min-h-[16px] text-xs font-sans text-[#525252]">ค่าห้อง ฿6,500 (No VAT)</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="flat-card space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3>ฟอร์มสัญญาเช่ารายเดือน (LSE-RCD-2611-0019 • Single Route /admin/leases/[id])</h3>
+          <p class="text-xs text-[#525252] mt-0.5">มาตรฐาน FormTabs พร้อมจุดเตือนข้อผิดพลาดบนแท็บ และปุ่มสร้างข้อมูลหลักมุมขวาบน</p>
+        </div>
+        <span class="command-tag">
+          <span class="w-2 h-2 rounded-full bg-terminal-red inline-block"></span>
+          <span>1 error in tab 2</span>
+        </span>
+      </div>
+
+      <div class="flex flex-wrap gap-2 border-b border-hairline pb-3">
+        <button type="button" class="btn-primary">
+          1. ข้อมูลผู้เช่าและยูนิต
+        </button>
+        <button type="button" class="btn-secondary">
+          <span>2. เงินประกัน &amp; มิเตอร์ตั้งต้น</span>
+          <span class="w-2 h-2 rounded-full bg-terminal-red inline-block"></span>
+        </button>
+        <button type="button" class="btn-secondary">
+          3. ผู้พักร่วม &amp; ทะเบียนรถ (2 คัน)
+        </button>
+        <button type="button" class="btn-secondary">
+          4. รูปถ่ายส่งมอบห้อง (Deferred Upload)
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <div class="min-h-[20px] mb-1.5 flex items-center justify-between">
+            <label for="ollama-customer" class="text-xs font-medium text-ink">ผู้เช่าหลัก (Customer / Tenant)</label>
+            <button type="button" class="text-xs font-medium text-ink underline">[+ สร้างลูกค้าใหม่]</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="ollama-customer" type="text" value="คุณณัฐนิชา วงศ์สวัสดิ์ (CUST-00418)" placeholder="ค้นหาชื่อลูกค้า หรือเบอร์โทรศัพท์..." class="text-input-pill w-full" />
+            <button type="button" class="icon-btn-pill" title="ดูประวัติการเช่าเดิม" aria-label="ดูประวัติการเช่าเดิม">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="min-h-[20px] mb-1.5 flex items-center justify-between">
+            <label for="ollama-unit" class="text-xs font-medium text-ink">ยูนิตที่ทำสัญญา (Name-First)</label>
+            <span class="text-xs font-mono text-[#525252]">vacant • clean</span>
+          </div>
+          <select id="ollama-unit" class="text-input-pill w-full">
+            <option>Deluxe Studio 28m² (ยูนิต A-305 • ฿6,500/เดือน)</option>
+            <option>Corner Suite 36m² (ยูนิต A-401 • ฿8,200/เดือน)</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="min-h-[20px] mb-1.5 flex items-center justify-between">
+            <label for="ollama-period" class="text-xs font-medium text-ink">ระยะเวลาสัญญาเช่า</label>
+            <span class="text-xs font-mono text-[#525252]">12 เดือน</span>
+          </div>
+          <input id="ollama-period" type="text" value="01/12/2026 – 30/11/2027" placeholder="วว/ดด/ปปปป – วว/ดด/ปปปป" class="text-input-pill w-full font-mono" />
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="max-w-[1160px] mx-auto px-6 py-8 border-t border-hairline flex flex-wrap items-center justify-between gap-4 text-xs text-[#525252]">
+    <div>tan-pms: Enterprise Property Management System (Ollama Minimal Design System)</div>
+    <div class="font-mono">colors: #000000 / #ffffff / #171717 • rounded: 9999px pills &amp; 12px cards</div>
+  </footer>
+
+  <script>
+    function switchSurface(surface) {
+      const surfaces = ['client', 'admin-rack', 'admin-meter'];
+      surfaces.forEach(s => {
+        const mainEl = document.getElementById('surface-' + s);
+        const navBtn = document.getElementById('nav-' + s);
+        if (s === surface) {
+          mainEl.classList.remove('hidden');
+          navBtn.className = 'btn-primary';
+        } else {
+          mainEl.classList.add('hidden');
+          navBtn.className = 'btn-secondary';
+        }
+      });
+    }
+
+    function setDensity(mode) {
+      document.documentElement.setAttribute('data-density', mode);
+      const sp = document.getElementById('density-spacious');
+      const cp = document.getElementById('density-compact');
+      if (mode === 'spacious') {
+        sp.className = 'px-3 py-1 rounded-full font-mono bg-primary text-on-primary';
+        cp.className = 'px-3 py-1 rounded-full font-mono text-charcoal';
+      } else {
+        cp.className = 'px-3 py-1 rounded-full font-mono bg-primary text-on-primary';
+        sp.className = 'px-3 py-1 rounded-full font-mono text-charcoal';
+      }
+    }
+
+    function copyBookingCommand() {
+      const btn = document.getElementById('copy-cmd-btn');
+      if (btn) {
+        btn.textContent = 'คัดลอกแล้ว';
+        setTimeout(() => { btn.textContent = 'คัดลอกรหัสจอง'; }, 1800);
+      }
+    }
+
+    function queueSlipUpload() {
+      const banner = document.getElementById('slip-queue-banner');
+      if (banner) {
+        banner.classList.remove('hidden');
+      }
+    }
+  </script>
+</body>
+</html>
