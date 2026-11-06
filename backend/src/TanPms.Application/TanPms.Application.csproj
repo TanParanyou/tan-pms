@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\TanPms.Domain\TanPms.Domain.csproj" />
+  </ItemGroup>
+</Project>

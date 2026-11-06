@@ -1,0 +1,272 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "tan-pms Enterprise Property Management System API",
+    "version": "1.0.0",
+    "description": "Single-Organization, Multi-Property PMS supporting Hourly, Daily, and Monthly StayModes with AdminScope and ClientScope isolation."
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "getHealthLive",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Process is alive"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "getHealthReady",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Dependencies are ready"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rack": {
+      "get": {
+        "operationId": "getAdminRoomRack",
+        "tags": ["AdminRack"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unified Room Rack with structured projections",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RoomRackResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stays/check-in": {
+      "post": {
+        "operationId": "checkInStay",
+        "tags": ["AdminStay"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CheckInStayRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stay checked in",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StaySummaryDto" }
+              }
+            }
+          },
+          "409": {
+            "description": "Domain conflict (e.g. unit.not_clean, shift.not_open, reservation.slot_overlap)",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/dashboard": {
+      "get": {
+        "operationId": "getClientDashboard",
+        "tags": ["ClientPortal"],
+        "responses": {
+          "200": {
+            "description": "Client self-service overview scoped to CurrentUser.CustomerId",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ClientDashboardResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ProblemDetailsResponse": {
+        "type": "object",
+        "required": ["type", "title", "status", "detail", "errorCode", "traceId"],
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "errorCode": { "type": "string" },
+          "traceId": { "type": "string" },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "PropertyRefDto": {
+        "type": "object",
+        "required": ["id", "code", "name"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "UnitRefDto": {
+        "type": "object",
+        "required": ["id", "unitNumber", "buildingName", "floorNumber", "unitTypeName"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "unitNumber": { "type": "string" },
+          "buildingName": { "type": "string" },
+          "floorNumber": { "type": "integer" },
+          "unitTypeName": { "type": "string" }
+        }
+      },
+      "CustomerRefDto": {
+        "type": "object",
+        "required": ["id", "fullName", "maskedNationalId"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fullName": { "type": "string" },
+          "maskedNationalId": { "type": "string" }
+        }
+      },
+      "RoomRackItemDto": {
+        "type": "object",
+        "required": ["unit", "occupancyStatus", "conditionStatus", "supportedStayModes"],
+        "properties": {
+          "unit": { "$ref": "#/components/schemas/UnitRefDto" },
+          "occupancyStatus": { "type": "string", "enum": ["Vacant", "Occupied", "Reserved", "Blocked"] },
+          "conditionStatus": { "type": "string", "enum": ["Clean", "Dirty", "Cleaning", "Inspecting", "OutOfOrder"] },
+          "supportedStayModes": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          "activeStayMode": { "type": "string", "nullable": true },
+          "activeDocumentNumber": { "type": "string", "nullable": true },
+          "customer": { "$ref": "#/components/schemas/CustomerRefDto" },
+          "remainingMinutes": { "type": "integer", "nullable": true }
+        }
+      },
+      "RoomRackResponse": {
+        "type": "object",
+        "required": ["property", "items"],
+        "properties": {
+          "property": { "$ref": "#/components/schemas/PropertyRefDto" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RoomRackItemDto" }
+          }
+        }
+      },
+      "CheckInStayRequest": {
+        "type": "object",
+        "required": ["propertyId", "unitId", "customerId", "stayMode", "keyDepositAmount"],
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid" },
+          "unitId": { "type": "string", "format": "uuid" },
+          "customerId": { "type": "string", "format": "uuid" },
+          "stayMode": { "type": "string", "enum": ["Hourly", "Daily"] },
+          "keyDepositAmount": { "type": "number", "format": "decimal" },
+          "overrideDirtyCheckIn": { "type": "boolean" },
+          "overrideReason": { "type": "string", "nullable": true }
+        }
+      },
+      "StaySummaryDto": {
+        "type": "object",
+        "required": ["id", "documentNumber", "stayMode", "status", "unit", "customer"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "documentNumber": { "type": "string" },
+          "stayMode": { "type": "string" },
+          "status": { "type": "string" },
+          "unit": { "$ref": "#/components/schemas/UnitRefDto" },
+          "customer": { "$ref": "#/components/schemas/CustomerRefDto" }
+        }
+      },
+      "ClientDashboardResponse": {
+        "type": "object",
+        "required": ["customer", "activeHoldReservation", "activeLease", "unpaidInvoices", "pendingParcels"],
+        "properties": {
+          "customer": { "$ref": "#/components/schemas/CustomerRefDto" },
+          "activeHoldReservation": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "documentNumber": { "type": "string" },
+              "unitTypeName": { "type": "string" },
+              "stayMode": { "type": "string" },
+              "holdExpiresAt": { "type": "string", "format": "date-time" },
+              "depositAmount": { "type": "number" }
+            }
+          },
+          "activeLease": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "documentNumber": { "type": "string" },
+              "unit": { "$ref": "#/components/schemas/UnitRefDto" },
+              "monthlyRentAmount": { "type": "number" },
+              "securityDepositBalance": { "type": "number" }
+            }
+          },
+          "unpaidInvoices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "documentNumber", "totalAmount", "status"],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "documentNumber": { "type": "string" },
+                "totalAmount": { "type": "number" },
+                "status": { "type": "string" }
+              }
+            }
+          },
+          "pendingParcels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "documentNumber", "carrierName", "arrivedAt"],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "documentNumber": { "type": "string" },
+                "carrierName": { "type": "string" },
+                "arrivedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

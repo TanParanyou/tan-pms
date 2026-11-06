@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TanPms.Application\TanPms.Application.csproj" />
+    <ProjectReference Include="..\..\src\TanPms.Domain\TanPms.Domain.csproj" />
+    <ProjectReference Include="..\..\src\TanPms.Infrastructure\TanPms.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+</Project>

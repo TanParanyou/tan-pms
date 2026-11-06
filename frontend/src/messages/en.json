@@ -1,0 +1,222 @@
+{
+  "terms": {
+    "Property": "Property",
+    "Building": "Building",
+    "Floor": "Floor",
+    "UnitType": "Unit Type",
+    "Unit": "Unit",
+    "StayMode": "Stay Mode",
+    "Customer": "Customer / Tenant",
+    "Occupant": "Occupant",
+    "Reservation": "Reservation",
+    "Stay": "Stay",
+    "Folio": "Folio",
+    "Lease": "Lease",
+    "MeterReading": "Meter Reading",
+    "Invoice": "Invoice",
+    "Receipt": "Receipt",
+    "CashierShift": "Cashier Shift",
+    "DepositLedger": "Deposit Ledger",
+    "HousekeepingTask": "Housekeeping Task",
+    "WorkOrder": "Work Order",
+    "Parcel": "Parcel"
+  },
+  "documents": {
+    "RES": "Reservation",
+    "STY": "Stay Record",
+    "LSE": "Monthly Lease",
+    "INV": "Invoice",
+    "RCT": "Tax Receipt",
+    "DEP": "Deposit Receipt/Refund",
+    "SHF": "Cashier Shift",
+    "WKO": "Work Order",
+    "PCL": "Parcel Delivery"
+  },
+  "stayModes": {
+    "Hourly": "Hourly",
+    "Daily": "Daily",
+    "Monthly": "Monthly"
+  },
+  "occupancyStatus": {
+    "Vacant": "Vacant",
+    "Occupied": "Occupied",
+    "Reserved": "Reserved",
+    "Blocked": "Blocked"
+  },
+  "conditionStatus": {
+    "Clean": "Clean",
+    "Dirty": "Dirty",
+    "Cleaning": "Cleaning",
+    "Inspecting": "Inspecting",
+    "OutOfOrder": "Out of Order"
+  },
+  "errors": {
+    "validation_failed": "Form validation failed. Please check the details in each field.",
+    "auth_unauthenticated": "Authentication required or session expired. Please sign in again.",
+    "auth_property_scope_denied": "You do not have access permission for the specified property scope.",
+    "auth_permission_denied": "You do not possess the required permission for this action.",
+    "unit_not_clean": "Unit condition is not clean for check-in. Override permission required.",
+    "reservation_slot_overlap": "The selected time window overlaps with an existing stay or lease in this unit.",
+    "reservation_quota_exhausted": "Quota for this unit type is completely exhausted during the requested period.",
+    "reservation_hold_expired": "Reservation hold time has expired (15-minute TTL). Please start a new booking.",
+    "stay_folio_unsettled": "Cannot check out while folio has unsettled balance or unrefunded key deposit.",
+    "invoice_immutable_status": "Invoice is in immutable status (Issued/Paid) and cannot be modified. Use Void instead.",
+    "shift_not_open": "An active open cashier shift is required to accept or disburse cash payments.",
+    "meter_rollover_unconfirmed": "Current meter reading is lower than previous reading. Please confirm rollover before saving.",
+    "generic": "An unexpected error occurred. Please try again."
+  },
+  "common": {
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "back": "Back",
+    "loading": "Loading...",
+    "close": "Close",
+    "actions": "Actions",
+    "search": "Search...",
+    "filter": "Filter",
+    "status": "Status",
+    "details": "Details",
+    "refresh": "Refresh",
+    "language": "Language",
+    "logout": "Sign Out",
+    "th": "Thai",
+    "en": "English",
+    "viewAll": "View All",
+    "required": "Required"
+  },
+  "auth": {
+    "title": "tan-pms Enterprise Property Management",
+    "subtitle": "Select your operational access scope",
+    "adminScope": "AdminScope (Staff & Executive)",
+    "clientScope": "ClientScope (Tenant & Guest)",
+    "adminDesc": "Unified room rack, quick walk-in, leases, bulk meters, cashier shifts, and facility operations.",
+    "clientDesc": "Online booking, live hold countdown, monthly lease, invoices, work orders, and parcels.",
+    "username": "Username / Staff ID",
+    "nationalId": "National ID / Passport Number",
+    "password": "Password",
+    "loginAsAdmin": "Sign In as Admin",
+    "loginAsClient": "Sign In as Client",
+    "propertyScopeLabel": "Authorized Property Scopes"
+  },
+  "admin": {
+    "nav": {
+      "rack": "Unified Room Rack",
+      "meters": "Bulk Meters (PM-07)",
+      "cashier": "Cashier Shift (SHF)",
+      "leases": "Leases (PM-06)",
+      "operations": "Operations"
+    },
+    "propertySwitcher": "Active Property",
+    "roomRack": {
+      "title": "Unified Room Rack",
+      "description": "Real-time occupancy, cleanliness, and guest projections (No Frontend Foreign Key Resolution)",
+      "allModes": "All Modes",
+      "filterMode": "Filter by StayMode",
+      "unit": "Unit",
+      "building": "Building",
+      "floor": "Floor",
+      "type": "Unit Type",
+      "occupancy": "Occupancy",
+      "condition": "Condition",
+      "customer": "Guest / Tenant",
+      "document": "Document No.",
+      "quickCheckIn": "Quick Walk-in",
+      "remainingTime": "Remaining Time",
+      "unitActions": "Actions"
+    },
+    "cashier": {
+      "title": "Cashier Shift & Slip Queue",
+      "shiftNumber": "Shift No.",
+      "status": "Shift Status",
+      "openDrawer": "Open Drawer with Float",
+      "closeDrawer": "Close Drawer & Count Cash",
+      "activeShift": "Shift Currently Active",
+      "initialCash": "Float Amount",
+      "currentBalance": "Cash in Drawer",
+      "quickWalkIn": "Quick Counter Walk-in",
+      "slipVerification": "Transfer Slip Queue",
+      "verifyApprove": "Approve Slip",
+      "verifyReject": "Reject Slip"
+    },
+    "meters": {
+      "title": "Bulk Utility Meter Reading (PM-07)",
+      "description": "Rapid meter entry with zero layout shift (table-fixed + tabular-nums) & live usage math",
+      "water": "Water Meter",
+      "electric": "Electric Meter",
+      "previous": "Previous",
+      "current": "Current",
+      "usage": "Usage",
+      "rolloverConfirmed": "Confirm Rollover",
+      "rolloverWarning": "Meter is lower than previous. Rollover confirmation required.",
+      "batchInvoice": "Run Batch Invoice Run",
+      "photoAttachment": "Meter Photo (Uploads on Submit)",
+      "saveBatch": "Save All Readings"
+    },
+    "checkInModal": {
+      "title": "Quick Walk-in / New Lease",
+      "tabGuest": "Guest Info",
+      "tabRoom": "Room & StayMode",
+      "tabPayment": "Deposit & Payment",
+      "tabDocuments": "Attachments (Deferred Upload)",
+      "overrideDirty": "Allow check-in to uncleaned unit (Override Dirty)",
+      "overrideReason": "Override Reason (Required)",
+      "keyDeposit": "Key Deposit Amount",
+      "completeCheckIn": "Confirm Check-in"
+    }
+  },
+  "client": {
+    "nav": {
+      "overview": "Tenant Overview",
+      "reservation": "My Reservation",
+      "lease": "My Lease",
+      "invoices": "Invoices & Utilities",
+      "workOrders": "Maintenance Requests",
+      "parcels": "Pending Parcels"
+    },
+    "holdBanner": {
+      "title": "Reservation Pending Payment (Hold TTL Countdown)",
+      "remainingTime": "Time Remaining to Pay",
+      "documentNumber": "Reservation No.",
+      "unitType": "Unit Type",
+      "stayMode": "Stay Mode",
+      "depositAmount": "Deposit Due",
+      "uploadSlip": "Attach Bank Transfer Slip (Deferred Upload)",
+      "confirmPayment": "Submit Slip"
+    },
+    "leaseCard": {
+      "title": "Active Monthly Lease",
+      "leaseNumber": "Lease No.",
+      "unit": "Unit",
+      "rentAmount": "Monthly Rent",
+      "depositBalance": "Security Deposit Balance",
+      "status": "Lease Status"
+    },
+    "invoiceSection": {
+      "title": "Invoices with Line-Level Thai Tax Breakdown",
+      "invoiceNumber": "Invoice No.",
+      "amount": "Total Amount",
+      "taxBreakdown": "Line-Level Thai Tax Classification",
+      "exempt": "Tax Exempt (Monthly Rent)",
+      "vatIncluded": "VAT 7% Included (Service/Minibar)",
+      "vatExcluded": "VAT 7% Excluded (Water/Electric)",
+      "payNow": "Pay & Attach Slip"
+    },
+    "workOrders": {
+      "title": "Work Order Request",
+      "category": "Maintenance Category",
+      "description": "Issue Description",
+      "attachPhoto": "Attach Photo (Uploads on Submit)",
+      "submit": "Submit Request",
+      "history": "Request History"
+    },
+    "parcels": {
+      "title": "Parcels Waiting at Front Desk",
+      "trackingNumber": "Tracking No.",
+      "carrier": "Carrier",
+      "arrivedAt": "Arrived At",
+      "status": "Parcel Status",
+      "waitingPickup": "Ready for Pickup at Front Desk"
+    }
+  }
+}

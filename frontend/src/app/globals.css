@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #ffffff;
+  --surface-soft: #fafafa;
+  --surface-dark: #171717;
+  --primary: #000000;
+  --ink-deep: #090909;
+  --hairline: #e5e5e5;
+  --hairline-strong: #d4d4d4;
+  --on-dark: #ffffff;
+  --on-dark-mute: rgba(255, 255, 255, 0.7);
+  --terminal-red: #ff5f56;
+  --terminal-yellow: #ffbd2e;
+  --terminal-green: #27c93f;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--primary);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Inter', 'Noto Sans Thai', sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Nunito', sans-serif;
+}
+
+code, kbd, samp, pre, .font-mono {
+  font-family: ui-monospace, SFMono-Regular, 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inverted Card Constraint (max 1 per page) */
+.inverted-card {
+  background-color: #171717 !important;
+  color: #ffffff !important;
+  border-radius: 12px;
+}
+
+.inverted-card h1,
+.inverted-card h2,
+.inverted-card h3,
+.inverted-card h4,
+.inverted-card [data-inverted-heading] {
+  color: #ffffff !important;
+}
+
+.inverted-card p,
+.inverted-card span.text-muted,
+.inverted-card .text-secondary {
+  color: rgba(255, 255, 255, 0.7);
+}
