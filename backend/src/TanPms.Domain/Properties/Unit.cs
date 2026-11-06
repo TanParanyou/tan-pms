@@ -12,7 +12,48 @@ public sealed class Unit : AuditableEntity
     public required string UnitNumber { get; set; }
     public OccupancyStatus OccupancyStatus { get; private set; } = OccupancyStatus.Vacant;
     public ConditionStatus ConditionStatus { get; private set; } = ConditionStatus.Clean;
-    public List<StayMode> SupportedStayModes { get; init; } = [StayMode.Hourly, StayMode.Daily, StayMode.Monthly];
+    public List<StayMode> SupportedStayModes { get; private set; } = [StayMode.Hourly, StayMode.Daily, StayMode.Monthly];
+    public List<UnitAsset> Assets { get; private set; } = [];
+
+    public void UpdateConfiguration(IEnumerable<StayMode> supportedStayModes, ConditionStatus conditionStatus)
+    {
+        var modes = supportedStayModes.Distinct().ToList();
+        if (modes.Count == 0)
+        {
+            throw new DomainRuleException(
+                DomainErrorCodes.ValidationFailed,
+                "Unit must support at least one StayMode.",
+                httpStatus: 400);
+        }
+
+        SupportedStayModes = modes;
+        ConditionStatus = conditionStatus;
+    }
+
+    public void ReplaceAssets(IEnumerable<UnitAsset> assets)
+    {
+        var nextAssets = assets.ToList();
+        foreach (var asset in nextAssets)
+        {
+            if (string.IsNullOrWhiteSpace(asset.AssetCode))
+            {
+                throw new DomainRuleException(
+                    DomainErrorCodes.ValidationFailed,
+                    "AssetCode is required for each UnitAsset.",
+                    httpStatus: 400);
+            }
+
+            if (asset.ReplacementCostAmount < 0m)
+            {
+                throw new DomainRuleException(
+                    DomainErrorCodes.ValidationFailed,
+                    "ReplacementCostAmount cannot be negative.",
+                    httpStatus: 400);
+            }
+        }
+
+        Assets = nextAssets;
+    }
 
     public void EnsureCanCheckIn(bool overrideDirtyCheckIn, bool hasOverridePermission, string? overrideReason)
     {

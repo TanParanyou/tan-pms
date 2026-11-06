@@ -5,6 +5,7 @@ using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
+using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Domain.Billing;
@@ -28,6 +29,9 @@ public sealed class InMemoryOperationalService
     private readonly ConcurrentDictionary<string, int> _sequences = new();
     private readonly ConcurrentBag<AuditEvent> _auditEvents = [];
     private readonly Dictionary<Guid, Property> _properties = [];
+    private readonly Dictionary<Guid, Building> _buildings = [];
+    private readonly Dictionary<Guid, Floor> _floors = [];
+    private readonly Dictionary<Guid, UnitType> _unitTypes = [];
     private readonly Dictionary<Guid, Unit> _units = [];
     private readonly Dictionary<Guid, UnitRefDto> _unitRefs = [];
     private readonly Dictionary<Guid, Customer> _customers = [];
@@ -327,6 +331,227 @@ public sealed class InMemoryOperationalService
         }
     }
 
+    public Result<PropertyHierarchyResponse> GetPropertyHierarchy(Guid propertyId)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(propertyId, out var prop))
+            {
+                return Result<PropertyHierarchyResponse>.Failure(new Error(
+                    DomainErrorCodes.PropertyScopeDenied,
+                    $"Property '{propertyId}' not found."));
+            }
+
+            var propDetail = new PropertyDetailDto(
+                prop.Id,
+                prop.Code,
+                prop.TaxBranchCode,
+                LocalizedTextDto.FromDomain(prop.Name),
+                prop.Address is not null ? LocalizedTextDto.FromDomain(prop.Address) : null);
+
+            var propertyBuildings = _buildings.Values
+                .Where(b => b.PropertyId == propertyId)
+                .OrderBy(b => b.Code)
+                .Select(b =>
+                {
+                    var floors = _floors.Values
+                        .Where(f => f.BuildingId == b.Id)
+                        .OrderBy(f => f.FloorNumber)
+                        .Select(f =>
+                        {
+                            var unitCount = _units.Values.Count(u => u.FloorId == f.Id);
+                            return new FloorDetailDto(f.Id, f.FloorNumber, LocalizedTextDto.FromDomain(f.Name), unitCount);
+                        })
+                        .ToList();
+
+                    return new BuildingDetailDto(b.Id, b.Code, LocalizedTextDto.FromDomain(b.Name), floors);
+                })
+                .ToList();
+
+            var propertyUnitTypes = _unitTypes.Values
+                .Where(ut => ut.PropertyId == propertyId)
+                .OrderBy(ut => ut.Code)
+                .Select(ut => new UnitTypeDetailDto(
+                    ut.Id,
+                    ut.Code,
+                    LocalizedTextDto.FromDomain(ut.Name),
+                    ut.Description is not null ? LocalizedTextDto.FromDomain(ut.Description) : null,
+                    ut.AreaSqm,
+                    ut.TotalQuotaUnits,
+                    ut.SupportedStayModes.Select(m => m.ToString()).ToList(),
+                    ut.HourlyBasePackagePrice,
+                    ut.DailyRate,
+                    ut.MonthlyRentRate))
+                .ToList();
+
+            var propertyUnits = _units.Values
+                .Where(u => u.PropertyId == propertyId)
+                .OrderBy(u => u.UnitNumber)
+                .Select(MapUnitMasterItem)
+                .ToList();
+
+            return Result<PropertyHierarchyResponse>.Success(new PropertyHierarchyResponse(
+                propDetail,
+                propertyBuildings,
+                propertyUnitTypes,
+                propertyUnits));
+        }
+    }
+
+    public Result<UnitMasterItemDto> UpsertUnitMaster(Guid propertyId, UpsertUnitMasterRequest request)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<UnitMasterItemDto>.Failure(new Error(
+                    DomainErrorCodes.PropertyScopeDenied,
+                    $"Property '{propertyId}' not found."));
+            }
+
+            if (!_buildings.TryGetValue(request.BuildingId, out var building) || building.PropertyId != propertyId)
+            {
+                return Result<UnitMasterItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Building '{request.BuildingId}' is invalid for property '{propertyId}'."));
+            }
+
+            if (!_floors.TryGetValue(request.FloorId, out var floor) || floor.BuildingId != building.Id)
+            {
+                return Result<UnitMasterItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Floor '{request.FloorId}' is invalid for building '{building.Code}'."));
+            }
+
+            if (!_unitTypes.TryGetValue(request.UnitTypeId, out var unitType) || unitType.PropertyId != propertyId)
+            {
+                return Result<UnitMasterItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"UnitType '{request.UnitTypeId}' is invalid for property '{propertyId}'."));
+            }
+
+            if (!Enum.TryParse<ConditionStatus>(request.ConditionStatus, true, out var conditionStatus))
+            {
+                return Result<UnitMasterItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid ConditionStatus '{request.ConditionStatus}'."));
+            }
+
+            var stayModes = new List<StayMode>();
+            foreach (var modeStr in request.SupportedStayModes)
+            {
+                if (Enum.TryParse<StayMode>(modeStr, true, out var parsedMode))
+                {
+                    stayModes.Add(parsedMode);
+                }
+            }
+
+            if (stayModes.Count == 0)
+            {
+                return Result<UnitMasterItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    "Unit must support at least one valid StayMode."));
+            }
+
+            var existingWithNumber = _units.Values.FirstOrDefault(u =>
+                u.PropertyId == propertyId &&
+                string.Equals(u.UnitNumber, request.UnitNumber, StringComparison.OrdinalIgnoreCase) &&
+                (!request.Id.HasValue || u.Id != request.Id.Value));
+
+            if (existingWithNumber != null)
+            {
+                return Result<UnitMasterItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Unit number '{request.UnitNumber}' already exists in this property."));
+            }
+
+            Unit unit;
+            if (request.Id.HasValue && request.Id.Value != Guid.Empty)
+            {
+                if (!_units.TryGetValue(request.Id.Value, out var existingUnit) || existingUnit.PropertyId != propertyId)
+                {
+                    return Result<UnitMasterItemDto>.Failure(new Error(
+                        DomainErrorCodes.ValidationFailed,
+                        $"Unit '{request.Id.Value}' not found."));
+                }
+
+                unit = existingUnit;
+                unit.BuildingId = building.Id;
+                unit.FloorId = floor.Id;
+                unit.UnitTypeId = unitType.Id;
+                unit.UnitNumber = request.UnitNumber.Trim();
+                unit.UpdateConfiguration(stayModes, conditionStatus);
+            }
+            else
+            {
+                unit = new Unit
+                {
+                    Id = Guid.NewGuid(),
+                    PropertyId = propertyId,
+                    BuildingId = building.Id,
+                    FloorId = floor.Id,
+                    UnitTypeId = unitType.Id,
+                    UnitNumber = request.UnitNumber.Trim()
+                };
+                unit.UpdateConfiguration(stayModes, conditionStatus);
+                _units[unit.Id] = unit;
+            }
+
+            var assets = request.Assets.Select(a => new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = propertyId,
+                UnitId = unit.Id,
+                AssetCode = a.AssetCode.Trim(),
+                Name = LocalizedText.Create(a.Name.Th, a.Name.En),
+                ReplacementCostAmount = a.ReplacementCostAmount
+            }).ToList();
+
+            unit.ReplaceAssets(assets);
+
+            _unitRefs[unit.Id] = new UnitRefDto(
+                unit.Id,
+                unit.UnitNumber,
+                LocalizedTextDto.FromDomain(building.Name),
+                floor.FloorNumber,
+                LocalizedTextDto.FromDomain(unitType.Name));
+
+            return Result<UnitMasterItemDto>.Success(MapUnitMasterItem(unit));
+        }
+    }
+
+    private UnitMasterItemDto MapUnitMasterItem(Unit u)
+    {
+        var building = _buildings.TryGetValue(u.BuildingId, out var b)
+            ? new BuildingRefDto(b.Id, b.Code, LocalizedTextDto.FromDomain(b.Name))
+            : new BuildingRefDto(u.BuildingId, "UNKNOWN", new LocalizedTextDto("ไม่ระบุอาคาร", "Unknown Building"));
+
+        var floor = _floors.TryGetValue(u.FloorId, out var f)
+            ? new FloorRefDto(f.Id, f.FloorNumber, LocalizedTextDto.FromDomain(f.Name))
+            : new FloorRefDto(u.FloorId, 0, new LocalizedTextDto("ไม่ระบุชั้น", "Unknown Floor"));
+
+        var unitType = _unitTypes.TryGetValue(u.UnitTypeId, out var ut)
+            ? new UnitTypeRefDto(ut.Id, ut.Code, LocalizedTextDto.FromDomain(ut.Name), ut.AreaSqm)
+            : new UnitTypeRefDto(u.UnitTypeId, "UNKNOWN", new LocalizedTextDto("ไม่ระบุประเภท", "Unknown Type"), 0m);
+
+        var assets = u.Assets.Select(a => new UnitAssetDto(
+            a.Id,
+            a.AssetCode,
+            LocalizedTextDto.FromDomain(a.Name),
+            a.ReplacementCostAmount)).ToList();
+
+        return new UnitMasterItemDto(
+            u.Id,
+            u.UnitNumber,
+            building,
+            floor,
+            unitType,
+            u.OccupancyStatus.ToString(),
+            u.ConditionStatus.ToString(),
+            u.SupportedStayModes.Select(m => m.ToString()).ToList(),
+            assets);
+    }
+
     public Result<RoomRackResponse> GetRoomRack(Guid propertyId)
     {
         lock (_syncRoot)
@@ -569,15 +794,20 @@ public sealed class InMemoryOperationalService
             Id = PmsSeedConstants.BkkPropertyId,
             Code = "BKK01",
             Name = LocalizedText.Create("แทน เรสซิเดนซ์ รัชดา", "TAN Residence Ratchada"),
-            TaxBranchCode = "00000"
+            TaxBranchCode = "00000",
+            Address = LocalizedText.Create("123 ถนนรัชดาภิเษก ดินแดง กรุงเทพฯ 10400", "123 Ratchadaphisek Rd, Din Daeng, Bangkok 10400")
         };
+        bkk.ValidateTaxBranchCode();
+
         var cnx = new Property
         {
             Id = PmsSeedConstants.CnxPropertyId,
             Code = "CNX01",
             Name = LocalizedText.Create("แทน สวีท นิมมาน", "TAN Suites Nimman"),
-            TaxBranchCode = "00001"
+            TaxBranchCode = "00001",
+            Address = LocalizedText.Create("45 ถนนนิมมานเหมินท์ สุเทพ เมือง เชียงใหม่ 50200", "45 Nimmanhaemin Rd, Suthep, Mueang, Chiang Mai 50200")
         };
+        cnx.ValidateTaxBranchCode();
 
         _properties[bkk.Id] = bkk;
         _properties[cnx.Id] = cnx;
@@ -710,37 +940,184 @@ public sealed class InMemoryOperationalService
 
         _adminUsers.AddRange([orgAdmin, bkkCashier, cnxManager]);
 
+        var buildingA = new Building
+        {
+            Id = PmsSeedConstants.BkkBuildingAId,
+            PropertyId = bkk.Id,
+            Code = "BLD-A",
+            Name = LocalizedText.Create("อาคาร A (เรสซิเดนซ์)", "Building A (Residence)")
+        };
+
+        var floor1 = new Floor
+        {
+            Id = PmsSeedConstants.BkkFloor1Id,
+            PropertyId = bkk.Id,
+            BuildingId = buildingA.Id,
+            FloorNumber = 1,
+            Name = LocalizedText.Create("ชั้น 1", "Floor 1")
+        };
+
+        var floor2 = new Floor
+        {
+            Id = PmsSeedConstants.BkkFloor2Id,
+            PropertyId = bkk.Id,
+            BuildingId = buildingA.Id,
+            FloorNumber = 2,
+            Name = LocalizedText.Create("ชั้น 2", "Floor 2")
+        };
+
+        _buildings[buildingA.Id] = buildingA;
+        _floors[floor1.Id] = floor1;
+        _floors[floor2.Id] = floor2;
+
+        var standardType = new UnitType
+        {
+            Id = PmsSeedConstants.StandardUnitTypeId,
+            PropertyId = bkk.Id,
+            Code = "STD",
+            Name = LocalizedText.Create("มาตรฐาน 24 ตร.ม.", "Standard 24 sqm"),
+            Description = LocalizedText.Create("ห้องมาตรฐาน 1 ห้องนอน", "Standard 1-bedroom room"),
+            AreaSqm = 24m,
+            TotalQuotaUnits = 2,
+            SupportedStayModes = [StayMode.Hourly, StayMode.Daily, StayMode.Monthly],
+            HourlyBasePackagePrice = 500m,
+            HourlyBasePackageHours = 3,
+            HourlyAdditionalHourPrice = 150m,
+            DailyRate = 1200m,
+            MonthlyRentRate = 7500m
+        };
+
+        var deluxeType = new UnitType
+        {
+            Id = PmsSeedConstants.DeluxeUnitTypeId,
+            PropertyId = bkk.Id,
+            Code = "DLX",
+            Name = LocalizedText.Create("ดีลักซ์ 32 ตร.ม.", "Deluxe 32 sqm"),
+            Description = LocalizedText.Create("ห้องดีลักซ์ พร้อมระเบียง", "Deluxe room with balcony"),
+            AreaSqm = 32m,
+            TotalQuotaUnits = 1,
+            SupportedStayModes = [StayMode.Hourly, StayMode.Daily, StayMode.Monthly],
+            HourlyBasePackagePrice = 700m,
+            HourlyBasePackageHours = 3,
+            HourlyAdditionalHourPrice = 200m,
+            DailyRate = 1600m,
+            MonthlyRentRate = 9500m
+        };
+
+        _unitTypes[standardType.Id] = standardType;
+        _unitTypes[deluxeType.Id] = deluxeType;
+
         var unitA101 = new Unit
         {
             Id = PmsSeedConstants.CleanUnitA101Id,
             PropertyId = bkk.Id,
-            BuildingId = PmsSeedConstants.BkkBuildingAId,
-            FloorId = PmsSeedConstants.BkkFloor1Id,
-            UnitTypeId = PmsSeedConstants.StandardUnitTypeId,
+            BuildingId = buildingA.Id,
+            FloorId = floor1.Id,
+            UnitTypeId = standardType.Id,
             UnitNumber = "A-101"
         };
+        unitA101.UpdateConfiguration([StayMode.Hourly, StayMode.Daily, StayMode.Monthly], ConditionStatus.Clean);
+        unitA101.ReplaceAssets([
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA101.Id,
+                AssetCode = "AST-00001",
+                Name = LocalizedText.Create("แอร์ Daikin Inverter", "Daikin Inverter AC"),
+                ReplacementCostAmount = 18000m
+            },
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA101.Id,
+                AssetCode = "AST-00002",
+                Name = LocalizedText.Create("สมาร์ททีวี Samsung 43 นิ้ว", "Samsung 43-inch Smart TV"),
+                ReplacementCostAmount = 12000m
+            },
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA101.Id,
+                AssetCode = "AST-00003",
+                Name = LocalizedText.Create("ชุดคีย์การ์ดและกุญแจ", "Keycard & Room Key Set"),
+                ReplacementCostAmount = 500m
+            }
+        ]);
 
         var unitA102 = new Unit
         {
             Id = PmsSeedConstants.DirtyUnitA102Id,
             PropertyId = bkk.Id,
-            BuildingId = PmsSeedConstants.BkkBuildingAId,
-            FloorId = PmsSeedConstants.BkkFloor1Id,
-            UnitTypeId = PmsSeedConstants.StandardUnitTypeId,
+            BuildingId = buildingA.Id,
+            FloorId = floor1.Id,
+            UnitTypeId = standardType.Id,
             UnitNumber = "A-102"
         };
-        unitA102.SetConditionStatus(ConditionStatus.Dirty);
+        unitA102.UpdateConfiguration([StayMode.Hourly, StayMode.Daily, StayMode.Monthly], ConditionStatus.Dirty);
+        unitA102.ReplaceAssets([
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA102.Id,
+                AssetCode = "AST-00004",
+                Name = LocalizedText.Create("แอร์ Daikin Inverter", "Daikin Inverter AC"),
+                ReplacementCostAmount = 18000m
+            },
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA102.Id,
+                AssetCode = "AST-00005",
+                Name = LocalizedText.Create("ชุดคีย์การ์ดและกุญแจ", "Keycard & Room Key Set"),
+                ReplacementCostAmount = 500m
+            }
+        ]);
 
         var unitA201 = new Unit
         {
             Id = PmsSeedConstants.OccupiedMonthlyUnitA201Id,
             PropertyId = bkk.Id,
-            BuildingId = PmsSeedConstants.BkkBuildingAId,
-            FloorId = PmsSeedConstants.BkkFloor2Id,
-            UnitTypeId = PmsSeedConstants.DeluxeUnitTypeId,
+            BuildingId = buildingA.Id,
+            FloorId = floor2.Id,
+            UnitTypeId = deluxeType.Id,
             UnitNumber = "A-201"
         };
+        unitA201.UpdateConfiguration([StayMode.Daily, StayMode.Monthly], ConditionStatus.Clean);
         unitA201.MarkOccupied();
+        unitA201.ReplaceAssets([
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA201.Id,
+                AssetCode = "AST-00006",
+                Name = LocalizedText.Create("สมาร์ททีวี Sony 55 นิ้ว", "Sony 55-inch Smart TV"),
+                ReplacementCostAmount = 22000m
+            },
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA201.Id,
+                AssetCode = "AST-00007",
+                Name = LocalizedText.Create("ตู้เย็น 2 ประตู 7.4 คิว", "2-Door Refrigerator 7.4 cu.ft"),
+                ReplacementCostAmount = 8500m
+            },
+            new UnitAsset
+            {
+                Id = Guid.NewGuid(),
+                PropertyId = bkk.Id,
+                UnitId = unitA201.Id,
+                AssetCode = "AST-00008",
+                Name = LocalizedText.Create("ชุดคีย์การ์ดและกุญแจ", "Keycard & Room Key Set"),
+                ReplacementCostAmount = 500m
+            }
+        ]);
 
         _units[unitA101.Id] = unitA101;
         _units[unitA102.Id] = unitA102;

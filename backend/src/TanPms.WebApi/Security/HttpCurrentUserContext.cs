@@ -92,7 +92,9 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                     "admin.rack.view",
                     PermissionKeys.AdminStayCheckIn,
                     PermissionKeys.AdminUsersRead,
-                    PermissionKeys.AdminUsersManage
+                    PermissionKeys.AdminUsersManage,
+                    PermissionKeys.AdminPropertiesRead,
+                    PermissionKeys.AdminPropertiesManage
                 };
             }
 

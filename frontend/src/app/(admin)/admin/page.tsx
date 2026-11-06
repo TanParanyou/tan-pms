@@ -9,6 +9,7 @@ import { UnifiedRoomRackSection } from "@/features/rack/components/UnifiedRoomRa
 import { QuickWalkInModal } from "@/features/rack/components/QuickWalkInModal";
 import { BulkMeterReadingSection } from "@/features/meters/components/BulkMeterReadingSection";
 import { AdminRbacUsersSection } from "@/features/users/components/AdminRbacUsersSection";
+import { UnitMasterSection } from "@/features/properties/components/UnitMasterSection";
 import { useAppLocale } from "@/components/shared/locale-provider";
 import { useTranslations } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
@@ -119,6 +120,9 @@ export default function AdminPage() {
 
         {/* Multi-Property Admin RBAC User Management (PM-01) */}
         <AdminRbacUsersSection />
+
+        {/* Property, Building, Floor, UnitType & Unit Master (PM-02) */}
+        <UnitMasterSection />
 
         {/* Quick Walk-In & Check-in Modal */}
         <QuickWalkInModal

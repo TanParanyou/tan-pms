@@ -52,6 +52,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/properties/{propertyId}/hierarchy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminPropertyHierarchy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upsertAdminUnitMaster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stays/check-in": {
         parameters: {
             query?: never;
@@ -377,6 +409,107 @@ export interface components {
         NotificationListResponse: {
             items: components["schemas"]["NotificationItemDto"][];
         };
+        PropertyDetailDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            taxBranchCode: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            address?: components["schemas"]["LocalizedTextDto"];
+        };
+        FloorDetailDto: {
+            /** Format: uuid */
+            id: string;
+            floorNumber: number;
+            name: components["schemas"]["LocalizedTextDto"];
+            unitCount: number;
+        };
+        BuildingDetailDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            floors: components["schemas"]["FloorDetailDto"][];
+        };
+        UnitTypeDetailDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            description?: components["schemas"]["LocalizedTextDto"];
+            areaSqm: number;
+            totalQuotaUnits: number;
+            supportedStayModes: ("Hourly" | "Daily" | "Monthly")[];
+            hourlyBasePackagePrice: number;
+            dailyRate: number;
+            monthlyRentRate: number;
+        };
+        BuildingRefDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+        };
+        FloorRefDto: {
+            /** Format: uuid */
+            id: string;
+            floorNumber: number;
+            name: components["schemas"]["LocalizedTextDto"];
+        };
+        UnitTypeRefDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            areaSqm: number;
+        };
+        UnitAssetDto: {
+            /** Format: uuid */
+            id: string;
+            assetCode: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            replacementCostAmount: number;
+        };
+        UnitMasterItemDto: {
+            /** Format: uuid */
+            id: string;
+            unitNumber: string;
+            building: components["schemas"]["BuildingRefDto"];
+            floor: components["schemas"]["FloorRefDto"];
+            unitType: components["schemas"]["UnitTypeRefDto"];
+            /** @enum {string} */
+            occupancyStatus: "Vacant" | "Occupied" | "Reserved" | "Blocked";
+            /** @enum {string} */
+            conditionStatus: "Clean" | "Dirty" | "Cleaning" | "Inspecting" | "OutOfOrder";
+            supportedStayModes: ("Hourly" | "Daily" | "Monthly")[];
+            assets: components["schemas"]["UnitAssetDto"][];
+        };
+        PropertyHierarchyResponse: {
+            property: components["schemas"]["PropertyDetailDto"];
+            buildings: components["schemas"]["BuildingDetailDto"][];
+            unitTypes: components["schemas"]["UnitTypeDetailDto"][];
+            units: components["schemas"]["UnitMasterItemDto"][];
+        };
+        UpsertUnitAssetItemDto: {
+            assetCode: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            replacementCostAmount: number;
+        };
+        UpsertUnitMasterRequest: {
+            /** Format: uuid */
+            id?: string | null;
+            /** Format: uuid */
+            buildingId: string;
+            /** Format: uuid */
+            floorId: string;
+            /** Format: uuid */
+            unitTypeId: string;
+            unitNumber: string;
+            supportedStayModes: ("Hourly" | "Daily" | "Monthly")[];
+            /** @enum {string} */
+            conditionStatus: "Clean" | "Dirty" | "Cleaning" | "Inspecting" | "OutOfOrder";
+            assets: components["schemas"]["UpsertUnitAssetItemDto"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -443,6 +576,72 @@ export interface operations {
                 };
             };
             /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminPropertyHierarchy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Property hierarchy, buildings, floors, unit types, units, and assets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyHierarchyResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminUnitMaster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertUnitMasterRequest"];
+            };
+        };
+        responses: {
+            /** @description Unit master and assets created or updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitMasterItemDto"];
+                };
+            };
+            /** @description Missing admin.properties.manage or unauthorized propertyId */
             403: {
                 headers: {
                     [name: string]: unknown;

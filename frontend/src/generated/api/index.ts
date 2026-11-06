@@ -22,5 +22,17 @@ export type UpsertAdminUserRequest = Schemas["UpsertAdminUserRequest"];
 export type DispatchNotificationRequest = Schemas["DispatchNotificationRequest"];
 export type NotificationItemDto = Schemas["NotificationItemDto"];
 export type NotificationListResponse = Schemas["NotificationListResponse"];
+export type PropertyDetailDto = Schemas["PropertyDetailDto"];
+export type FloorDetailDto = Schemas["FloorDetailDto"];
+export type BuildingDetailDto = Schemas["BuildingDetailDto"];
+export type UnitTypeDetailDto = Schemas["UnitTypeDetailDto"];
+export type BuildingRefDto = Schemas["BuildingRefDto"];
+export type FloorRefDto = Schemas["FloorRefDto"];
+export type UnitTypeRefDto = Schemas["UnitTypeRefDto"];
+export type UnitAssetDto = Schemas["UnitAssetDto"];
+export type UnitMasterItemDto = Schemas["UnitMasterItemDto"];
+export type PropertyHierarchyResponse = Schemas["PropertyHierarchyResponse"];
+export type UpsertUnitAssetItemDto = Schemas["UpsertUnitAssetItemDto"];
+export type UpsertUnitMasterRequest = Schemas["UpsertUnitMasterRequest"];
 
 export type { paths };

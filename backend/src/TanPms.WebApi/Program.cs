@@ -2,6 +2,7 @@ using TanPms.Application.ClientPortal;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
+using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Infrastructure.Persistence;
@@ -29,6 +30,8 @@ builder.Services.AddScoped<GetAdminUsersHandler>();
 builder.Services.AddScoped<UpsertAdminUserHandler>();
 builder.Services.AddScoped<DispatchAdminNotificationHandler>();
 builder.Services.AddScoped<GetClientNotificationsHandler>();
+builder.Services.AddScoped<GetAdminPropertyHierarchyHandler>();
+builder.Services.AddScoped<UpsertAdminUnitMasterHandler>();
 builder.Services.AddScoped<GetAdminRoomRackHandler>();
 builder.Services.AddScoped<CheckInStayHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
@@ -128,6 +131,29 @@ adminGroup.MapPost("/notifications/dispatch", (
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Created($"/api/v1/client/notifications/{result.Value!.Id}", result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/hierarchy", (
+    Guid propertyId,
+    GetAdminPropertyHierarchyHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminPropertyHierarchyQuery(propertyId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/units", (
+    Guid propertyId,
+    UpsertUnitMasterRequest request,
+    UpsertAdminUnitMasterHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminUnitMasterCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
 });
 
 adminGroup.MapGet("/properties/{propertyId:guid}/rack", (

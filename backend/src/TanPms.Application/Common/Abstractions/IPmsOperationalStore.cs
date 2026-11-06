@@ -2,6 +2,7 @@ using TanPms.Application.ClientPortal;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
+using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 
@@ -16,6 +17,8 @@ public interface IPmsOperationalStore
     Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command);
     Result<NotificationItemDto> DispatchNotification(DispatchAdminNotificationCommand command);
     Result<NotificationListResponse> GetClientNotifications(Guid customerId);
+    Result<PropertyHierarchyResponse> GetPropertyHierarchy(Guid propertyId);
+    Result<UnitMasterItemDto> UpsertUnitMaster(Guid propertyId, UpsertUnitMasterRequest request);
     Result<RoomRackResponse> GetRoomRack(Guid propertyId);
     Result<StaySummaryDto> CheckInStay(
         CheckInStayCommand command,

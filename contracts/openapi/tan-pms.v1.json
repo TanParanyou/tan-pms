@@ -60,6 +60,78 @@
         }
       }
     },
+    "/api/v1/admin/properties/{propertyId}/hierarchy": {
+      "get": {
+        "operationId": "getAdminPropertyHierarchy",
+        "tags": ["AdminPropertyMaster"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Property hierarchy, buildings, floors, unit types, units, and assets",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PropertyHierarchyResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/units": {
+      "post": {
+        "operationId": "upsertAdminUnitMaster",
+        "tags": ["AdminPropertyMaster"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpsertUnitMasterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unit master and assets created or updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UnitMasterItemDto" }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing admin.properties.manage or unauthorized propertyId",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stays/check-in": {
       "post": {
         "operationId": "checkInStay",
@@ -587,6 +659,166 @@
           "items": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/NotificationItemDto" }
+          }
+        }
+      },
+      "PropertyDetailDto": {
+        "type": "object",
+        "required": ["id", "code", "taxBranchCode", "name"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "taxBranchCode": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "address": { "$ref": "#/components/schemas/LocalizedTextDto" }
+        }
+      },
+      "FloorDetailDto": {
+        "type": "object",
+        "required": ["id", "floorNumber", "name", "unitCount"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "floorNumber": { "type": "integer" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "unitCount": { "type": "integer" }
+        }
+      },
+      "BuildingDetailDto": {
+        "type": "object",
+        "required": ["id", "code", "name", "floors"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "floors": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FloorDetailDto" }
+          }
+        }
+      },
+      "UnitTypeDetailDto": {
+        "type": "object",
+        "required": ["id", "code", "name", "areaSqm", "totalQuotaUnits", "supportedStayModes", "hourlyBasePackagePrice", "dailyRate", "monthlyRentRate"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "description": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "areaSqm": { "type": "number" },
+          "totalQuotaUnits": { "type": "integer" },
+          "supportedStayModes": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          "hourlyBasePackagePrice": { "type": "number" },
+          "dailyRate": { "type": "number" },
+          "monthlyRentRate": { "type": "number" }
+        }
+      },
+      "BuildingRefDto": {
+        "type": "object",
+        "required": ["id", "code", "name"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" }
+        }
+      },
+      "FloorRefDto": {
+        "type": "object",
+        "required": ["id", "floorNumber", "name"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "floorNumber": { "type": "integer" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" }
+        }
+      },
+      "UnitTypeRefDto": {
+        "type": "object",
+        "required": ["id", "code", "name", "areaSqm"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "areaSqm": { "type": "number" }
+        }
+      },
+      "UnitAssetDto": {
+        "type": "object",
+        "required": ["id", "assetCode", "name", "replacementCostAmount"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "assetCode": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "replacementCostAmount": { "type": "number" }
+        }
+      },
+      "UnitMasterItemDto": {
+        "type": "object",
+        "required": ["id", "unitNumber", "building", "floor", "unitType", "occupancyStatus", "conditionStatus", "supportedStayModes", "assets"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "unitNumber": { "type": "string" },
+          "building": { "$ref": "#/components/schemas/BuildingRefDto" },
+          "floor": { "$ref": "#/components/schemas/FloorRefDto" },
+          "unitType": { "$ref": "#/components/schemas/UnitTypeRefDto" },
+          "occupancyStatus": { "type": "string", "enum": ["Vacant", "Occupied", "Reserved", "Blocked"] },
+          "conditionStatus": { "type": "string", "enum": ["Clean", "Dirty", "Cleaning", "Inspecting", "OutOfOrder"] },
+          "supportedStayModes": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          "assets": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UnitAssetDto" }
+          }
+        }
+      },
+      "PropertyHierarchyResponse": {
+        "type": "object",
+        "required": ["property", "buildings", "unitTypes", "units"],
+        "properties": {
+          "property": { "$ref": "#/components/schemas/PropertyDetailDto" },
+          "buildings": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BuildingDetailDto" }
+          },
+          "unitTypes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UnitTypeDetailDto" }
+          },
+          "units": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UnitMasterItemDto" }
+          }
+        }
+      },
+      "UpsertUnitAssetItemDto": {
+        "type": "object",
+        "required": ["assetCode", "name", "replacementCostAmount"],
+        "properties": {
+          "assetCode": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "replacementCostAmount": { "type": "number" }
+        }
+      },
+      "UpsertUnitMasterRequest": {
+        "type": "object",
+        "required": ["buildingId", "floorId", "unitTypeId", "unitNumber", "supportedStayModes", "conditionStatus", "assets"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "nullable": true },
+          "buildingId": { "type": "string", "format": "uuid" },
+          "floorId": { "type": "string", "format": "uuid" },
+          "unitTypeId": { "type": "string", "format": "uuid" },
+          "unitNumber": { "type": "string" },
+          "supportedStayModes": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          "conditionStatus": { "type": "string", "enum": ["Clean", "Dirty", "Cleaning", "Inspecting", "OutOfOrder"] },
+          "assets": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UpsertUnitAssetItemDto" }
           }
         }
       }

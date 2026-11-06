@@ -10,6 +10,7 @@ public sealed class UnitType : AuditableEntity
     public LocalizedText? Description { get; set; }
     public decimal AreaSqm { get; set; }
     public int TotalQuotaUnits { get; set; }
+    public List<StayMode> SupportedStayModes { get; init; } = [StayMode.Hourly, StayMode.Daily, StayMode.Monthly];
     public decimal HourlyBasePackagePrice { get; set; }
     public int HourlyBasePackageHours { get; set; } = 3;
     public decimal HourlyAdditionalHourPrice { get; set; }

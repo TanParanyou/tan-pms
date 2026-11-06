@@ -6,6 +6,7 @@ using TanPms.Application.ClientPortal;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
+using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
@@ -286,5 +287,70 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         Assert.Empty(dash2.PendingParcels);
         Assert.Single(dash2.UnpaidInvoices);
         Assert.Equal("BKK01-INV-2611-0002", dash2.UnpaidInvoices[0].DocumentNumber);
+    }
+
+    [Fact]
+    public async Task Admin_Property_Hierarchy_Endpoint_Should_Enforce_Scope_And_Return_Hierarchy()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        client.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminPropertiesRead);
+        client.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+
+        var forbiddenRes = await client.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/hierarchy");
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenRes.StatusCode);
+        var forbiddenProblem = await forbiddenRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(forbiddenProblem);
+        Assert.Equal(DomainErrorCodes.PropertyScopeDenied, forbiddenProblem.ErrorCode);
+
+        var validRes = await client.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/hierarchy");
+        Assert.Equal(HttpStatusCode.OK, validRes.StatusCode);
+        var hierarchy = await validRes.Content.ReadFromJsonAsync<PropertyHierarchyResponse>();
+        Assert.NotNull(hierarchy);
+        Assert.Equal(PmsSeedConstants.BkkPropertyId, hierarchy.Property.Id);
+        Assert.Equal("BKK01", hierarchy.Property.Code);
+        Assert.Equal("00000", hierarchy.Property.TaxBranchCode);
+        Assert.NotEmpty(hierarchy.Buildings);
+        Assert.NotEmpty(hierarchy.UnitTypes);
+        Assert.NotEmpty(hierarchy.Units);
+        Assert.Contains(hierarchy.Units, u => u.Assets.Count > 0);
+    }
+
+    [Fact]
+    public async Task Admin_Upsert_Unit_Master_Endpoint_Should_Create_And_Update_Unit_With_Assets()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        client.DefaultRequestHeaders.Add("X-TanPms-Permissions", $"{PermissionKeys.AdminPropertiesRead},{PermissionKeys.AdminPropertiesManage}");
+        client.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+
+        var req = new UpsertUnitMasterRequest(
+            Id: null,
+            BuildingId: PmsSeedConstants.BkkBuildingAId,
+            FloorId: PmsSeedConstants.BkkFloor1Id,
+            UnitTypeId: PmsSeedConstants.StandardUnitTypeId,
+            UnitNumber: "A-108",
+            SupportedStayModes: ["Hourly", "Daily", "Monthly"],
+            ConditionStatus: "Clean",
+            Assets:
+            [
+                new UpsertUnitAssetItemDto(
+                    "AST-A108-01",
+                    new LocalizedTextDto("แอร์ Daikin 12000 BTU", "Daikin AC 12000 BTU"),
+                    16500m),
+                new UpsertUnitAssetItemDto(
+                    "AST-A108-02",
+                    new LocalizedTextDto("ตู้เย็น 1 ประตู", "1-Door Refrigerator"),
+                    6500m)
+            ]);
+
+        var res = await client.PostAsJsonAsync($"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/units", req);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var unit = await res.Content.ReadFromJsonAsync<UnitMasterItemDto>();
+        Assert.NotNull(unit);
+        Assert.Equal("A-108", unit.UnitNumber);
+        Assert.Equal(2, unit.Assets.Count);
+        Assert.Equal("AST-A108-01", unit.Assets[0].AssetCode);
+        Assert.Equal("Clean", unit.ConditionStatus);
     }
 }
