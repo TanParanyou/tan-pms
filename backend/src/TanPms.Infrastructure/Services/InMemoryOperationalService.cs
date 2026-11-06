@@ -7,6 +7,7 @@ using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
+using TanPms.Application.Rates;
 using TanPms.Application.Stays;
 using TanPms.Domain.Billing;
 using TanPms.Domain.Common;
@@ -33,6 +34,9 @@ public sealed class InMemoryOperationalService
     private readonly Dictionary<Guid, Floor> _floors = [];
     private readonly Dictionary<Guid, UnitType> _unitTypes = [];
     private readonly Dictionary<Guid, Unit> _units = [];
+    private readonly Dictionary<Guid, RatePlan> _ratePlans = [];
+    private readonly Dictionary<Guid, PropertyUtilityTariff> _utilityTariffs = [];
+    private readonly Dictionary<Guid, TaxProfile> _taxProfiles = [];
     private readonly Dictionary<Guid, UnitRefDto> _unitRefs = [];
     private readonly Dictionary<Guid, Customer> _customers = [];
     private readonly List<RoleDefinitionDto> _roles = [];
@@ -551,6 +555,455 @@ public sealed class InMemoryOperationalService
             u.SupportedStayModes.Select(m => m.ToString()).ToList(),
             assets);
     }
+
+    public Result<PropertyRateCatalogResponse> GetPropertyRateCatalog(Guid propertyId)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(propertyId, out var prop))
+            {
+                return Result<PropertyRateCatalogResponse>.Failure(new Error(
+                    DomainErrorCodes.PropertyScopeDenied,
+                    $"Property '{propertyId}' not found."));
+            }
+
+            var propRef = new PropertyRefDto(prop.Id, prop.Code, LocalizedTextDto.FromDomain(prop.Name));
+
+            var ratePlans = _ratePlans.Values
+                .Where(rp => rp.PropertyId == propertyId)
+                .OrderBy(rp => rp.Code)
+                .Select(MapRatePlanDto)
+                .ToList();
+
+            var tariffs = _utilityTariffs.Values
+                .Where(t => t.PropertyId == propertyId)
+                .OrderBy(t => t.UtilityType)
+                .Select(MapUtilityTariffDto)
+                .ToList();
+
+            var taxProfiles = _taxProfiles.Values
+                .Where(tp => tp.PropertyId == propertyId)
+                .OrderBy(tp => tp.ChargeCategoryCode)
+                .Select(MapTaxProfileDto)
+                .ToList();
+
+            return Result<PropertyRateCatalogResponse>.Success(new PropertyRateCatalogResponse(
+                propRef,
+                ratePlans,
+                tariffs,
+                taxProfiles));
+        }
+    }
+
+    public Result<RatePlanItemDto> UpsertRatePlan(Guid propertyId, UpsertRatePlanRequest request)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<RatePlanItemDto>.Failure(new Error(
+                    DomainErrorCodes.PropertyScopeDenied,
+                    $"Property '{propertyId}' not found."));
+            }
+
+            if (!_unitTypes.TryGetValue(request.UnitTypeId, out var unitType) || unitType.PropertyId != propertyId)
+            {
+                return Result<RatePlanItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"UnitType '{request.UnitTypeId}' is invalid for property '{propertyId}'."));
+            }
+
+            var parsedModes = new List<StayMode>();
+            foreach (var modeStr in request.SupportedStayModes ?? [])
+            {
+                if (Enum.TryParse<StayMode>(modeStr, true, out var parsedMode))
+                {
+                    parsedModes.Add(parsedMode);
+                }
+            }
+
+            var duplicateCode = _ratePlans.Values.FirstOrDefault(rp =>
+                rp.PropertyId == propertyId &&
+                string.Equals(rp.Code, request.Code?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                (!request.Id.HasValue || rp.Id != request.Id.Value));
+
+            if (duplicateCode is not null)
+            {
+                return Result<RatePlanItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"RatePlan code '{request.Code}' already exists in this property."));
+            }
+
+            try
+            {
+                var localizedName = LocalizedText.Create(request.Name.Th, request.Name.En);
+                RatePlan plan;
+                var isNew = false;
+
+                if (request.Id.HasValue && request.Id.Value != Guid.Empty)
+                {
+                    if (!_ratePlans.TryGetValue(request.Id.Value, out var existingPlan) || existingPlan.PropertyId != propertyId)
+                    {
+                        return Result<RatePlanItemDto>.Failure(new Error(
+                            DomainErrorCodes.ValidationFailed,
+                            $"RatePlan '{request.Id.Value}' not found."));
+                    }
+
+                    plan = existingPlan;
+                }
+                else
+                {
+                    isNew = true;
+                    plan = new RatePlan
+                    {
+                        Id = Guid.NewGuid(),
+                        PropertyId = propertyId,
+                        UnitTypeId = unitType.Id,
+                        Code = request.Code ?? string.Empty,
+                        Name = localizedName
+                    };
+                }
+
+                plan.UpdateConfiguration(
+                    code: request.Code ?? string.Empty,
+                    name: localizedName,
+                    unitTypeId: unitType.Id,
+                    supportedStayModes: parsedModes,
+                    basePackageHours: request.HourlyPackage.BasePackageHours,
+                    basePackagePrice: request.HourlyPackage.BasePackagePrice,
+                    additionalHourPrice: request.HourlyPackage.AdditionalHourPrice,
+                    gracePeriodMinutes: request.HourlyPackage.GracePeriodMinutes,
+                    autoCapToDailyRate: request.HourlyPackage.AutoCapToDailyRate,
+                    turnaroundBufferMinutes: request.HourlyPackage.TurnaroundBufferMinutes,
+                    weekdayRate: request.DailyRate.WeekdayRate,
+                    weekendRate: request.DailyRate.WeekendRate,
+                    holidaySurchargeAmount: request.DailyRate.HolidaySurchargeAmount,
+                    extraGuestPrice: request.DailyRate.ExtraGuestPrice,
+                    monthlyRentRate: request.MonthlyRate.MonthlyRentRate,
+                    minimumLeaseMonths: request.MonthlyRate.MinimumLeaseMonths,
+                    securityDepositMonths: request.MonthlyRate.SecurityDepositMonths,
+                    isActive: request.IsActive);
+
+                if (isNew)
+                {
+                    _ratePlans[plan.Id] = plan;
+                }
+
+                return Result<RatePlanItemDto>.Success(MapRatePlanDto(plan));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<RatePlanItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<UtilityTariffItemDto> UpsertUtilityTariff(Guid propertyId, UpsertUtilityTariffRequest request)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<UtilityTariffItemDto>.Failure(new Error(
+                    DomainErrorCodes.PropertyScopeDenied,
+                    $"Property '{propertyId}' not found."));
+            }
+
+            if (!Enum.TryParse<UtilityType>(request.UtilityType, true, out var utilityType))
+            {
+                return Result<UtilityTariffItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid UtilityType '{request.UtilityType}'."));
+            }
+
+            if (!Enum.TryParse<UtilityBillingMode>(request.BillingMode, true, out var billingMode))
+            {
+                return Result<UtilityTariffItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid UtilityBillingMode '{request.BillingMode}'."));
+            }
+
+            try
+            {
+                var localizedName = LocalizedText.Create(request.Name.Th, request.Name.En);
+                var existing = _utilityTariffs.Values.FirstOrDefault(t =>
+                    t.PropertyId == propertyId && t.UtilityType == utilityType);
+
+                var isNew = false;
+                if (existing is null)
+                {
+                    isNew = true;
+                    existing = new PropertyUtilityTariff
+                    {
+                        Id = Guid.NewGuid(),
+                        PropertyId = propertyId,
+                        UtilityType = utilityType,
+                        Name = localizedName
+                    };
+                }
+
+                existing.UpdateTariff(
+                    name: localizedName,
+                    billingMode: billingMode,
+                    ratePerUnit: request.RatePerUnit,
+                    minimumChargeAmount: request.MinimumChargeAmount,
+                    includedUnits: request.IncludedUnits,
+                    baseMinimumAmount: request.BaseMinimumAmount,
+                    flatRateAmount: request.FlatRateAmount,
+                    flatRatePerOccupant: request.FlatRatePerOccupant,
+                    meterMaxDigits: request.MeterMaxDigits);
+
+                if (isNew)
+                {
+                    _utilityTariffs[existing.Id] = existing;
+                }
+
+                return Result<UtilityTariffItemDto>.Success(MapUtilityTariffDto(existing));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<UtilityTariffItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<TaxProfileItemDto> UpsertTaxProfile(Guid propertyId, UpsertTaxProfileRequest request)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<TaxProfileItemDto>.Failure(new Error(
+                    DomainErrorCodes.PropertyScopeDenied,
+                    $"Property '{propertyId}' not found."));
+            }
+
+            if (!Enum.TryParse<TaxMode>(request.TaxMode, true, out var taxMode))
+            {
+                return Result<TaxProfileItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid TaxMode '{request.TaxMode}'."));
+            }
+
+            var duplicateCategory = _taxProfiles.Values.FirstOrDefault(tp =>
+                tp.PropertyId == propertyId &&
+                string.Equals(tp.ChargeCategoryCode, request.ChargeCategoryCode?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                (!request.Id.HasValue || tp.Id != request.Id.Value));
+
+            if (duplicateCategory is not null)
+            {
+                return Result<TaxProfileItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"ChargeCategoryCode '{request.ChargeCategoryCode}' already exists in this property."));
+            }
+
+            try
+            {
+                var localizedName = LocalizedText.Create(request.Name.Th, request.Name.En);
+                TaxProfile profile;
+                var isNew = false;
+
+                if (request.Id.HasValue && request.Id.Value != Guid.Empty)
+                {
+                    if (!_taxProfiles.TryGetValue(request.Id.Value, out var existingProfile) || existingProfile.PropertyId != propertyId)
+                    {
+                        return Result<TaxProfileItemDto>.Failure(new Error(
+                            DomainErrorCodes.ValidationFailed,
+                            $"TaxProfile '{request.Id.Value}' not found."));
+                    }
+
+                    profile = existingProfile;
+                }
+                else
+                {
+                    isNew = true;
+                    profile = new TaxProfile
+                    {
+                        Id = Guid.NewGuid(),
+                        PropertyId = propertyId,
+                        ChargeCategoryCode = request.ChargeCategoryCode ?? string.Empty,
+                        Name = localizedName
+                    };
+                }
+
+                profile.UpdateProfile(
+                    chargeCategoryCode: request.ChargeCategoryCode ?? string.Empty,
+                    name: localizedName,
+                    taxMode: taxMode,
+                    vatRatePercent: request.VatRatePercent,
+                    defaultWithholdingTaxPercent: request.DefaultWithholdingTaxPercent,
+                    isActive: request.IsActive);
+
+                if (isNew)
+                {
+                    _taxProfiles[profile.Id] = profile;
+                }
+
+                return Result<TaxProfileItemDto>.Success(MapTaxProfileDto(profile));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<TaxProfileItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<RateSimulationResponse> SimulateRateAndTax(Guid propertyId, RateSimulationRequest request)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<RateSimulationResponse>.Failure(new Error(
+                    DomainErrorCodes.PropertyScopeDenied,
+                    $"Property '{propertyId}' not found."));
+            }
+
+            if (!_ratePlans.TryGetValue(request.RatePlanId, out var ratePlan) || ratePlan.PropertyId != propertyId)
+            {
+                return Result<RateSimulationResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"RatePlan '{request.RatePlanId}' not found for property '{propertyId}'."));
+            }
+
+            if (!_taxProfiles.TryGetValue(request.TaxProfileId, out var taxProfile) || taxProfile.PropertyId != propertyId)
+            {
+                return Result<RateSimulationResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"TaxProfile '{request.TaxProfileId}' not found for property '{propertyId}'."));
+            }
+
+            var waterTariffEntity = _utilityTariffs.Values.FirstOrDefault(t =>
+                t.PropertyId == propertyId && t.UtilityType == UtilityType.Water);
+            var electricTariffEntity = _utilityTariffs.Values.FirstOrDefault(t =>
+                t.PropertyId == propertyId && t.UtilityType == UtilityType.Electric);
+
+            if (waterTariffEntity is null || electricTariffEntity is null)
+            {
+                return Result<RateSimulationResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    "Water and Electric tariffs must be configured for the property."));
+            }
+
+            try
+            {
+                var hourlyCalc = HourlyPricingCalculator.Calculate(request.DurationMinutes, ratePlan.ToHourlyRateRule());
+                var waterCalc = UtilityMeterCalculator.Calculate(
+                    previousReading: request.WaterPreviousReading,
+                    currentReading: request.WaterCurrentReading,
+                    tariff: waterTariffEntity.ToUtilityTariff(),
+                    isRolloverConfirmed: request.WaterRolloverConfirmed,
+                    meterMaxDigits: waterTariffEntity.MeterMaxDigits,
+                    occupantCount: Math.Max(request.OccupantCount, 1));
+
+                var electricCalc = UtilityMeterCalculator.Calculate(
+                    previousReading: request.ElectricPreviousReading,
+                    currentReading: request.ElectricCurrentReading,
+                    tariff: electricTariffEntity.ToUtilityTariff(),
+                    isRolloverConfirmed: request.ElectricRolloverConfirmed,
+                    meterMaxDigits: electricTariffEntity.MeterMaxDigits,
+                    occupantCount: Math.Max(request.OccupantCount, 1));
+
+                var lineTax = ThaiTaxCalculator.CalculateLine(
+                    lineAmount: request.SampleLineAmount,
+                    taxMode: taxProfile.TaxMode,
+                    vatRate: taxProfile.GetDecimalVatRate());
+
+                var whtPercent = request.ApplyWithholdingTax ? taxProfile.DefaultWithholdingTaxPercent : 0m;
+                var whtBreakdown = ThaiTaxCalculator.CalculateWithholdingTax(
+                    subTotal: lineTax.SubTotal,
+                    invoiceTotal: lineTax.TotalAmount,
+                    whtRate: whtPercent / 100m);
+
+                return Result<RateSimulationResponse>.Success(new RateSimulationResponse(
+                    HourlyQuote: new HourlySimulationQuoteDto(
+                        DurationMinutes: hourlyCalc.DurationMinutes,
+                        ExtraHours: hourlyCalc.ExtraHours,
+                        RawCharge: hourlyCalc.RawCharge,
+                        FinalHourlyRoomCharge: hourlyCalc.FinalHourlyRoomCharge,
+                        IsCappedToDailyRate: hourlyCalc.IsCappedToDailyRate,
+                        TurnaroundBufferMinutes: ratePlan.TurnaroundBufferMinutes),
+                    WaterQuote: new UtilitySimulationQuoteDto(
+                        UtilityType: UtilityType.Water.ToString(),
+                        UsageUnits: waterCalc.UsageUnits,
+                        ChargeAmount: waterCalc.ChargeAmount,
+                        UsedRollover: waterCalc.UsedRollover),
+                    ElectricQuote: new UtilitySimulationQuoteDto(
+                        UtilityType: UtilityType.Electric.ToString(),
+                        UsageUnits: electricCalc.UsageUnits,
+                        ChargeAmount: electricCalc.ChargeAmount,
+                        UsedRollover: electricCalc.UsedRollover),
+                    TaxQuote: new TaxSimulationQuoteDto(
+                        TaxMode: taxProfile.TaxMode.ToString(),
+                        VatRatePercent: taxProfile.VatRatePercent,
+                        SubTotal: lineTax.SubTotal,
+                        VatAmount: lineTax.VatAmount,
+                        InvoiceTotal: lineTax.TotalAmount,
+                        WithholdingTaxPercent: whtPercent,
+                        WithholdingTaxAmount: whtBreakdown.WithholdingTaxAmount,
+                        NetPayable: whtBreakdown.NetPayable)));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<RateSimulationResponse>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    private RatePlanItemDto MapRatePlanDto(RatePlan plan)
+    {
+        var unitType = _unitTypes.TryGetValue(plan.UnitTypeId, out var ut)
+            ? new UnitTypeRefDto(ut.Id, ut.Code, LocalizedTextDto.FromDomain(ut.Name), ut.AreaSqm)
+            : new UnitTypeRefDto(plan.UnitTypeId, "UNKNOWN", new LocalizedTextDto("ไม่ระบุประเภท", "Unknown Type"), 0m);
+
+        return new RatePlanItemDto(
+            Id: plan.Id,
+            Code: plan.Code,
+            Name: LocalizedTextDto.FromDomain(plan.Name),
+            UnitType: unitType,
+            SupportedStayModes: plan.SupportedStayModes.Select(m => m.ToString()).ToList(),
+            HourlyPackage: new HourlyPackageConfigDto(
+                plan.BasePackageHours,
+                plan.BasePackagePrice,
+                plan.AdditionalHourPrice,
+                plan.GracePeriodMinutes,
+                plan.AutoCapToDailyRate,
+                plan.TurnaroundBufferMinutes),
+            DailyRate: new DailyRateConfigDto(
+                plan.WeekdayRate,
+                plan.WeekendRate,
+                plan.HolidaySurchargeAmount,
+                plan.ExtraGuestPrice),
+            MonthlyRate: new MonthlyRateConfigDto(
+                plan.MonthlyRentRate,
+                plan.MinimumLeaseMonths,
+                plan.SecurityDepositMonths),
+            IsActive: plan.IsActive);
+    }
+
+    private static UtilityTariffItemDto MapUtilityTariffDto(PropertyUtilityTariff tariff) =>
+        new(
+            Id: tariff.Id,
+            UtilityType: tariff.UtilityType.ToString(),
+            Name: LocalizedTextDto.FromDomain(tariff.Name),
+            BillingMode: tariff.BillingMode.ToString(),
+            RatePerUnit: tariff.RatePerUnit,
+            MinimumChargeAmount: tariff.MinimumChargeAmount,
+            IncludedUnits: tariff.IncludedUnits,
+            BaseMinimumAmount: tariff.BaseMinimumAmount,
+            FlatRateAmount: tariff.FlatRateAmount,
+            FlatRatePerOccupant: tariff.FlatRatePerOccupant,
+            MeterMaxDigits: tariff.MeterMaxDigits);
+
+    private static TaxProfileItemDto MapTaxProfileDto(TaxProfile profile) =>
+        new(
+            Id: profile.Id,
+            ChargeCategoryCode: profile.ChargeCategoryCode,
+            Name: LocalizedTextDto.FromDomain(profile.Name),
+            TaxMode: profile.TaxMode.ToString(),
+            VatRatePercent: profile.VatRatePercent,
+            DefaultWithholdingTaxPercent: profile.DefaultWithholdingTaxPercent,
+            IsActive: profile.IsActive);
 
     public Result<RoomRackResponse> GetRoomRack(Guid propertyId)
     {
@@ -1203,5 +1656,152 @@ public sealed class InMemoryOperationalService
             Title = LocalizedText.Create("มีพัสดุมาถึงห้อง A-201", "New parcel arrived for Unit A-201"),
             Body = LocalizedText.Create("พัสดุ Kerry Express เลขที่ BKK01-PCL-2611-0001 รอรับที่เคาน์เตอร์", "Parcel BKK01-PCL-2611-0001 from Kerry Express is ready for pickup.")
         });
+
+        var standardRatePlan = new RatePlan
+        {
+            Id = PmsSeedConstants.StandardRatePlanId,
+            PropertyId = bkk.Id,
+            UnitTypeId = standardType.Id,
+            Code = "RP-STD-2026",
+            Name = LocalizedText.Create("เรตมาตรฐาน 3 โหมด (Standard)", "Standard 3-Mode Rate Plan")
+        };
+        standardRatePlan.UpdateConfiguration(
+            code: "RP-STD-2026",
+            name: standardRatePlan.Name,
+            unitTypeId: standardType.Id,
+            supportedStayModes: [StayMode.Hourly, StayMode.Daily, StayMode.Monthly],
+            basePackageHours: 3,
+            basePackagePrice: 500.00m,
+            additionalHourPrice: 150.00m,
+            gracePeriodMinutes: 15,
+            autoCapToDailyRate: 1200.00m,
+            turnaroundBufferMinutes: 30,
+            weekdayRate: 1200.00m,
+            weekendRate: 1400.00m,
+            holidaySurchargeAmount: 250.00m,
+            extraGuestPrice: 300.00m,
+            monthlyRentRate: 7500.00m,
+            minimumLeaseMonths: 6,
+            securityDepositMonths: 2,
+            isActive: true);
+
+        var deluxeRatePlan = new RatePlan
+        {
+            Id = PmsSeedConstants.DeluxeRatePlanId,
+            PropertyId = bkk.Id,
+            UnitTypeId = deluxeType.Id,
+            Code = "RP-DLX-2026",
+            Name = LocalizedText.Create("เรตดีลักซ์ พรีเมียม (Deluxe)", "Deluxe Premium Rate Plan")
+        };
+        deluxeRatePlan.UpdateConfiguration(
+            code: "RP-DLX-2026",
+            name: deluxeRatePlan.Name,
+            unitTypeId: deluxeType.Id,
+            supportedStayModes: [StayMode.Hourly, StayMode.Daily, StayMode.Monthly],
+            basePackageHours: 3,
+            basePackagePrice: 700.00m,
+            additionalHourPrice: 200.00m,
+            gracePeriodMinutes: 15,
+            autoCapToDailyRate: 1600.00m,
+            turnaroundBufferMinutes: 30,
+            weekdayRate: 1600.00m,
+            weekendRate: 1850.00m,
+            holidaySurchargeAmount: 350.00m,
+            extraGuestPrice: 400.00m,
+            monthlyRentRate: 9500.00m,
+            minimumLeaseMonths: 6,
+            securityDepositMonths: 2,
+            isActive: true);
+
+        _ratePlans[standardRatePlan.Id] = standardRatePlan;
+        _ratePlans[deluxeRatePlan.Id] = deluxeRatePlan;
+
+        var bkkWaterTariff = new PropertyUtilityTariff
+        {
+            Id = PmsSeedConstants.BkkWaterTariffId,
+            PropertyId = bkk.Id,
+            UtilityType = UtilityType.Water,
+            Name = LocalizedText.Create("อัตราค่าน้ำประปา (เหมาขั้นต่ำ 5 หน่วย)", "Water Tariff (5 Units Minimum)")
+        };
+        bkkWaterTariff.UpdateTariff(
+            name: bkkWaterTariff.Name,
+            billingMode: UtilityBillingMode.MinimumUnits,
+            ratePerUnit: 18.00m,
+            minimumChargeAmount: 100.00m,
+            includedUnits: 5.00m,
+            baseMinimumAmount: 100.00m,
+            flatRateAmount: 0.00m,
+            flatRatePerOccupant: false,
+            meterMaxDigits: 4);
+
+        var bkkElectricTariff = new PropertyUtilityTariff
+        {
+            Id = PmsSeedConstants.BkkElectricTariffId,
+            PropertyId = bkk.Id,
+            UtilityType = UtilityType.Electric,
+            Name = LocalizedText.Create("อัตราค่าไฟฟ้า (คิดตามหน่วยจริง)", "Electricity Tariff (Per Unit)")
+        };
+        bkkElectricTariff.UpdateTariff(
+            name: bkkElectricTariff.Name,
+            billingMode: UtilityBillingMode.PerUnit,
+            ratePerUnit: 8.00m,
+            minimumChargeAmount: 100.00m,
+            includedUnits: 0.00m,
+            baseMinimumAmount: 0.00m,
+            flatRateAmount: 0.00m,
+            flatRatePerOccupant: false,
+            meterMaxDigits: 4);
+
+        _utilityTariffs[bkkWaterTariff.Id] = bkkWaterTariff;
+        _utilityTariffs[bkkElectricTariff.Id] = bkkElectricTariff;
+
+        var monthlyRentTax = new TaxProfile
+        {
+            Id = PmsSeedConstants.MonthlyRentExemptTaxProfileId,
+            PropertyId = bkk.Id,
+            ChargeCategoryCode = "MONTHLY_ROOM_RENT",
+            Name = LocalizedText.Create("ค่าเช่าห้องพักตามสัญญารายเดือน (ยกเว้น VAT)", "Monthly Lease Room Rent (VAT Exempt)")
+        };
+        monthlyRentTax.UpdateProfile(
+            chargeCategoryCode: "MONTHLY_ROOM_RENT",
+            name: monthlyRentTax.Name,
+            taxMode: TaxMode.Exempt,
+            vatRatePercent: 0.00m,
+            defaultWithholdingTaxPercent: 5.00m,
+            isActive: true);
+
+        var shortStayTax = new TaxProfile
+        {
+            Id = PmsSeedConstants.ShortStayVatIncludedTaxProfileId,
+            PropertyId = bkk.Id,
+            ChargeCategoryCode = "SHORT_STAY_ROOM",
+            Name = LocalizedText.Create("ค่าห้องพักรายชั่วโมง/รายวัน (รวม VAT 7%)", "Hourly & Daily Stay Charge (VAT 7% Included)")
+        };
+        shortStayTax.UpdateProfile(
+            chargeCategoryCode: "SHORT_STAY_ROOM",
+            name: shortStayTax.Name,
+            taxMode: TaxMode.VatIncluded,
+            vatRatePercent: 7.00m,
+            defaultWithholdingTaxPercent: 0.00m,
+            isActive: true);
+
+        var furnitureTax = new TaxProfile
+        {
+            Id = PmsSeedConstants.FurnitureVatExcludedTaxProfileId,
+            PropertyId = bkk.Id,
+            ChargeCategoryCode = "FURNITURE_RENTAL",
+            Name = LocalizedText.Create("ค่าเช่าเฟอร์นิเจอร์และบริการ (แยก VAT 7%)", "Furniture & Service Fee (VAT 7% Excluded)")
+        };
+        furnitureTax.UpdateProfile(
+            chargeCategoryCode: "FURNITURE_RENTAL",
+            name: furnitureTax.Name,
+            taxMode: TaxMode.VatExcluded,
+            vatRatePercent: 7.00m,
+            defaultWithholdingTaxPercent: 5.00m,
+            isActive: true);
+
+        _taxProfiles[monthlyRentTax.Id] = monthlyRentTax;
+        _taxProfiles[shortStayTax.Id] = shortStayTax;
+        _taxProfiles[furnitureTax.Id] = furnitureTax;
     }
 }

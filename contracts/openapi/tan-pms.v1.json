@@ -132,6 +132,230 @@
         }
       }
     },
+    "/api/v1/admin/properties/{propertyId}/rates": {
+      "get": {
+        "operationId": "getAdminPropertyRateCatalog",
+        "tags": ["AdminRateMaster"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Property rate plans, hourly packages, utility tariffs, and Thai tax profiles",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PropertyRateCatalogResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rates/plans": {
+      "post": {
+        "operationId": "upsertAdminRatePlan",
+        "tags": ["AdminRateMaster"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpsertRatePlanRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rate plan created or updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RatePlanItemDto" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing admin.rates.manage or unauthorized propertyId",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rates/utilities": {
+      "put": {
+        "operationId": "upsertAdminUtilityTariff",
+        "tags": ["AdminRateMaster"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpsertUtilityTariffRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Utility tariff updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UtilityTariffItemDto" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing admin.rates.manage or unauthorized propertyId",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rates/taxes": {
+      "post": {
+        "operationId": "upsertAdminTaxProfile",
+        "tags": ["AdminRateMaster"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpsertTaxProfileRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tax profile created or updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TaxProfileItemDto" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing admin.rates.manage or unauthorized propertyId",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rates/simulate": {
+      "post": {
+        "operationId": "simulateAdminRateAndTax",
+        "tags": ["AdminRateMaster"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RateSimulationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Simulated quote for hourly stay, utility meters, and Thai line-level tax",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RateSimulationResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or unconfirmed meter rollover",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stays/check-in": {
       "post": {
         "operationId": "checkInStay",
@@ -820,6 +1044,228 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/UpsertUnitAssetItemDto" }
           }
+        }
+      },
+      "HourlyPackageConfigDto": {
+        "type": "object",
+        "required": ["basePackageHours", "basePackagePrice", "additionalHourPrice", "gracePeriodMinutes", "autoCapToDailyRate", "turnaroundBufferMinutes"],
+        "properties": {
+          "basePackageHours": { "type": "integer" },
+          "basePackagePrice": { "type": "number" },
+          "additionalHourPrice": { "type": "number" },
+          "gracePeriodMinutes": { "type": "integer" },
+          "autoCapToDailyRate": { "type": "number" },
+          "turnaroundBufferMinutes": { "type": "integer" }
+        }
+      },
+      "DailyRateConfigDto": {
+        "type": "object",
+        "required": ["weekdayRate", "weekendRate", "holidaySurchargeAmount", "extraGuestPrice"],
+        "properties": {
+          "weekdayRate": { "type": "number" },
+          "weekendRate": { "type": "number" },
+          "holidaySurchargeAmount": { "type": "number" },
+          "extraGuestPrice": { "type": "number" }
+        }
+      },
+      "MonthlyRateConfigDto": {
+        "type": "object",
+        "required": ["monthlyRentRate", "minimumLeaseMonths", "securityDepositMonths"],
+        "properties": {
+          "monthlyRentRate": { "type": "number" },
+          "minimumLeaseMonths": { "type": "integer" },
+          "securityDepositMonths": { "type": "integer" }
+        }
+      },
+      "RatePlanItemDto": {
+        "type": "object",
+        "required": ["id", "code", "name", "unitType", "supportedStayModes", "hourlyPackage", "dailyRate", "monthlyRate", "isActive"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "unitType": { "$ref": "#/components/schemas/UnitTypeRefDto" },
+          "supportedStayModes": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          "hourlyPackage": { "$ref": "#/components/schemas/HourlyPackageConfigDto" },
+          "dailyRate": { "$ref": "#/components/schemas/DailyRateConfigDto" },
+          "monthlyRate": { "$ref": "#/components/schemas/MonthlyRateConfigDto" },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "UpsertRatePlanRequest": {
+        "type": "object",
+        "required": ["code", "name", "unitTypeId", "supportedStayModes", "hourlyPackage", "dailyRate", "monthlyRate", "isActive"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "nullable": true },
+          "code": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "unitTypeId": { "type": "string", "format": "uuid" },
+          "supportedStayModes": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          "hourlyPackage": { "$ref": "#/components/schemas/HourlyPackageConfigDto" },
+          "dailyRate": { "$ref": "#/components/schemas/DailyRateConfigDto" },
+          "monthlyRate": { "$ref": "#/components/schemas/MonthlyRateConfigDto" },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "UtilityTariffItemDto": {
+        "type": "object",
+        "required": ["id", "utilityType", "name", "billingMode", "ratePerUnit", "minimumChargeAmount", "includedUnits", "baseMinimumAmount", "flatRateAmount", "flatRatePerOccupant", "meterMaxDigits"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "utilityType": { "type": "string", "enum": ["Water", "Electric"] },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "billingMode": { "type": "string", "enum": ["PerUnit", "MinimumUnits", "FlatRate"] },
+          "ratePerUnit": { "type": "number" },
+          "minimumChargeAmount": { "type": "number" },
+          "includedUnits": { "type": "number" },
+          "baseMinimumAmount": { "type": "number" },
+          "flatRateAmount": { "type": "number" },
+          "flatRatePerOccupant": { "type": "boolean" },
+          "meterMaxDigits": { "type": "integer" }
+        }
+      },
+      "UpsertUtilityTariffRequest": {
+        "type": "object",
+        "required": ["utilityType", "name", "billingMode", "ratePerUnit", "minimumChargeAmount", "includedUnits", "baseMinimumAmount", "flatRateAmount", "flatRatePerOccupant", "meterMaxDigits"],
+        "properties": {
+          "utilityType": { "type": "string", "enum": ["Water", "Electric"] },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "billingMode": { "type": "string", "enum": ["PerUnit", "MinimumUnits", "FlatRate"] },
+          "ratePerUnit": { "type": "number" },
+          "minimumChargeAmount": { "type": "number" },
+          "includedUnits": { "type": "number" },
+          "baseMinimumAmount": { "type": "number" },
+          "flatRateAmount": { "type": "number" },
+          "flatRatePerOccupant": { "type": "boolean" },
+          "meterMaxDigits": { "type": "integer" }
+        }
+      },
+      "TaxProfileItemDto": {
+        "type": "object",
+        "required": ["id", "chargeCategoryCode", "name", "taxMode", "vatRatePercent", "defaultWithholdingTaxPercent", "isActive"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "chargeCategoryCode": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "taxMode": { "type": "string", "enum": ["Exempt", "VatIncluded", "VatExcluded"] },
+          "vatRatePercent": { "type": "number" },
+          "defaultWithholdingTaxPercent": { "type": "number" },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "UpsertTaxProfileRequest": {
+        "type": "object",
+        "required": ["chargeCategoryCode", "name", "taxMode", "vatRatePercent", "defaultWithholdingTaxPercent", "isActive"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "nullable": true },
+          "chargeCategoryCode": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "taxMode": { "type": "string", "enum": ["Exempt", "VatIncluded", "VatExcluded"] },
+          "vatRatePercent": { "type": "number" },
+          "defaultWithholdingTaxPercent": { "type": "number" },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "PropertyRateCatalogResponse": {
+        "type": "object",
+        "required": ["property", "ratePlans", "utilityTariffs", "taxProfiles"],
+        "properties": {
+          "property": { "$ref": "#/components/schemas/PropertyRefDto" },
+          "ratePlans": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RatePlanItemDto" }
+          },
+          "utilityTariffs": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UtilityTariffItemDto" }
+          },
+          "taxProfiles": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TaxProfileItemDto" }
+          }
+        }
+      },
+      "RateSimulationRequest": {
+        "type": "object",
+        "required": [
+          "ratePlanId",
+          "durationMinutes",
+          "waterPreviousReading",
+          "waterCurrentReading",
+          "waterRolloverConfirmed",
+          "electricPreviousReading",
+          "electricCurrentReading",
+          "electricRolloverConfirmed",
+          "occupantCount",
+          "taxProfileId",
+          "sampleLineAmount",
+          "applyWithholdingTax"
+        ],
+        "properties": {
+          "ratePlanId": { "type": "string", "format": "uuid" },
+          "durationMinutes": { "type": "integer" },
+          "waterPreviousReading": { "type": "number" },
+          "waterCurrentReading": { "type": "number" },
+          "waterRolloverConfirmed": { "type": "boolean" },
+          "electricPreviousReading": { "type": "number" },
+          "electricCurrentReading": { "type": "number" },
+          "electricRolloverConfirmed": { "type": "boolean" },
+          "occupantCount": { "type": "integer" },
+          "taxProfileId": { "type": "string", "format": "uuid" },
+          "sampleLineAmount": { "type": "number" },
+          "applyWithholdingTax": { "type": "boolean" }
+        }
+      },
+      "HourlySimulationQuoteDto": {
+        "type": "object",
+        "required": ["durationMinutes", "extraHours", "rawCharge", "finalHourlyRoomCharge", "isCappedToDailyRate", "turnaroundBufferMinutes"],
+        "properties": {
+          "durationMinutes": { "type": "integer" },
+          "extraHours": { "type": "integer" },
+          "rawCharge": { "type": "number" },
+          "finalHourlyRoomCharge": { "type": "number" },
+          "isCappedToDailyRate": { "type": "boolean" },
+          "turnaroundBufferMinutes": { "type": "integer" }
+        }
+      },
+      "UtilitySimulationQuoteDto": {
+        "type": "object",
+        "required": ["utilityType", "usageUnits", "chargeAmount", "usedRollover"],
+        "properties": {
+          "utilityType": { "type": "string", "enum": ["Water", "Electric"] },
+          "usageUnits": { "type": "number" },
+          "chargeAmount": { "type": "number" },
+          "usedRollover": { "type": "boolean" }
+        }
+      },
+      "TaxSimulationQuoteDto": {
+        "type": "object",
+        "required": ["taxMode", "vatRatePercent", "subTotal", "vatAmount", "invoiceTotal", "withholdingTaxPercent", "withholdingTaxAmount", "netPayable"],
+        "properties": {
+          "taxMode": { "type": "string", "enum": ["Exempt", "VatIncluded", "VatExcluded"] },
+          "vatRatePercent": { "type": "number" },
+          "subTotal": { "type": "number" },
+          "vatAmount": { "type": "number" },
+          "invoiceTotal": { "type": "number" },
+          "withholdingTaxPercent": { "type": "number" },
+          "withholdingTaxAmount": { "type": "number" },
+          "netPayable": { "type": "number" }
+        }
+      },
+      "RateSimulationResponse": {
+        "type": "object",
+        "required": ["hourlyQuote", "waterQuote", "electricQuote", "taxQuote"],
+        "properties": {
+          "hourlyQuote": { "$ref": "#/components/schemas/HourlySimulationQuoteDto" },
+          "waterQuote": { "$ref": "#/components/schemas/UtilitySimulationQuoteDto" },
+          "electricQuote": { "$ref": "#/components/schemas/UtilitySimulationQuoteDto" },
+          "taxQuote": { "$ref": "#/components/schemas/TaxSimulationQuoteDto" }
         }
       }
     }

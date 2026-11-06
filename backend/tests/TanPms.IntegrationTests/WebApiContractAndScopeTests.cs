@@ -8,6 +8,7 @@ using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
+using TanPms.Application.Rates;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
 using TanPms.Domain.Identity;
@@ -352,5 +353,135 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         Assert.Equal(2, unit.Assets.Count);
         Assert.Equal("AST-A108-01", unit.Assets[0].AssetCode);
         Assert.Equal("Clean", unit.ConditionStatus);
+    }
+
+    [Fact]
+    public async Task Admin_Rates_Catalog_Upserts_And_Simulation_Should_Enforce_Permissions_And_Domain_Rules()
+    {
+        using var readOnlyClient = _factory.CreateClient();
+        readOnlyClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        readOnlyClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminPropertiesRead);
+        readOnlyClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+
+        var forbiddenPropRes = await readOnlyClient.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/rates");
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenPropRes.StatusCode);
+
+        var catalogRes = await readOnlyClient.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates");
+        Assert.Equal(HttpStatusCode.OK, catalogRes.StatusCode);
+        var catalog = await catalogRes.Content.ReadFromJsonAsync<PropertyRateCatalogResponse>();
+        Assert.NotNull(catalog);
+        Assert.Equal("BKK01", catalog.Property.Code);
+        Assert.NotEmpty(catalog.RatePlans);
+        Assert.Equal(2, catalog.UtilityTariffs.Count);
+        Assert.NotEmpty(catalog.TaxProfiles);
+
+        var deniedPlanReq = new UpsertRatePlanRequest(
+            Id: null,
+            Code: "RP-CORP-2026",
+            Name: new LocalizedTextDto("เรตลูกค้าองค์กร", "Corporate Rate Plan"),
+            UnitTypeId: PmsSeedConstants.DeluxeUnitTypeId,
+            SupportedStayModes: ["Daily", "Monthly"],
+            HourlyPackage: new HourlyPackageConfigDto(3, 650m, 180m, 15, 1450m, 30),
+            DailyRate: new DailyRateConfigDto(1450m, 1650m, 300m, 350m),
+            MonthlyRate: new MonthlyRateConfigDto(9000m, 12, 2),
+            IsActive: true);
+
+        var deniedWriteRes = await readOnlyClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/plans",
+            deniedPlanReq);
+        Assert.Equal(HttpStatusCode.Forbidden, deniedWriteRes.StatusCode);
+
+        using var rateAdminClient = _factory.CreateClient();
+        rateAdminClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        rateAdminClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminRatesManage);
+        rateAdminClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+
+        var upsertPlanRes = await rateAdminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/plans",
+            deniedPlanReq);
+        Assert.Equal(HttpStatusCode.OK, upsertPlanRes.StatusCode);
+        var createdPlan = await upsertPlanRes.Content.ReadFromJsonAsync<RatePlanItemDto>();
+        Assert.NotNull(createdPlan);
+        Assert.Equal("RP-CORP-2026", createdPlan.Code);
+
+        var updateElectricReq = new UpsertUtilityTariffRequest(
+            UtilityType: "Electric",
+            Name: new LocalizedTextDto("ค่าไฟฟ้าเรตใหม่", "Updated Electricity Tariff"),
+            BillingMode: "PerUnit",
+            RatePerUnit: 8.50m,
+            MinimumChargeAmount: 120.00m,
+            IncludedUnits: 0.00m,
+            BaseMinimumAmount: 0.00m,
+            FlatRateAmount: 0.00m,
+            FlatRatePerOccupant: false,
+            MeterMaxDigits: 4);
+
+        var tariffRes = await rateAdminClient.PutAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/utilities",
+            updateElectricReq);
+        Assert.Equal(HttpStatusCode.OK, tariffRes.StatusCode);
+        var updatedTariff = await tariffRes.Content.ReadFromJsonAsync<UtilityTariffItemDto>();
+        Assert.NotNull(updatedTariff);
+        Assert.Equal(8.50m, updatedTariff.RatePerUnit);
+
+        var invalidExemptTaxReq = new UpsertTaxProfileRequest(
+            Id: null,
+            ChargeCategoryCode: "INVALID_EXEMPT",
+            Name: new LocalizedTextDto("ผิดกฎภาษี", "Invalid Tax"),
+            TaxMode: "Exempt",
+            VatRatePercent: 7.00m,
+            DefaultWithholdingTaxPercent: 0.00m,
+            IsActive: true);
+
+        var invalidTaxRes = await rateAdminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/taxes",
+            invalidExemptTaxReq);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidTaxRes.StatusCode);
+
+        var validServiceTaxReq = new UpsertTaxProfileRequest(
+            Id: null,
+            ChargeCategoryCode: "LAUNDRY_SERVICE",
+            Name: new LocalizedTextDto("ค่าบริการซักรีด", "Laundry Service"),
+            TaxMode: "VatIncluded",
+            VatRatePercent: 7.00m,
+            DefaultWithholdingTaxPercent: 3.00m,
+            IsActive: true);
+
+        var validTaxRes = await rateAdminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/taxes",
+            validServiceTaxReq);
+        Assert.Equal(HttpStatusCode.OK, validTaxRes.StatusCode);
+        var createdTax = await validTaxRes.Content.ReadFromJsonAsync<TaxProfileItemDto>();
+        Assert.NotNull(createdTax);
+        Assert.Equal("LAUNDRY_SERVICE", createdTax.ChargeCategoryCode);
+
+        var simReq = new RateSimulationRequest(
+            RatePlanId: createdPlan.Id,
+            DurationMinutes: 256,
+            WaterPreviousReading: 100m,
+            WaterCurrentReading: 110m,
+            WaterRolloverConfirmed: false,
+            ElectricPreviousReading: 500m,
+            ElectricCurrentReading: 520m,
+            ElectricRolloverConfirmed: false,
+            OccupantCount: 2,
+            TaxProfileId: createdTax.Id,
+            SampleLineAmount: 1070.00m,
+            ApplyWithholdingTax: true);
+
+        var simRes = await rateAdminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/simulate",
+            simReq);
+        Assert.Equal(HttpStatusCode.OK, simRes.StatusCode);
+        var quote = await simRes.Content.ReadFromJsonAsync<RateSimulationResponse>();
+        Assert.NotNull(quote);
+        Assert.Equal(2, quote.HourlyQuote.ExtraHours);
+        Assert.Equal(1010.00m, quote.HourlyQuote.FinalHourlyRoomCharge); // 650 + 2 * 180 = 1010
+        Assert.Equal(190.00m, quote.WaterQuote.ChargeAmount); // 100 (first 5) + 5 * 18 = 190
+        Assert.Equal(170.00m, quote.ElectricQuote.ChargeAmount); // 20 * 8.50 = 170
+        Assert.Equal(1000.00m, quote.TaxQuote.SubTotal);
+        Assert.Equal(70.00m, quote.TaxQuote.VatAmount);
+        Assert.Equal(30.00m, quote.TaxQuote.WithholdingTaxAmount); // 3% of 1000
+        Assert.Equal(1040.00m, quote.TaxQuote.NetPayable);
     }
 }

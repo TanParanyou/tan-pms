@@ -4,6 +4,7 @@ using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
+using TanPms.Application.Rates;
 using TanPms.Application.Stays;
 using TanPms.Infrastructure.Persistence;
 using TanPms.Infrastructure.Services;
@@ -32,6 +33,11 @@ builder.Services.AddScoped<DispatchAdminNotificationHandler>();
 builder.Services.AddScoped<GetClientNotificationsHandler>();
 builder.Services.AddScoped<GetAdminPropertyHierarchyHandler>();
 builder.Services.AddScoped<UpsertAdminUnitMasterHandler>();
+builder.Services.AddScoped<GetAdminPropertyRateCatalogHandler>();
+builder.Services.AddScoped<UpsertAdminRatePlanHandler>();
+builder.Services.AddScoped<UpsertAdminUtilityTariffHandler>();
+builder.Services.AddScoped<UpsertAdminTaxProfileHandler>();
+builder.Services.AddScoped<SimulateAdminRateAndTaxHandler>();
 builder.Services.AddScoped<GetAdminRoomRackHandler>();
 builder.Services.AddScoped<CheckInStayHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
@@ -151,6 +157,65 @@ adminGroup.MapPost("/properties/{propertyId:guid}/units", (
     HttpContext httpContext) =>
 {
     var result = handler.Handle(new UpsertAdminUnitMasterCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/rates", (
+    Guid propertyId,
+    GetAdminPropertyRateCatalogHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminPropertyRateCatalogQuery(propertyId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/rates/plans", (
+    Guid propertyId,
+    UpsertRatePlanRequest request,
+    UpsertAdminRatePlanHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminRatePlanCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/rates/utilities", (
+    Guid propertyId,
+    UpsertUtilityTariffRequest request,
+    UpsertAdminUtilityTariffHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminUtilityTariffCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/rates/taxes", (
+    Guid propertyId,
+    UpsertTaxProfileRequest request,
+    UpsertAdminTaxProfileHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminTaxProfileCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/rates/simulate", (
+    Guid propertyId,
+    RateSimulationRequest request,
+    SimulateAdminRateAndTaxHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new SimulateAdminRateAndTaxCommand(propertyId, request));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

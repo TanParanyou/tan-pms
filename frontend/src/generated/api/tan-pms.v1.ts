@@ -84,6 +84,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/properties/{propertyId}/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminPropertyRateCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/rates/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upsertAdminRatePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/rates/utilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["upsertAdminUtilityTariff"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/rates/taxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upsertAdminTaxProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/rates/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["simulateAdminRateAndTax"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stays/check-in": {
         parameters: {
             query?: never;
@@ -510,6 +590,156 @@ export interface components {
             conditionStatus: "Clean" | "Dirty" | "Cleaning" | "Inspecting" | "OutOfOrder";
             assets: components["schemas"]["UpsertUnitAssetItemDto"][];
         };
+        HourlyPackageConfigDto: {
+            basePackageHours: number;
+            basePackagePrice: number;
+            additionalHourPrice: number;
+            gracePeriodMinutes: number;
+            autoCapToDailyRate: number;
+            turnaroundBufferMinutes: number;
+        };
+        DailyRateConfigDto: {
+            weekdayRate: number;
+            weekendRate: number;
+            holidaySurchargeAmount: number;
+            extraGuestPrice: number;
+        };
+        MonthlyRateConfigDto: {
+            monthlyRentRate: number;
+            minimumLeaseMonths: number;
+            securityDepositMonths: number;
+        };
+        RatePlanItemDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            unitType: components["schemas"]["UnitTypeRefDto"];
+            supportedStayModes: ("Hourly" | "Daily" | "Monthly")[];
+            hourlyPackage: components["schemas"]["HourlyPackageConfigDto"];
+            dailyRate: components["schemas"]["DailyRateConfigDto"];
+            monthlyRate: components["schemas"]["MonthlyRateConfigDto"];
+            isActive: boolean;
+        };
+        UpsertRatePlanRequest: {
+            /** Format: uuid */
+            id?: string | null;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            /** Format: uuid */
+            unitTypeId: string;
+            supportedStayModes: ("Hourly" | "Daily" | "Monthly")[];
+            hourlyPackage: components["schemas"]["HourlyPackageConfigDto"];
+            dailyRate: components["schemas"]["DailyRateConfigDto"];
+            monthlyRate: components["schemas"]["MonthlyRateConfigDto"];
+            isActive: boolean;
+        };
+        UtilityTariffItemDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            utilityType: "Water" | "Electric";
+            name: components["schemas"]["LocalizedTextDto"];
+            /** @enum {string} */
+            billingMode: "PerUnit" | "MinimumUnits" | "FlatRate";
+            ratePerUnit: number;
+            minimumChargeAmount: number;
+            includedUnits: number;
+            baseMinimumAmount: number;
+            flatRateAmount: number;
+            flatRatePerOccupant: boolean;
+            meterMaxDigits: number;
+        };
+        UpsertUtilityTariffRequest: {
+            /** @enum {string} */
+            utilityType: "Water" | "Electric";
+            name: components["schemas"]["LocalizedTextDto"];
+            /** @enum {string} */
+            billingMode: "PerUnit" | "MinimumUnits" | "FlatRate";
+            ratePerUnit: number;
+            minimumChargeAmount: number;
+            includedUnits: number;
+            baseMinimumAmount: number;
+            flatRateAmount: number;
+            flatRatePerOccupant: boolean;
+            meterMaxDigits: number;
+        };
+        TaxProfileItemDto: {
+            /** Format: uuid */
+            id: string;
+            chargeCategoryCode: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            /** @enum {string} */
+            taxMode: "Exempt" | "VatIncluded" | "VatExcluded";
+            vatRatePercent: number;
+            defaultWithholdingTaxPercent: number;
+            isActive: boolean;
+        };
+        UpsertTaxProfileRequest: {
+            /** Format: uuid */
+            id?: string | null;
+            chargeCategoryCode: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            /** @enum {string} */
+            taxMode: "Exempt" | "VatIncluded" | "VatExcluded";
+            vatRatePercent: number;
+            defaultWithholdingTaxPercent: number;
+            isActive: boolean;
+        };
+        PropertyRateCatalogResponse: {
+            property: components["schemas"]["PropertyRefDto"];
+            ratePlans: components["schemas"]["RatePlanItemDto"][];
+            utilityTariffs: components["schemas"]["UtilityTariffItemDto"][];
+            taxProfiles: components["schemas"]["TaxProfileItemDto"][];
+        };
+        RateSimulationRequest: {
+            /** Format: uuid */
+            ratePlanId: string;
+            durationMinutes: number;
+            waterPreviousReading: number;
+            waterCurrentReading: number;
+            waterRolloverConfirmed: boolean;
+            electricPreviousReading: number;
+            electricCurrentReading: number;
+            electricRolloverConfirmed: boolean;
+            occupantCount: number;
+            /** Format: uuid */
+            taxProfileId: string;
+            sampleLineAmount: number;
+            applyWithholdingTax: boolean;
+        };
+        HourlySimulationQuoteDto: {
+            durationMinutes: number;
+            extraHours: number;
+            rawCharge: number;
+            finalHourlyRoomCharge: number;
+            isCappedToDailyRate: boolean;
+            turnaroundBufferMinutes: number;
+        };
+        UtilitySimulationQuoteDto: {
+            /** @enum {string} */
+            utilityType: "Water" | "Electric";
+            usageUnits: number;
+            chargeAmount: number;
+            usedRollover: boolean;
+        };
+        TaxSimulationQuoteDto: {
+            /** @enum {string} */
+            taxMode: "Exempt" | "VatIncluded" | "VatExcluded";
+            vatRatePercent: number;
+            subTotal: number;
+            vatAmount: number;
+            invoiceTotal: number;
+            withholdingTaxPercent: number;
+            withholdingTaxAmount: number;
+            netPayable: number;
+        };
+        RateSimulationResponse: {
+            hourlyQuote: components["schemas"]["HourlySimulationQuoteDto"];
+            waterQuote: components["schemas"]["UtilitySimulationQuoteDto"];
+            electricQuote: components["schemas"]["UtilitySimulationQuoteDto"];
+            taxQuote: components["schemas"]["TaxSimulationQuoteDto"];
+        };
     };
     responses: never;
     parameters: never;
@@ -642,6 +872,213 @@ export interface operations {
                 };
             };
             /** @description Missing admin.properties.manage or unauthorized propertyId */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminPropertyRateCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Property rate plans, hourly packages, utility tariffs, and Thai tax profiles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyRateCatalogResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminRatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertRatePlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Rate plan created or updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatePlanItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Missing admin.rates.manage or unauthorized propertyId */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminUtilityTariff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertUtilityTariffRequest"];
+            };
+        };
+        responses: {
+            /** @description Utility tariff updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UtilityTariffItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Missing admin.rates.manage or unauthorized propertyId */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminTaxProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertTaxProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Tax profile created or updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxProfileItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Missing admin.rates.manage or unauthorized propertyId */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    simulateAdminRateAndTax: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateSimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description Simulated quote for hourly stay, utility meters, and Thai line-level tax */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateSimulationResponse"];
+                };
+            };
+            /** @description Validation failed or unconfirmed meter rollover */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
             403: {
                 headers: {
                     [name: string]: unknown;

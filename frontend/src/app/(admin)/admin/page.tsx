@@ -10,6 +10,7 @@ import { QuickWalkInModal } from "@/features/rack/components/QuickWalkInModal";
 import { BulkMeterReadingSection } from "@/features/meters/components/BulkMeterReadingSection";
 import { AdminRbacUsersSection } from "@/features/users/components/AdminRbacUsersSection";
 import { UnitMasterSection } from "@/features/properties/components/UnitMasterSection";
+import { RateTariffTaxSection } from "@/features/rates/components/RateTariffTaxSection";
 import { useAppLocale } from "@/components/shared/locale-provider";
 import { useTranslations } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
@@ -123,6 +124,9 @@ export default function AdminPage() {
 
         {/* Property, Building, Floor, UnitType & Unit Master (PM-02) */}
         <UnitMasterSection />
+
+        {/* Rate Plans, Hourly Packages, Utility Tariffs & Thai Tax Rules (PM-03) */}
+        <RateTariffTaxSection />
 
         {/* Quick Walk-In & Check-in Modal */}
         <QuickWalkInModal

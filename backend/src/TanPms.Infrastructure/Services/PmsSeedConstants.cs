@@ -17,4 +17,14 @@ public static class PmsSeedConstants
 
     public static readonly Guid PrimaryCustomerId = Guid.Parse("44444444-4444-4444-4444-444444444401");
     public static readonly Guid SecondaryCustomerId = Guid.Parse("44444444-4444-4444-4444-444444444402");
+
+    public static readonly Guid StandardRatePlanId = Guid.Parse("55555555-5555-5555-5555-555555555501");
+    public static readonly Guid DeluxeRatePlanId = Guid.Parse("55555555-5555-5555-5555-555555555502");
+
+    public static readonly Guid BkkWaterTariffId = Guid.Parse("66666666-6666-6666-6666-666666666601");
+    public static readonly Guid BkkElectricTariffId = Guid.Parse("66666666-6666-6666-6666-666666666602");
+
+    public static readonly Guid MonthlyRentExemptTaxProfileId = Guid.Parse("77777777-7777-7777-7777-777777777701");
+    public static readonly Guid ShortStayVatIncludedTaxProfileId = Guid.Parse("77777777-7777-7777-7777-777777777702");
+    public static readonly Guid FurnitureVatExcludedTaxProfileId = Guid.Parse("77777777-7777-7777-7777-777777777703");
 }

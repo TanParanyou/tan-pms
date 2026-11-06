@@ -12,6 +12,7 @@ using TanPms.Domain.Meters;
 using TanPms.Domain.Notifications;
 using TanPms.Domain.Operations;
 using TanPms.Domain.Properties;
+using TanPms.Domain.Rates;
 using TanPms.Domain.Reservations;
 using TanPms.Domain.Stays;
 
@@ -30,6 +31,9 @@ public sealed class TanPmsDbContext : DbContext
     public DbSet<UnitType> UnitTypes => Set<UnitType>();
     public DbSet<Unit> Units => Set<Unit>();
     public DbSet<UnitAsset> UnitAssets => Set<UnitAsset>();
+    public DbSet<RatePlan> RatePlans => Set<RatePlan>();
+    public DbSet<PropertyUtilityTariff> PropertyUtilityTariffs => Set<PropertyUtilityTariff>();
+    public DbSet<TaxProfile> TaxProfiles => Set<TaxProfile>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Occupant> Occupants => Set<Occupant>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
