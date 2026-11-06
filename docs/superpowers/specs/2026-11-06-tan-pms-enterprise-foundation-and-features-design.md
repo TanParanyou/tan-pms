@@ -123,7 +123,7 @@
 tan-pms/
 ├── AGENTS.md                        # กฎเหล็กสำหรับคนและ AI Agent (ยึดตาม tan-erp + PMS rules)
 ├── CONTEXT.md                       # พจนานุกรมคำศัพท์ธุรกิจ (Ubiquitous Language) & State Machine
-├── design.md                        # มาตรฐาน UI/UX, Design Tokens (Atelier Architectural Navy Sharp)
+├── design.md                        # มาตรฐาน UI/UX, Design Tokens (Ollama Minimal Design System & shadcn/ui)
 ├── Makefile                         # คำสั่งมาตรฐาน (build, test, lint, verify, migrate)
 ├── .github/workflows/               # CI/CD Gates
 ├── .agents/skills/                  # Skills เฉพาะโปรเจกต์ (building-pms-forms, building-pms-lists, pms-numbering)
@@ -133,13 +133,13 @@ tan-pms/
 ├── docs/
 │   ├── README.md                    # แผนที่เอกสารทั้งหมด แยกตามบทบาทผู้อ่าน
 │   ├── 00-overview/                 # product-vision.md, scope-and-non-goals.md, implementation-roadmap.md
-│   ├── 01-business/                 # Flows, Rate/Meter/Tax Calculation Rules, Field Catalogs, Wireframes
+│   ├── 01-business/                 # stay-and-lease-flows.md, pricing-meter-and-tax-rules.md
 │   ├── 02-architecture/             # system-context.md, module-boundaries.md, backend-architecture.md, frontend-architecture.md
-│   ├── 03-contracts/                # api-conventions.md, error-contract.md, rbac.md, permission-catalog.md, <slice>-api-contract.md
-│   ├── 04-data/                     # conceptual-data-model.md, database-standards.md, availability-locking-policy.md, audit-redaction.md
-│   ├── 05-engineering/              # testing-strategy.md, development-ready-gate.md, definition-of-done.md, <slice>-uat-scenarios.md
-│   ├── 06-operations/               # environments.md, observability.md, backup-and-restore.md, release-readiness.md
-│   ├── adr/                         # 0001-clean-architecture-foundation.md, 0002-hybrid-availability-engine.md, ฯลฯ
+│   ├── 03-contracts/                # api-conventions.md, error-contract.md, rbac-and-scopes.md, permission-catalog.md
+│   ├── 04-data/                     # conceptual-data-model.md, database-and-locking-standards.md, pdpa-and-audit-redaction.md
+│   ├── 05-engineering/              # testing-strategy.md, development-ready-gate.md, definition-of-done.md
+│   ├── 06-operations/               # environments-and-secrets.md, observability-and-health.md, backup-restore-and-release.md
+│   ├── adr/                         # 0001-clean-architecture-and-stack.md, 0002-hybrid-availability-and-ttl-hold.md, 0003-ollama-design-system-and-shadcn.md
 │   └── superpowers/
 │       ├── specs/                   # เอกสารออกแบบ (Design Specs)
 │       └── plans/                   # แผนการพัฒนา (Implementation Plans)

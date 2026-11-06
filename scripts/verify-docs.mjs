@@ -9,10 +9,30 @@ const throughTask2 = args.has('--through-task-2');
 
 const errors = [];
 
+function existsCaseSensitive(absTargetPath) {
+  if (!fs.existsSync(absTargetPath)) {
+    return false;
+  }
+  const rel = path.relative(rootDir, absTargetPath);
+  if (!rel || rel.startsWith('..')) {
+    return fs.existsSync(absTargetPath);
+  }
+  const segments = rel.split(path.sep);
+  let currentDir = rootDir;
+  for (const seg of segments) {
+    const entries = fs.readdirSync(currentDir);
+    if (!entries.includes(seg)) {
+      return false;
+    }
+    currentDir = path.join(currentDir, seg);
+  }
+  return true;
+}
+
 function checkFileExists(relPath) {
   const fullPath = path.join(rootDir, relPath);
-  if (!fs.existsSync(fullPath)) {
-    errors.push(`Missing required file: ${relPath}`);
+  if (!existsCaseSensitive(fullPath)) {
+    errors.push(`Missing required file (or case mismatch on case-sensitive OS): ${relPath}`);
     return null;
   }
   return fs.readFileSync(fullPath, 'utf8');
@@ -74,14 +94,16 @@ function verifyRelativeMarkdownLinks(relFilePath, content, allowFutureTaskLinks 
       continue;
     }
 
-    if (!fs.existsSync(resolvedPath)) {
-      errors.push(`Broken relative link in ${relFilePath}: "${rawHref}" -> ${relTarget} does not exist`);
+    if (!existsCaseSensitive(resolvedPath)) {
+      errors.push(
+        `Broken or case-mismatched relative link in ${relFilePath}: "${rawHref}" -> ${relTarget} does not exist with exact casing`
+      );
     }
   }
 }
 
-// 1. Check Root Governance Files
-const requiredFiles = ['AGENTS.md', 'CONTEXT.md', 'design.md', 'DESIGN.md', 'PRODUCT.md'];
+// 1. Check Root Governance Files (case-exact: design.md)
+const requiredFiles = ['AGENTS.md', 'CONTEXT.md', 'design.md', 'PRODUCT.md'];
 
 const task2Files = [
   'docs/00-overview/product-vision.md',
@@ -249,5 +271,5 @@ if (errors.length > 0) {
   }
   process.exit(1);
 } else {
-  console.log(`✅ Documentation verification PASSED (${fileContents.size} file(s) checked).`);
+  console.log(`✅ Documentation verification PASSED (${fileContents.size} file(s) checked, case-sensitive verified).`);
 }
