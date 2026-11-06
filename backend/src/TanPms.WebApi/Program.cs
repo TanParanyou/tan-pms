@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using TanPms.Application.ClientPortal;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Rack;
@@ -12,6 +13,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
 builder.Services.AddScoped<AuditableEntityInterceptor>();
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    builder.Services.AddDbContext<TanPmsDbContext>((sp, options) =>
+    {
+        options.UseNpgsql(connectionString);
+        options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
+    });
+}
 
 var operationalService = new InMemoryOperationalService();
 builder.Services.AddSingleton(operationalService);

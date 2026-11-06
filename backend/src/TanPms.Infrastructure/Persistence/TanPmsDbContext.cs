@@ -30,6 +30,19 @@ public sealed class TanPmsDbContext : DbContext
     {
     }
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        configurationBuilder.Properties<LocalizedText>()
+            .HaveConversion<LocalizedTextValueConverter>()
+            .HaveColumnType("jsonb");
+
+        configurationBuilder.Properties<LocalizedText?>()
+            .HaveConversion<OptionalLocalizedTextValueConverter>()
+            .HaveColumnType("jsonb");
+    }
+
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Building> Buildings => Set<Building>();
     public DbSet<Floor> Floors => Set<Floor>();

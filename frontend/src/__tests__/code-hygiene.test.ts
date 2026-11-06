@@ -166,4 +166,13 @@ describe("Frontend Code Hygiene & Standards Enforcement", () => {
 
     expect(violations).toEqual([]);
   });
+
+  it("enforces Zero Arbitrary Hex Color Classes in preview.html", () => {
+    const previewPath = path.resolve(__dirname, "../../../preview.html");
+    if (!fs.existsSync(previewPath)) return;
+    const content = fs.readFileSync(previewPath, "utf-8");
+    const hexClassRegex = /(text|bg|border|ring|divide)-\[#[0-9a-fA-F]{3,8}\]/g;
+    const matches = content.match(hexClassRegex);
+    expect(matches).toBeNull();
+  });
 });
