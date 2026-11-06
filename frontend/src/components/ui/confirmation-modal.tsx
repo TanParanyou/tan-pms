@@ -1,7 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "./button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./alert-dialog";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -32,78 +41,39 @@ export function ConfirmationModal({
 }: ConfirmationModalProps) {
   const t = useTranslations("common");
 
-  if (!isOpen) return null;
-
   const resolvedTitle = title || t("dialog.confirmTitle");
   const resolvedConfirmText = confirmText || t("confirm");
   const resolvedCancelText = cancelText || t("cancel");
 
-  const variantButtonStyles: Record<ConfirmationVariant, "destructive" | "default"> = {
-    danger: "destructive",
-    warning: "default",
-    info: "default",
-    success: "default",
-  };
+  const isDestructive = variant === "danger";
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirmation-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-    >
-      <div className="relative w-full max-w-md rounded-[12px] border border-hairline bg-canvas p-6 shadow-xl">
-        <div className="flex items-center justify-between pb-3 border-b border-hairline">
-          <h3
-            id="confirmation-modal-title"
-            className="text-base font-semibold font-rounded text-ink"
-          >
-            {resolvedTitle}
-          </h3>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            disabled={isLoading}
-            title={t("close")}
-            aria-label={t("close")}
-            className="h-8 w-8 rounded-full text-body hover:text-ink"
-          >
-            ✕
-          </Button>
-        </div>
-
-        <div className="py-4 text-sm text-charcoal leading-relaxed">
-          {message}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-hairline">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            disabled={isLoading}
-            className="rounded-full px-5 text-xs"
-          >
+    <AlertDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{resolvedTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{message}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading} onClick={onClose}>
             {resolvedCancelText}
-          </Button>
-          <Button
-            type="button"
-            variant={variantButtonStyles[variant]}
-            size="sm"
-            onClick={onConfirm}
+          </AlertDialogCancel>
+          <AlertDialogAction
             disabled={isLoading}
+            onClick={(e) => {
+              e.preventDefault();
+              void onConfirm();
+            }}
             className={cn(
-              "rounded-full px-5 text-xs font-medium",
-              isLoading && "opacity-70 cursor-not-allowed"
+              isDestructive
+                ? "bg-destructive text-canvas hover:bg-destructive/90"
+                : "bg-ink text-canvas hover:bg-ink-deep"
             )}
           >
             {isLoading ? t("loading") : resolvedConfirmText}
-          </Button>
-        </div>
-      </div>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

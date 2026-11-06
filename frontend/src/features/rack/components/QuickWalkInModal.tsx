@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectPill } from "@/components/ui/select-pill";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
 import { DeferredFilePicker } from "@/components/ui/deferred-file-picker";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
@@ -341,35 +342,13 @@ export function QuickWalkInModal({
 
   return (
     <>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="quick-walk-in-title"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-      >
-        <div className="relative w-full max-w-xl rounded-[12px] border border-hairline bg-canvas p-6 shadow-xl">
-          <div className="flex items-center justify-between pb-4 border-b border-hairline">
-            <h3
-              id="quick-walk-in-title"
-              className="text-lg font-semibold font-rounded text-ink"
-            >
-              {tModal("title")}
-            </h3>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              disabled={isSubmitting}
-              title={tCommon("close")}
-              aria-label={tCommon("close")}
-              className="h-8 w-8 rounded-full text-body hover:text-ink"
-            >
-              ✕
-            </Button>
-          </div>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{tModal("title")}</DialogTitle>
+          </DialogHeader>
 
-          <div className="py-4">
+          <div className="py-2">
             <FormTabs
               tabs={tabs}
               value={activeTab}
@@ -399,8 +378,8 @@ export function QuickWalkInModal({
               {isSubmitting || isUploading ? tCommon("loading") : tModal("completeCheckIn")} →
             </Button>
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Safety Confirmation Modal for Dirty Unit Override */}
       <ConfirmationModal
