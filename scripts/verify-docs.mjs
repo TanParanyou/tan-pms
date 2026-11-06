@@ -98,11 +98,27 @@ const task2Files = [
   'docs/adr/0003-ollama-design-system-and-shadcn.md',
 ];
 
+const task3DocsFiles = [
+  'docs/03-contracts/api-conventions.md',
+  'docs/03-contracts/error-contract.md',
+  'docs/03-contracts/rbac-and-scopes.md',
+  'docs/03-contracts/permission-catalog.md',
+  'docs/04-data/conceptual-data-model.md',
+  'docs/04-data/database-and-locking-standards.md',
+  'docs/04-data/pdpa-and-audit-redaction.md',
+  'docs/05-engineering/testing-strategy.md',
+  'docs/05-engineering/development-ready-gate.md',
+  'docs/05-engineering/definition-of-done.md',
+  'docs/06-operations/environments-and-secrets.md',
+  'docs/06-operations/observability-and-health.md',
+  'docs/06-operations/backup-restore-and-release.md',
+];
+
 if (!rootOnly) {
   requiredFiles.push(...task2Files);
 }
 if (!rootOnly && !throughTask2) {
-  requiredFiles.push('docs/README.md');
+  requiredFiles.push(...task3DocsFiles, 'docs/README.md', 'README.md');
 }
 
 const fileContents = new Map();
@@ -182,7 +198,46 @@ if (!rootOnly) {
   }
 }
 
-// 5. Verify relative links in checked files
+// 5. Verify Task 3 files content & Orphan Docs check in docs/README.md
+if (!rootOnly && !throughTask2) {
+  checkContainsAll(
+    'docs/03-contracts/error-contract.md',
+    fileContents.get('docs/03-contracts/error-contract.md'),
+    ['RFC 9457', 'unit.not_clean', 'reservation.slot_overlap', 'reservation.hold_expired', 'shift.not_open', 'meter.rollover_unconfirmed'],
+    'error contract token'
+  );
+  checkContainsAll(
+    'docs/03-contracts/rbac-and-scopes.md',
+    fileContents.get('docs/03-contracts/rbac-and-scopes.md'),
+    ['AdminScope', 'ClientScope', 'AllowedPropertyIds', 'CustomerId'],
+    'RBAC scope token'
+  );
+  checkContainsAll(
+    'docs/04-data/database-and-locking-standards.md',
+    fileContents.get('docs/04-data/database-and-locking-standards.md'),
+    ['tstzrange', 'EXCLUDE USING gist', 'DocumentSequence'],
+    'database locking standard'
+  );
+  checkContainsAll(
+    'docs/04-data/pdpa-and-audit-redaction.md',
+    fileContents.get('docs/04-data/pdpa-and-audit-redaction.md'),
+    ['admin.customer.unmask_pii', '1-xxxx-xxxxx-12-3', 'AuditEvent'],
+    'PDPA/Audit rule'
+  );
+
+  // Verify docs/README.md links to every doc in task2Files + task3DocsFiles (no orphan docs)
+  const docsReadmeContent = fileContents.get('docs/README.md');
+  if (docsReadmeContent) {
+    for (const docPath of [...task2Files, ...task3DocsFiles]) {
+      const relFromDocsDir = docPath.replace(/^docs\//, '');
+      if (!docsReadmeContent.includes(relFromDocsDir)) {
+        errors.push(`Orphan doc not indexed in docs/README.md: "${docPath}" (expected link to "${relFromDocsDir}")`);
+      }
+    }
+  }
+}
+
+// 6. Verify relative links in checked files
 for (const [file, content] of fileContents.entries()) {
   verifyRelativeMarkdownLinks(file, content, throughTask2);
 }
