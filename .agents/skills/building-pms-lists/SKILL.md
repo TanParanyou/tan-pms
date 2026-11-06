@@ -13,7 +13,7 @@ description: คู่มือและมาตรฐานการสร้�
    - ต้องคง `<DataTable />` และ `<thead>` ไว้บนหน้าจอเสมอ แล้วแสดงสถานะ Loading / Error Banner / Empty Filter ภายใน `<tbody>`
    - เฉพาะกรณีที่ยังไม่มีข้อมูลในระบบเลยตั้งแต่เริ่มต้น (`isZeroEntities === true` โดยไม่มีการค้นหาหรือกรอง) จึงแสดง `<EmptyState />`
 4. **`BulkActionToolbar`:** แถบคำสั่งลอยด้านล่างเมื่อมีการเลือกหลายแถว
-5. **Action Overlays (`ConfirmationModal` & Slide-over Drawer):** ยืนยันก่อนทำรายการสำคัญพร้อมล็อกปุ่ม `isLoading`
+5. **Action Overlays (Official shadcn `AlertDialog` / `ConfirmationModal` & `Sheet` Drawer):** ยืนยันก่อนทำรายการสำคัญผ่าน `AlertDialog` พร้อมล็อกปุ่ม `isLoading` และใช้ `<Sheet>` สำหรับ Drawer ดูรายละเอียดเพิ่มเติม ห้ามเขียน Modal Overlay ขึ้นมาเอง
 
 ## 2. Table Cell Flow Integrity (Zero Table Shifting)
 - **ห้ามใส่คลาส `sr-only` ลงบนแท็ก `<th>`, `<td>`, `<TableHead>` หรือ `<TableCell>` โดยเด็ดขาด** เพราะ `position: absolute` จะทำให้คอลัมน์ของ `<thead>` และ `<tbody>` เยื้องกัน

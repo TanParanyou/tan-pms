@@ -18,7 +18,7 @@ description: คู่มือและมาตรฐานการสร้�
 - **Zero Raw HTML Controls:** ห้ามใช้ `<input>`, `<select>`, `<textarea>`, `<button>` ดิบในหน้าฟีเจอร์ ให้ import แบบ Direct Sub-path จาก `@/components/ui/button`, `@/components/ui/input`, `@/components/ui/label`, `@/components/ui/select-pill`, `@/components/ui/form-tabs`, `@/components/ui/deferred-file-picker`, `@/components/ui/confirmation-modal`, `@/components/ui/tooltip`, `@/components/ui/alert`
 - **Pill Geometry (`9999px`) & Hairline Cards (`12px`):**
   - ทุกปุ่ม ช่องกรอก ตัวเลือก ใช้ `rounded-full` (`9999px`) ความสูงสม่ำเสมอตาม `--pms-control-h` (`h-10 min-h-[40px]` หรือ `h-11 min-h-[44px]`)
-  - การ์ดและส่วนฟอร์ม (`<FormSection />`) ใช้ `rounded-[12px]` `border-[#e5e5e5]` `bg-[#ffffff]` `shadow-none` (ห้ามซ้อนการ์ดมีขอบไว้ในการ์ดมีขอบอีกชั้น)
+  - การ์ดและส่วนฟอร์ม (`<FormSection />`) ใช้ `rounded-[12px]` `border-hairline` `bg-canvas` `shadow-none` (ห้ามซ้อนการ์ดมีขอบไว้ในการ์ดมีขอบอีกชั้น)
 - **Mandatory Localized Placeholders:** ทุก `<Input>` และ `<Textarea>` ต้องมี `placeholder` ที่ดึงจาก `messages/th.json` และ `messages/en.json`
 
 ## 3. Tabbed Form Architecture (`FormTabs` & `useFormTabErrors`)
@@ -29,10 +29,12 @@ description: คู่มือและมาตรฐานการสร้�
 
 ## 4. Field Layout & Zero-Layout-Shift Rules
 1. **Top-Right Field Actions:** ปุ่มเสริมประจำฟิลด์ต้องวางในแถวเดียวกับ `<Label>` (`flex items-center justify-between min-h-[20px] mb-1.5`) ห้ามห้อยใต้ช่องกรอก
-2. **Icon-First Adjacent Buttons:** ปุ่มขนาบข้างช่องกรอกต้องใช้ `size="icon"` `rounded-full` ครอบด้วย `<Tooltip content="..." />` พร้อม `aria-label` และใช้ `wrapperClassName="!mb-0"` บนช่องกรอกใน `flex items-center gap-2`
+2. **Icon-First Adjacent Buttons:** ปุ่มขนาบข้างช่องกรอกต้องใช้ `size="icon"` `rounded-full` ครอบด้วย `<Tooltip content="..." />` (shadcn Tooltip) พร้อม `aria-label` และใช้ `wrapperClassName="!mb-0"` บนช่องกรอกใน `flex items-center gap-2`
 3. **Zero-Layout-Shift Live Calculation Cells:** ในตารางคำนวณสด (เช่น ตารางจดมิเตอร์น้ำ-ไฟ `Usage = Current - Previous`) ต้องล็อกความสูงข้อความย่อยด้วย `mt-1 min-h-[16px]` และใส่ `<span className="invisible select-none" aria-hidden="true">-</span>` ในคอลัมน์ข้างเคียงเพื่อป้องกันแถวกระตุก
 4. **Deferred File Upload (`useDeferredFileUpload`):** เก็บไฟล์ไว้ในหน่วยความจำและอัปโหลดจริงเฉพาะใน `onSubmit` เท่านั้น
-5. **Safety Confirmation Modal (`ConfirmationModal`):** การลบ การ `Void` บิล การคืนเงินประกัน หรือการ Override ห้อง `Dirty` ต้องยืนยันผ่าน `ConfirmationModal` ที่มี `isLoading` ล็อกปุ่มเสมอ
+5. **Safety Confirmation Modal & Dialogs (Official shadcn `AlertDialog` & `Dialog`):**
+   - การลบ การ `Void` บิล การคืนเงินประกัน หรือการ Override ห้อง `Dirty` ต้องยืนยันผ่าน `ConfirmationModal` หรือ `AlertDialog` ที่ครอบด้วย `@radix-ui/react-alert-dialog` เสมอ
+   - ป๊อปอัปฟอร์มทุกตัวต้องใช้ `<Dialog>` และ `<DialogContent>` จาก `@/components/ui/dialog` ห้ามเขียน `<div role="dialog">` และ Backdrop เคลื่อนที่เองเด็ดขาด เพื่อป้องกันปัญหา Focus Leaks และ Scroll Lock
 
 ## 5. Zero Hardcode, Zero Thai Characters in `.tsx` & Localized Inputs
 - **Zero Thai in `.tsx`:** ห้ามมีตัวอักษรภาษาไทย (`[\u0E00-\u0E7F]`) หรือข้อความ UI Hardcode ใน JSX Props (`label`, `placeholder`, `helperText`, `title`) ทุกข้อความต้องดึงผ่าน `useTranslations()` จาก `messages/th.json` และ `messages/en.json`

@@ -53,6 +53,9 @@ This repository is in **Foundation & Application Implementation (`Phase 0` & `PM
 - **สำรวจของกลางก่อนเสมอ:** หากส่วนไหนที่มี Components (`src/components/ui/`, `src/components/forms/`, `src/components/layout/`), Hooks (`src/hooks/`), Helper functions, หรือ Utility กลางอยู่แล้ว ให้นำมาใช้ทันที ห้ามเขียนโค้ดซ้ำซ้อน (No Duplicate Logic)
 - **เสนอแนะเพื่อทำ Global Reuse:** หากจำเป็นต้องสร้างฟังก์ชัน, Hook หรือ Component ที่ยังไม่มีในระบบ และมีโอกาสนำไปใช้ซ้ำในจุดอื่นได้ ให้เสนอแนะแนวทางการทำเป็น Global Reusable แก่ผู้ใช้ทราบก่อนลงมือสร้าง
 - **ห้าม Duplicate Logic:** หากมีโค้ดหรือคอมโพเนนต์ที่ทำงานใกล้เคียงกัน ให้พิจารณา Reuse หรือ Extend จากของเดิม
+- **Global Single Source of Truth:** ข้อมูลคงที่ระดับระบบและ Master Data กลาง ต้องดึงจากศูนย์กลางเสมอ ห้ามประกาศซ้ำใน Feature:
+  - ข้อมูลชื่อระบบ เว็บไซต์ สโลแกน: ดึงจาก `src/config/site.ts` (`siteConfig.name = "tan-pms"`)
+  - ข้อมูลสาขา รหัสเอกสาร 9 หมวด โหมดการพัก คอนฟิกมัดจำ: ดึงจาก `src/constants/master-data.ts` (`CENTRAL_PROPERTIES`, `STAY_MODES`, `DOCUMENT_PREFIXES`, `HOLD_PAYMENT_CONFIG`)
 
 ---
 
@@ -90,6 +93,12 @@ This repository is in **Foundation & Application Implementation (`Phase 0` & `PM
 
 > ศึกษาคู่มือละเอียดเพิ่มเติมได้ที่ `.agents/skills/building-pms-forms/SKILL.md` (ฟอร์มบันทึกข้อมูล), `.agents/skills/building-pms-lists/SKILL.md` (ตารางรายการข้อมูลและ Table-Preserved Architecture) และข้อกำหนดด้านการออกแบบที่ [design.md](./design.md)
 
+- **Official shadcn/ui First Policy with Ollama Tokens:**
+  - ส่วนประกอบ UI มาตรฐานทุกตัว (`Dialog`, `AlertDialog`, `Select`, `Tooltip`, `DropdownMenu`, `Popover`, `Sheet`, `Tabs`, `Table`, `Button`, `Input`) ต้องใช้/ติดตั้งผ่าน Official `shadcn` CLI (`npx shadcn@latest add <component>`) และ Radix Primitives เป็นฐานรากเท่านั้น
+  - ห้ามเขียน Custom Modal Overlay (`<div role="dialog"...>`) หรือ Custom CSS Tooltip เองเด็ดขาด เพื่อความถูกต้องด้าน Accessibility (a11y), Keyboard Trap, Focus Management และ z-index Portals
+  - ปรับแต่ง Class ให้สอดคล้องกับ Ollama Minimal Design System: Interactive Elements เป็นแคปซูล `rounded-full`, กล่อง/การ์ด/Dialog เป็น `rounded-[12px]`, เส้นขอบ `border-hairline`, และตัดเงาฟุ้งเป็น `shadow-none`
+- **Strict Semantic Tokens & Zero Arbitrary Hex:**
+  - ห้ามมี Arbitrary Hex Classes (`(text|bg|border|ring|divide)-[#...]`) ทั้งใน `.tsx` และใน `preview.html` เด็ดขาด ทุกสีต้องผูกกับ Semantic Tokens ใน `tailwind.config.ts` (`text-ink`, `bg-canvas`, `border-hairline`, `text-body`, `text-mute`, `text-charcoal`, `bg-surface-soft`, `bg-surface-dark`, `text-destructive`)
 - **Visual Theme & Design Tokens (Ollama Minimal Design System):** ยึดมั่นตาม [design.md](./design.md) และ [ADR-0003](./docs/adr/0003-ollama-design-system-and-shadcn.md):
   - **Palette:** พื้นหลังหลักขาวบริสุทธิ์ `#ffffff` (`canvas`), พื้นผิวรอง `#fafafa` (`surface-soft`), สีหลักดำบริสุทธิ์ `#000000` (`primary`, กด `#090909`), เส้นขอบบาง `#e5e5e5` / `#d4d4d4` และอนุญาตให้มีการ์ดสีเข้ม `#171717` (`surface-dark` / `InvertedCard`) ได้ไม่เกิน **1 จุดต่อหน้า** เท่านั้น
   - **Shape Geometry:** ทุกองค์ประกอบที่คลิกหรือกรอกข้อมูลได้ (Buttons, Inputs, Selects, Search Pills, Filter Chips, Command Tags, TabsTriggers) ใช้มุมโค้งแคปซูล `9999px` (`rounded-full`); การ์ดข้อมูล ตาราง โมดอล และ `TerminalCard` ใช้มุมโค้ง `12px` (`rounded-[12px]` / `rounded-lg`) เส้นขอบ `1px solid #e5e5e5` ไม่มีเงาฟุ้ง (`shadow-none`) และห้ามซ้อนการ์ดมีขอบไว้ในการ์ดมีขอบอีกชั้น (No Nested Bordered Cards)
@@ -151,6 +160,7 @@ This repository is in **Foundation & Application Implementation (`Phase 0` & `PM
   - ทุก Error Response ต้องผ่าน `ProblemDetailsMapper` และ `ApiProblemDetails` ตามมาตรฐาน RFC 9457 (`type`, `title`, `status`, `detail`, `instance`, `code`/`errorCode`, `traceId`) พร้อมดึงข้อความ 2 ภาษาจาก `Resources/Errors.resx` (ไทย) และ `Resources/Errors.en.resx` (อังกฤษ)
 - **Localized `jsonb` Text Contract (`LocalizedText` `{ "th": string, "en"?: string }`):**
   - ฟิลด์ชื่อและคำอธิบายหลายภาษาของ Master Data (`Property.Name`, `Property.Address`, `Building.Name`, `Floor.Name`, `UnitType.Name`, `UnitType.Description`, `UnitAsset.Name`, `HourlyRateRule.Name`) และ Snapshot รายการในบิล (`FolioCharge.Description`, `InvoiceLine.Description`) ต้องใช้ Value Object `LocalizedText` และเก็บลงฐานข้อมูล PostgreSQL เป็น `jsonb` รูปทรงคงที่ `{"th": "...", "en": "..."}` ผ่าน EF Core `ValueConverter` ตาม [ADR-0004](./docs/adr/0004-localized-jsonb-for-master-data-text.md)
+  - ต้องตั้งค่าผ่าน `ConfigureConventions(ModelConfigurationBuilder)` ใน `TanPmsDbContext` โดยใช้ `LocalizedTextValueConverter` และ `OptionalLocalizedTextValueConverter` เพื่อให้ทุกฟิลด์ใน Child Entities แปลงลง `jsonb` อัตโนมัติ ป้องกันปัญหา Unkeyed Entity Error
   - ฟิลด์ที่มีผลต่อการคำนวณ สถานะ รหัสเอกสาร (`Code`, `UnitNumber`, `DocumentNumber`) และชื่อบุคคลตามบัตรประชาชน (`Customer.FullName`, `Occupant.FullName`) คงไว้เป็น Relational Typed Columns ปกติ
 
 ### Frontend (`Next.js App Router` + `TypeScript Strict` + `shadcn/ui`)
@@ -199,6 +209,7 @@ This repository is in **Foundation & Application Implementation (`Phase 0` & `PM
   2. ไม่มีตัวอักษรภาษาไทย (`[\u0E00-\u0E7F]`) หลุดในไฟล์ `.tsx` ทุกไฟล์ (ภาษาไทยต้องอยู่ใน `src/messages/th.json` เท่านั้น)
   3. ไม่มีแท็ก HTML ดิบ (`<button`, `<input`, `<select`, `<textarea`, `<table`) ใน `src/app/` และ `src/features/`
   4. คีย์ใน `th.json` และ `en.json` ตรงกัน 100% ทุกระดับ
+  5. ไม่มี Arbitrary Hex Color Classes (`[#...]`) ทั้งในไฟล์ `.tsx` และใน `preview.html` เด็ดขาด (ต้องใช้ Semantic Tokens เท่านั้น)
 - **ห้ามกล่าวอ้างว่างาน "เสร็จแล้ว" หรือ "ผ่านแล้ว" หากยังไม่ได้รันคำสั่ง Verify และยืนยันผลลัพธ์จริงจาก Terminal**
 
 ---

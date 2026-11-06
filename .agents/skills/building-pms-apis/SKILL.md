@@ -28,5 +28,7 @@ TanPms.WebApi ───────► TanPms.Application ───────�
 
 ## 5. Localized `jsonb` Text Contract (`LocalizedText` & `LocalizedTextDto`)
 - **Domain Value Object (`TanPms.Domain/Common/LocalizedText.cs`):** ใช้ `LocalizedText` (`[JsonPropertyName("th")] string Thai`, `[JsonPropertyName("en")] string? English`) สำหรับชื่อและคำอธิบายหลายภาษาของ Master Data (`Property`, `Building`, `Floor`, `UnitType`, `UnitAsset`, `HourlyRateRule`) และ Snapshot รายการในบิล (`FolioCharge.Description`, `InvoiceLine.Description`) โดยบังคับว่า `Thai` (`th`) ห้ามว่าง (`localized_text.thai_required`)
-- **EF Core `jsonb` Mapping:** ใน `TanPmsDbContext` ใช้ `ValueConverter<LocalizedText, string>` แปลงเป็น `.HasColumnType("jsonb")` เก็บในรูปแบบ `{"th": "...", "en": "..."}`
+- **EF Core Global Model Conventions (`TanPmsDbContext`):**
+  - ต้องตั้งค่าผ่าน `ConfigureConventions(ModelConfigurationBuilder)` ใน `TanPmsDbContext` โดยใช้ `LocalizedTextValueConverter` และ `OptionalLocalizedTextValueConverter` เพื่อให้ทุกฟิลด์ใน Child Entities แปลงลง `jsonb` อัตโนมัติ ป้องกันไม่ให้ EF Core เข้าใจผิดว่าเป็น Unkeyed Entity
+  - ต้องมี Unit Test รับประกันการสร้างโมเดลเสมอ (`TanPmsDbContext_Model_CanBeCreatedWithoutErrors`)
 - **API Projection (`LocalizedTextDto`):** ส่งออกผ่าน OpenAPI Contract เป็น `LocalizedTextDto` (`{ th: string, en?: string | null }`) เพื่อให้ Frontend แสดงผลตามภาษาที่เลือกผ่าน `resolveLocalizedText(dto, locale)` (`src/lib/i18n/localized-text.ts`)
