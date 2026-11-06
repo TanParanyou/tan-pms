@@ -5,6 +5,7 @@ import path from 'node:path';
 const rootDir = process.cwd();
 const args = new Set(process.argv.slice(2));
 const rootOnly = args.has('--root-only');
+const throughTask2 = args.has('--through-task-2');
 
 const errors = [];
 
@@ -35,7 +36,7 @@ function checkContainsNone(fileLabel, content, forbiddenTokens, reasonLabel) {
   }
 }
 
-function verifyRelativeMarkdownLinks(relFilePath, content, allowMissingDocsInRootMode = false) {
+function verifyRelativeMarkdownLinks(relFilePath, content, allowFutureTaskLinks = false) {
   if (!content) return;
   const fileDir = path.dirname(path.join(rootDir, relFilePath));
   const linkRegex = /\[[^\]]*\]\(([^)]+)\)/g;
@@ -56,25 +57,56 @@ function verifyRelativeMarkdownLinks(relFilePath, content, allowMissingDocsInRoo
     const cleanHref = rawHref.split('#')[0];
     if (!cleanHref) continue;
 
-    if (allowMissingDocsInRootMode && (cleanHref.startsWith('docs/') || cleanHref.startsWith('./docs/'))) {
+    const resolvedPath = path.resolve(fileDir, cleanHref);
+    const relTarget = path.relative(rootDir, resolvedPath);
+
+    if (rootOnly && relTarget.startsWith('docs/')) {
+      continue;
+    }
+    if (
+      allowFutureTaskLinks &&
+      (relTarget === 'docs/README.md' ||
+        relTarget.startsWith('docs/03-contracts/') ||
+        relTarget.startsWith('docs/04-data/') ||
+        relTarget.startsWith('docs/05-engineering/') ||
+        relTarget.startsWith('docs/06-operations/'))
+    ) {
       continue;
     }
 
-    const resolvedPath = path.resolve(fileDir, cleanHref);
     if (!fs.existsSync(resolvedPath)) {
-      errors.push(`Broken relative link in ${relFilePath}: "${rawHref}" -> ${path.relative(rootDir, resolvedPath)} does not exist`);
+      errors.push(`Broken relative link in ${relFilePath}: "${rawHref}" -> ${relTarget} does not exist`);
     }
   }
 }
 
 // 1. Check Root Governance Files
-const rootFiles = ['AGENTS.md', 'CONTEXT.md', 'design.md', 'DESIGN.md', 'PRODUCT.md'];
+const requiredFiles = ['AGENTS.md', 'CONTEXT.md', 'design.md', 'DESIGN.md', 'PRODUCT.md'];
+
+const task2Files = [
+  'docs/00-overview/product-vision.md',
+  'docs/00-overview/scope-and-non-goals.md',
+  'docs/00-overview/implementation-roadmap.md',
+  'docs/01-business/stay-and-lease-flows.md',
+  'docs/01-business/pricing-meter-and-tax-rules.md',
+  'docs/02-architecture/system-context.md',
+  'docs/02-architecture/module-boundaries.md',
+  'docs/02-architecture/backend-architecture.md',
+  'docs/02-architecture/frontend-architecture.md',
+  'docs/adr/0001-clean-architecture-and-stack.md',
+  'docs/adr/0002-hybrid-availability-and-ttl-hold.md',
+  'docs/adr/0003-ollama-design-system-and-shadcn.md',
+];
+
 if (!rootOnly) {
-  rootFiles.push('docs/README.md');
+  requiredFiles.push(...task2Files);
+}
+if (!rootOnly && !throughTask2) {
+  requiredFiles.push('docs/README.md');
 }
 
 const fileContents = new Map();
-for (const file of rootFiles) {
+for (const file of requiredFiles) {
   const content = checkFileExists(file);
   if (content !== null) {
     fileContents.set(file, content);
@@ -127,9 +159,32 @@ checkContainsAll('AGENTS.md', agentsContent, ollamaTokens, 'Ollama Design System
 checkContainsAll('AGENTS.md', agentsContent, scopeTokens, 'Audience/Scope rule');
 checkContainsNone('AGENTS.md', agentsContent, ['#0B3056'], 'legacy Navy color token');
 
-// 4. Verify relative links in checked files
+// 4. Verify Task 2 files content (PM-01..PM-10 in implementation-roadmap.md, ADR sections)
+if (!rootOnly) {
+  const requiredSlices = ['PM-01', 'PM-02', 'PM-03', 'PM-04', 'PM-05', 'PM-06', 'PM-07', 'PM-08', 'PM-09', 'PM-10'];
+  const roadmapContent = fileContents.get('docs/00-overview/implementation-roadmap.md');
+  checkContainsAll('docs/00-overview/implementation-roadmap.md', roadmapContent, requiredSlices, 'Vertical Slice ID');
+
+  const pricingContent = fileContents.get('docs/01-business/pricing-meter-and-tax-rules.md');
+  checkContainsAll(
+    'docs/01-business/pricing-meter-and-tax-rules.md',
+    pricingContent,
+    ['GracePeriodMinutes', 'AutoCapToDailyRate', 'TurnaroundBufferMinutes', 'Exempt', 'VatIncluded', 'VatExcluded', 'WithholdingTax'],
+    'pricing/meter/tax rule'
+  );
+
+  for (const adrFile of [
+    'docs/adr/0001-clean-architecture-and-stack.md',
+    'docs/adr/0002-hybrid-availability-and-ttl-hold.md',
+    'docs/adr/0003-ollama-design-system-and-shadcn.md',
+  ]) {
+    checkContainsAll(adrFile, fileContents.get(adrFile), ['## Status', '## Context', '## Decision', '## Consequences'], 'ADR section');
+  }
+}
+
+// 5. Verify relative links in checked files
 for (const [file, content] of fileContents.entries()) {
-  verifyRelativeMarkdownLinks(file, content, rootOnly);
+  verifyRelativeMarkdownLinks(file, content, throughTask2);
 }
 
 if (errors.length > 0) {
@@ -139,5 +194,5 @@ if (errors.length > 0) {
   }
   process.exit(1);
 } else {
-  console.log(`✅ Documentation verification PASSED (${fileContents.size} file(s) checked${rootOnly ? ', --root-only mode' : ''}).`);
+  console.log(`✅ Documentation verification PASSED (${fileContents.size} file(s) checked).`);
 }
