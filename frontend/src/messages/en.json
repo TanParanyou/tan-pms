@@ -66,9 +66,11 @@
     "generic": "An unexpected error occurred. Please try again."
   },
   "common": {
+    "currencySymbol": "฿",
     "save": "Save Changes",
     "cancel": "Cancel",
     "submit": "Submit",
+    "confirm": "Confirm",
     "back": "Back",
     "loading": "Loading...",
     "close": "Close",
@@ -78,12 +80,60 @@
     "status": "Status",
     "details": "Details",
     "refresh": "Refresh",
+    "retry": "Retry",
     "language": "Language",
     "logout": "Sign Out",
     "th": "Thai",
     "en": "English",
     "viewAll": "View All",
-    "required": "Required"
+    "required": "Required",
+    "noData": "No data available",
+    "emptyFilterTitle": "No matching items found",
+    "emptyFilterDescription": "Try adjusting your filters or search terms.",
+    "dialog": {
+      "confirmTitle": "Confirm Action",
+      "confirmCloseShiftTitle": "Confirm Shift Close",
+      "confirmCloseShiftMessage": "Are you sure you want to close this cashier shift and tally the cash drawer?",
+      "confirmOverrideDirtyTitle": "Confirm Override Dirty Check-in",
+      "confirmOverrideDirtyMessage": "This unit is not clean. Are you sure you want to proceed with check-in?"
+    },
+    "table": {
+      "selectAll": "Select All",
+      "page": "Page",
+      "of": "of",
+      "items": "items"
+    },
+    "placeholders": {
+      "search": "Type to search...",
+      "guestName": "Enter guest full name",
+      "nationalId": "Enter 13-digit National ID or Passport",
+      "overrideReason": "Enter justification for dirty room override",
+      "waterReading": "Enter water meter reading",
+      "electricReading": "Enter electric meter reading",
+      "workDescription": "Describe the issue or defect location",
+      "quickWalkInPhone": "Enter contact phone number"
+    },
+    "filePicker": {
+      "defaultLabel": "Attach Document / Image (Deferred)",
+      "defaultHelper": "Files are staged in memory and only uploaded upon form submission",
+      "chooseFile": "Choose file...",
+      "filesStaged": "files staged",
+      "stagedBadge": "Staged",
+      "removeFile": "Remove file"
+    }
+  },
+  "home": {
+    "title": "tan-pms",
+    "subtitle": "Enterprise Property Management System",
+    "description": "Single-Organization, Multi-Property PMS supporting Hourly, Daily, and Monthly StayModes in a unified concurrency engine.",
+    "terminalTitle": "tan-pms.kernel.boot",
+    "terminalBadge": "RFC 9457 & Ollama Design System",
+    "terminalLine1": "[OK] PostgreSQL Exclusion Constraints (tstzrange EXCLUDE USING gist) verified",
+    "terminalLine2": "[OK] Ubiquitous Language: 20 Canonical Terms & 9 Document Sequences loaded",
+    "terminalLine3": "[OK] Strict Zero Foreign Key .find() frontend resolution contract enforced",
+    "adminCta": "Admin Operations (/admin) →",
+    "clientCta": "Client Portal (/client) →",
+    "loginCta": "Scope Switcher (/login)"
   },
   "auth": {
     "title": "tan-pms Enterprise Property Management",
@@ -97,7 +147,11 @@
     "password": "Password",
     "loginAsAdmin": "Sign In as Admin",
     "loginAsClient": "Sign In as Client",
-    "propertyScopeLabel": "Authorized Property Scopes"
+    "propertyScopeLabel": "Authorized Property Scopes",
+    "scopeTag": "AUTHORIZATION SCOPE",
+    "scopeAdmin": "AdminScope",
+    "scopeClient": "ClientScope",
+    "footer": "Single-Organization Multi-Property • Strict Token Isolation"
   },
   "admin": {
     "nav": {
@@ -137,7 +191,12 @@
       "quickWalkIn": "Quick Counter Walk-in",
       "slipVerification": "Transfer Slip Queue",
       "verifyApprove": "Approve Slip",
-      "verifyReject": "Reject Slip"
+      "verifyReject": "Reject Slip",
+      "drawerBalance": "฿12,450.00",
+      "queueSampleTitle": "Queue: BKK01-RES-2611-0108 (Slip Transfer ฿1,500.00)",
+      "queueSampleDetail": "Customer: Thanaporn Somdee • SCB Transfer 14:48",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected"
     },
     "meters": {
       "title": "Bulk Utility Meter Reading (PM-07)",
@@ -151,7 +210,15 @@
       "rolloverWarning": "Meter is lower than previous. Rollover confirmation required.",
       "batchInvoice": "Run Batch Invoice Run",
       "photoAttachment": "Meter Photo (Uploads on Submit)",
-      "saveBatch": "Save All Readings"
+      "saveBatch": "Save All Readings",
+      "unit": "Unit",
+      "waterLabel": "Water",
+      "electricLabel": "Elec",
+      "statusLabel": "Rollover Status",
+      "statusNormal": "Normal",
+      "statusError": "Error",
+      "savedSuccess": "All meter readings saved successfully",
+      "invoiceRunSuccess": "Batch invoice run completed successfully"
     },
     "checkInModal": {
       "title": "Quick Walk-in / New Lease",
@@ -162,7 +229,17 @@
       "overrideDirty": "Allow check-in to uncleaned unit (Override Dirty)",
       "overrideReason": "Override Reason (Required)",
       "keyDeposit": "Key Deposit Amount",
-      "completeCheckIn": "Confirm Check-in"
+      "completeCheckIn": "Confirm Check-in",
+      "fetchExistingCustomer": "+ Fetch Existing Customer",
+      "randomIdTooltip": "Generate temporary guest identifier",
+      "phoneLabel": "Phone Number",
+      "allowOverride": "Allow Override",
+      "requestOverride": "Click to request Override",
+      "autoKeyDeposit": "Default ฿500",
+      "depositLedgerNote": "Key deposit is tracked separately in DepositLedger and isolated from room revenue",
+      "attachIdCardLabel": "Attach ID Card / Passport Photo (Deferred)",
+      "attachIdCardHelper": "File will not be sent to server until form submission",
+      "successNotification": "Check-in successful! Document: BKK01-STY-2611-0022"
     }
   },
   "client": {
@@ -174,6 +251,7 @@
       "workOrders": "Maintenance Requests",
       "parcels": "Pending Parcels"
     },
+    "guestGreeting": "Guest: Wipaporn K. (3-xxxx-xxxxx-11-8)",
     "holdBanner": {
       "title": "Reservation Pending Payment (Hold TTL Countdown)",
       "remainingTime": "Time Remaining to Pay",
@@ -182,7 +260,14 @@
       "stayMode": "Stay Mode",
       "depositAmount": "Deposit Due",
       "uploadSlip": "Attach Bank Transfer Slip (Deferred Upload)",
-      "confirmPayment": "Submit Slip"
+      "confirmPayment": "Submit Slip",
+      "statusBadge": "STATUS: HOLD (TTL 15 MIN)",
+      "unitSample": "Standard 1-Bed (32 sqm)",
+      "stayModeSample": "Daily (2 Nights)",
+      "bankInstruction": "Siam Commercial Bank (SCB) 402-984711-2 TAN Residence Co., Ltd.",
+      "slipSuccessTitle": "Slip Attached Successfully",
+      "slipSuccessDesc": "Front desk is verifying the transfer. Room access code will be issued once approved.",
+      "uploadSlipHelper": "Select slip image from device. It will upload upon submission."
     },
     "leaseCard": {
       "title": "Active Monthly Lease",
@@ -190,7 +275,12 @@
       "unit": "Unit",
       "rentAmount": "Monthly Rent",
       "depositBalance": "Security Deposit Balance",
-      "status": "Lease Status"
+      "status": "Lease Status",
+      "unitLocation": "Unit A-301 (Fl 3)",
+      "monthlyUnit": "/ month",
+      "cycleLabel": "Lease Period",
+      "cycleDates": "1 Nov 2026 – 31 Oct 2027",
+      "statusActive": "Active Lease"
     },
     "invoiceSection": {
       "title": "Invoices with Line-Level Thai Tax Breakdown",
@@ -200,7 +290,16 @@
       "exempt": "Tax Exempt (Monthly Rent)",
       "vatIncluded": "VAT 7% Included (Service/Minibar)",
       "vatExcluded": "VAT 7% Excluded (Water/Electric)",
-      "payNow": "Pay & Attach Slip"
+      "payNow": "Pay & Attach Slip",
+      "statusUnpaid": "Unpaid",
+      "descHeader": "Item Description",
+      "taxModeHeader": "Tax Classification & Amount",
+      "lineRentTitle": "Monthly Room Rent",
+      "lineRentDesc": "Under Thai Revenue Code for Residential Tenancy",
+      "lineServiceTitle": "Common Area & Internet Service Fee",
+      "lineServiceDesc": "VAT included in price",
+      "lineUtilityTitle": "Utility Usage (Water & Electric)",
+      "lineUtilityDesc": "Water 22 m³ (฿396) + Electric 210 kWh (฿1,454)"
     },
     "workOrders": {
       "title": "Work Order Request",
@@ -208,7 +307,13 @@
       "description": "Issue Description",
       "attachPhoto": "Attach Photo (Uploads on Submit)",
       "submit": "Submit Request",
-      "history": "Request History"
+      "history": "Request History",
+      "successNotice": "Work order submitted successfully! Document: BKK01-WKO-2611-0008",
+      "catAir": "Air Conditioning",
+      "catPlumbing": "Plumbing & Water",
+      "catElectric": "Electrical & Lighting",
+      "catFurniture": "Furniture & Door Fixtures",
+      "attachPhotoHelper": "Take photo of defect. It will be uploaded with your request upon submit."
     },
     "parcels": {
       "title": "Parcels Waiting at Front Desk",
@@ -216,7 +321,10 @@
       "carrier": "Carrier",
       "arrivedAt": "Arrived At",
       "status": "Parcel Status",
-      "waitingPickup": "Ready for Pickup at Front Desk"
+      "waitingPickup": "Ready for Pickup at Front Desk",
+      "carrierSample": "Kerry Express • TH029481920",
+      "parcelTitle": "Medium Package Arrived at Front Desk",
+      "parcelDesc": "Today 11:32 AM • Please present this screen to collect package"
     }
   }
 }

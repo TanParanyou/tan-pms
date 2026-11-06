@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="validation.failed_TITLE" xml:space="preserve">
+    <value>Validation failed</value>
+  </data>
+  <data name="validation.failed_DETAIL" xml:space="preserve">
+    <value>One or more request parameters failed validation.</value>
+  </data>
+  <data name="auth.unauthenticated_TITLE" xml:space="preserve">
+    <value>Authentication required</value>
+  </data>
+  <data name="auth.unauthenticated_DETAIL" xml:space="preserve">
+    <value>Authentication credentials are missing or expired.</value>
+  </data>
+  <data name="auth.property_scope_denied_TITLE" xml:space="preserve">
+    <value>Property scope access denied</value>
+  </data>
+  <data name="auth.property_scope_denied_DETAIL" xml:space="preserve">
+    <value>Caller does not have access to the requested property scope.</value>
+  </data>
+  <data name="auth.permission_denied_TITLE" xml:space="preserve">
+    <value>Permission denied</value>
+  </data>
+  <data name="auth.permission_denied_DETAIL" xml:space="preserve">
+    <value>Caller does not hold the required permission for this operation.</value>
+  </data>
+  <data name="unit.not_clean_TITLE" xml:space="preserve">
+    <value>Unit condition is not clean for check-in</value>
+  </data>
+  <data name="unit.not_clean_DETAIL" xml:space="preserve">
+    <value>Unit is not in Clean condition and cannot be checked in without override permission.</value>
+  </data>
+  <data name="reservation.slot_overlap_TITLE" xml:space="preserve">
+    <value>Stay slot overlaps with an existing allocation</value>
+  </data>
+  <data name="reservation.slot_overlap_DETAIL" xml:space="preserve">
+    <value>The requested unit or time range overlaps with another active stay, lease, or reservation.</value>
+  </data>
+  <data name="reservation.quota_exhausted_TITLE" xml:space="preserve">
+    <value>UnitType quota is exhausted</value>
+  </data>
+  <data name="reservation.quota_exhausted_DETAIL" xml:space="preserve">
+    <value>No remaining UnitType quota is available for the requested stay period.</value>
+  </data>
+  <data name="reservation.hold_expired_TITLE" xml:space="preserve">
+    <value>Reservation hold has expired</value>
+  </data>
+  <data name="reservation.hold_expired_DETAIL" xml:space="preserve">
+    <value>The reservation hold period expired before payment verification was submitted.</value>
+  </data>
+  <data name="stay.folio_unsettled_TITLE" xml:space="preserve">
+    <value>Stay folio or deposit balance is unsettled</value>
+  </data>
+  <data name="stay.folio_unsettled_DETAIL" xml:space="preserve">
+    <value>Folio balance due and key deposit ledger must be settled to 0.00 before check-out.</value>
+  </data>
+  <data name="invoice.immutable_status_TITLE" xml:space="preserve">
+    <value>Issued invoice cannot be modified or deleted</value>
+  </data>
+  <data name="invoice.immutable_status_DETAIL" xml:space="preserve">
+    <value>Issued or paid invoices are immutable. Use Void with an audit reason instead.</value>
+  </data>
+  <data name="shift.not_open_TITLE" xml:space="preserve">
+    <value>Cashier shift is not open</value>
+  </data>
+  <data name="shift.not_open_DETAIL" xml:space="preserve">
+    <value>An Open CashierShift in the target property is required before performing cash operations.</value>
+  </data>
+  <data name="meter.rollover_unconfirmed_TITLE" xml:space="preserve">
+    <value>Meter rollover is unconfirmed</value>
+  </data>
+  <data name="meter.rollover_unconfirmed_DETAIL" xml:space="preserve">
+    <value>Current reading is lower than previous reading; explicit rollover confirmation is required.</value>
+  </data>
+  <data name="internal.unexpected_error_TITLE" xml:space="preserve">
+    <value>An unexpected server error occurred</value>
+  </data>
+  <data name="internal.unexpected_error_DETAIL" xml:space="preserve">
+    <value>The request could not be completed due to an unexpected internal error.</value>
+  </data>
+</root>

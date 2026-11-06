@@ -14,6 +14,7 @@
 2. **Data Types มาตรฐาน:**
    - จำนวนเงินทุกฟิลด์ใช้ `numeric(18,2)` ห้ามใช้ `float` หรือ `double precision`
    - วันและเวลาทุกฟิลด์ใช้ `timestamptz` (UTC) และช่วงเวลาใช้ `tstzrange`
+   - ชื่อและคำอธิบายหลายภาษาของ Master Data (`Property`, `Building`, `Floor`, `UnitType`, `UnitAsset`, `HourlyRateRule`) และ Snapshot รายการบิล (`FolioCharge.Description`, `InvoiceLine.Description`) ใช้คอลัมน์ `jsonb` รูปทรงคงที่ `{ "th": string, "en"?: string }` ผ่าน Value Object `LocalizedText` และ EF Core `ValueConverter` ตาม [0004-localized-jsonb-for-master-data-text.md](../adr/0004-localized-jsonb-for-master-data-text.md)
 3. **Audit & Soft Delete Columns:**
    - ทุกตารางหลักมี `created_at`, `created_by`, `updated_at`, `updated_by`, `is_deleted`, `deleted_at`, `deleted_by`
 

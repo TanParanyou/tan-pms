@@ -31,11 +31,11 @@ describe("FormTabs Component", () => {
     // Should find error dot for tab-guest and tab-payment
     const guestErrorDot = screen.getByTestId("tab-error-dot-tab-guest");
     expect(guestErrorDot).toBeInTheDocument();
-    expect(guestErrorDot).toHaveClass("bg-[#ff5f56]");
+    expect(guestErrorDot).toHaveClass("bg-destructive");
 
     const paymentErrorDot = screen.getByTestId("tab-error-dot-tab-payment");
     expect(paymentErrorDot).toBeInTheDocument();
-    expect(paymentErrorDot).toHaveClass("bg-[#ff5f56]");
+    expect(paymentErrorDot).toHaveClass("bg-destructive");
 
     // Should NOT find error dot for tab-room
     const roomErrorDot = screen.queryByTestId("tab-error-dot-tab-room");

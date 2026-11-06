@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using TanPms.Application.Abstractions;
+using TanPms.Application.Common.Abstractions;
 using TanPms.Domain.Common;
 
 namespace TanPms.Infrastructure.Persistence;

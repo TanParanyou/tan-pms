@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 import { cn } from "@/lib/utils";
@@ -25,13 +27,23 @@ export function FormTabs({
   onValueChange,
   className,
 }: FormTabsProps) {
-  const effectiveDefault = defaultValue || (tabs.length > 0 ? tabs[0].id : undefined);
+  const [internalValue, setInternalValue] = React.useState(
+    value || defaultValue || (tabs.length > 0 ? tabs[0].id : "")
+  );
+
+  const activeValue = value !== undefined ? value : internalValue;
+
+  const handleTabChange = (val: string) => {
+    if (value === undefined) {
+      setInternalValue(val);
+    }
+    onValueChange?.(val);
+  };
 
   return (
     <Tabs
-      value={value}
-      defaultValue={effectiveDefault}
-      onValueChange={onValueChange}
+      value={activeValue}
+      onValueChange={handleTabChange}
       className={cn("w-full", className)}
     >
       <TabsList className="w-full justify-start overflow-x-auto h-auto py-1.5 px-2 flex-wrap gap-1">
@@ -46,7 +58,7 @@ export function FormTabs({
             {tab.hasError && (
               <span
                 data-testid={`tab-error-dot-${tab.id}`}
-                className="h-2 w-2 rounded-full bg-[#ff5f56] inline-block animate-pulse ring-1 ring-white"
+                className="h-2 w-2 rounded-full bg-destructive inline-block animate-pulse ring-1 ring-white"
                 title="Validation Error in this tab"
               />
             )}
@@ -54,7 +66,12 @@ export function FormTabs({
         ))}
       </TabsList>
       {tabs.map((tab) => (
-        <TabsContent key={tab.id} value={tab.id} className="pt-2">
+        <TabsContent
+          key={tab.id}
+          value={tab.id}
+          forceMount
+          className={cn("pt-2", tab.id !== activeValue && "hidden")}
+        >
           {tab.content}
         </TabsContent>
       ))}

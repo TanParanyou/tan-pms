@@ -10,5 +10,6 @@ export type CheckInStayRequest = Schemas["CheckInStayRequest"];
 export type StaySummaryDto = Schemas["StaySummaryDto"];
 export type ClientDashboardResponse = Schemas["ClientDashboardResponse"];
 export type ProblemDetailsResponse = Schemas["ProblemDetailsResponse"];
+export type LocalizedTextDto = Schemas["LocalizedTextDto"];
 
 export type { paths };

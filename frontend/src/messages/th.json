@@ -66,9 +66,11 @@
     "generic": "เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง"
   },
   "common": {
+    "currencySymbol": "฿",
     "save": "บันทึกข้อมูล",
     "cancel": "ยกเลิก",
     "submit": "ยืนยันและส่งข้อมูล",
+    "confirm": "ยืนยัน",
     "back": "ย้อนกลับ",
     "loading": "กำลังโหลด...",
     "close": "ปิด",
@@ -78,12 +80,60 @@
     "status": "สถานะ",
     "details": "รายละเอียด",
     "refresh": "รีเฟรช",
+    "retry": "ลองใหม่อีกครั้ง",
     "language": "ภาษา",
     "logout": "ออกจากระบบ",
     "th": "ไทย",
     "en": "English",
     "viewAll": "ดูทั้งหมด",
-    "required": "จำเป็นต้องกรอก"
+    "required": "จำเป็นต้องกรอก",
+    "noData": "ไม่พบข้อมูล",
+    "emptyFilterTitle": "ไม่พบรายการที่ตรงกับเงื่อนไข",
+    "emptyFilterDescription": "ลองปรับตัวกรองหรือคำค้นหาใหม่อีกครั้ง",
+    "dialog": {
+      "confirmTitle": "ยืนยันการทำรายการ",
+      "confirmCloseShiftTitle": "ยืนยันการปิดกะแคชเชียร์",
+      "confirmCloseShiftMessage": "คุณต้องการปิดกะแคชเชียร์และสรุปยอดเงินสดในลิ้นชักหรือไม่?",
+      "confirmOverrideDirtyTitle": "ยืนยันการเปิดห้องที่ยังไม่สะอาด",
+      "confirmOverrideDirtyMessage": "ห้องพักนี้ยังไม่ได้ทำความสะอาด คุณยืนยันที่จะเปิดห้องให้ผู้เข้าพักหรือไม่?"
+    },
+    "table": {
+      "selectAll": "เลือกทั้งหมด",
+      "page": "หน้า",
+      "of": "จาก",
+      "items": "รายการ"
+    },
+    "placeholders": {
+      "search": "พิมพ์เพื่อค้นหา...",
+      "guestName": "ระบุชื่อ-นามสกุลผู้เข้าพัก",
+      "nationalId": "ระบุเลขบัตรประชาชน 13 หลัก หรือพาสปอร์ต",
+      "overrideReason": "ระบุเหตุผลความจำเป็นในการเปิดห้องพัก",
+      "waterReading": "ระบุเลขมิเตอร์น้ำ",
+      "electricReading": "ระบุเลขมิเตอร์ไฟ",
+      "workDescription": "อธิบายอาการชำรุดหรือตำแหน่งที่พบปัญหา",
+      "quickWalkInPhone": "ระบุเบอร์โทรศัพท์ติดต่อ"
+    },
+    "filePicker": {
+      "defaultLabel": "แนบไฟล์เอกสาร / รูปภาพ (Deferred)",
+      "defaultHelper": "ไฟล์จะถูกพักไว้ในหน่วยความจำ และอัปโหลดจริงเมื่อกดบันทึกฟอร์มเท่านั้น",
+      "chooseFile": "เลือกไฟล์...",
+      "filesStaged": "ไฟล์รอส่ง",
+      "stagedBadge": "Staged",
+      "removeFile": "ลบไฟล์"
+    }
+  },
+  "home": {
+    "title": "tan-pms",
+    "subtitle": "ระบบบริหารจัดการที่พักระดับองค์กร",
+    "description": "ระบบ PMS องค์กรเดียวหลายสาขาและหลายอาคาร รองรับโหมด Hourly, Daily และ Monthly ในระบบ Concurrency เดียวกัน",
+    "terminalTitle": "tan-pms.kernel.boot",
+    "terminalBadge": "RFC 9457 & Ollama Design System",
+    "terminalLine1": "[OK] PostgreSQL Exclusion Constraints (tstzrange EXCLUDE USING gist) verified",
+    "terminalLine2": "[OK] Ubiquitous Language: 20 Canonical Terms & 9 Document Sequences loaded",
+    "terminalLine3": "[OK] Strict Zero Foreign Key .find() frontend resolution contract enforced",
+    "adminCta": "ระบบปฏิบัติการ Admin (/admin) →",
+    "clientCta": "ระบบบริการลูกค้า Client (/client) →",
+    "loginCta": "เลือกขอบเขตสิทธิ์ (/login)"
   },
   "auth": {
     "title": "ระบบบริหารจัดการที่พัก tan-pms",
@@ -97,7 +147,11 @@
     "password": "รหัสผ่าน",
     "loginAsAdmin": "เข้าสู่ระบบ Admin",
     "loginAsClient": "เข้าสู่ระบบ Client",
-    "propertyScopeLabel": "สิทธิ์สาขาที่ได้รับอนุญาต"
+    "propertyScopeLabel": "สิทธิ์สาขาที่ได้รับอนุญาต",
+    "scopeTag": "ขอบเขตสิทธิ์การใช้งาน",
+    "scopeAdmin": "AdminScope",
+    "scopeClient": "ClientScope",
+    "footer": "องค์กรเดียว หลายสาขา • แยกการยืนยันตัวตนอย่างเคร่งครัด"
   },
   "admin": {
     "nav": {
@@ -137,7 +191,12 @@
       "quickWalkIn": "เปิดห้องด่วนหน้าเคาน์เตอร์",
       "slipVerification": "คิวตรวจสอบสลิปโอนเงิน",
       "verifyApprove": "อนุมัติสลิป",
-      "verifyReject": "ปฏิเสธสลิป"
+      "verifyReject": "ปฏิเสธสลิป",
+      "drawerBalance": "฿12,450.00",
+      "queueSampleTitle": "คิวตรวจสอบ: BKK01-RES-2611-0108 (สลิปโอน ฿1,500.00)",
+      "queueSampleDetail": "ลูกค้า: ธนาภรณ์ สมดี • โอน SCB 14:48 น.",
+      "statusApproved": "อนุมัติแล้ว",
+      "statusRejected": "ปฏิเสธแล้ว"
     },
     "meters": {
       "title": "ตารางจดมิเตอร์น้ำ-ไฟยกตึก (PM-07 Bulk Reading)",
@@ -151,7 +210,15 @@
       "rolloverWarning": "เลขมิเตอร์ต่ำกว่าครั้งก่อน กรุณายืนยัน Rollover",
       "batchInvoice": "ประมวลผลออกใบแจ้งหนี้ยกตึก",
       "photoAttachment": "รูปถ่ายมิเตอร์ (อัปโหลดเมื่อกดบันทึก)",
-      "saveBatch": "บันทึกเลขมิเตอร์ทั้งหมด"
+      "saveBatch": "บันทึกเลขมิเตอร์ทั้งหมด",
+      "unit": "ห้องพัก",
+      "waterLabel": "น้ำ",
+      "electricLabel": "ไฟ",
+      "statusLabel": "สถานะ Rollover",
+      "statusNormal": "ปกติ",
+      "statusError": "ผิดพลาด",
+      "savedSuccess": "บันทึกเลขมิเตอร์ทั้งหมดเรียบร้อยแล้ว",
+      "invoiceRunSuccess": "ประมวลผลออกใบแจ้งหนี้ยกตึกเรียบร้อย"
     },
     "checkInModal": {
       "title": "เปิดห้องพัก / ทำสัญญาเช่าใหม่",
@@ -162,7 +229,17 @@
       "overrideDirty": "อนุญาตให้ Check-in แม้ห้องยังไม่สะอาด (Override Dirty)",
       "overrideReason": "เหตุผลในการ Override (จำเป็น)",
       "keyDeposit": "เงินมัดจำกุญแจ",
-      "completeCheckIn": "ยืนยันการเปิดห้อง"
+      "completeCheckIn": "ยืนยันการเปิดห้อง",
+      "fetchExistingCustomer": "+ ดึงข้อมูลลูกค้าเดิม",
+      "randomIdTooltip": "สุ่มเลขประจำตัวผู้เข้าพักชั่วคราว",
+      "phoneLabel": "เบอร์โทรศัพท์",
+      "allowOverride": "เปิดใช้สิทธิ์ Override",
+      "requestOverride": "คลิกเพื่อขอ Override",
+      "autoKeyDeposit": "อัตโนมัติ ฿500",
+      "depositLedgerNote": "เงินมัดจำกุญแจจะถูกแยกบันทึกในสมุดเงินฝาก ไม่ปะปนกับรายได้ค่าห้อง",
+      "attachIdCardLabel": "แนบรูปถ่ายบัตรประชาชน / พาสปอร์ต (Deferred)",
+      "attachIdCardHelper": "ไฟล์จะไม่ถูกส่งขึ้นเซิร์ฟเวอร์จนกว่าจะกดบันทึกยืนยัน",
+      "successNotification": "ทำรายการเปิดห้องสำเร็จ รหัสเอกสาร: BKK01-STY-2611-0022"
     }
   },
   "client": {
@@ -174,6 +251,7 @@
       "workOrders": "แจ้งซ่อม",
       "parcels": "พัสดุรอรับ"
     },
+    "guestGreeting": "ผู้เข้าพัก: วิภาพร ก. (3-xxxx-xxxxx-11-8)",
     "holdBanner": {
       "title": "ใบจองรอชำระเงินมัดจำ (Hold TTL Countdown)",
       "remainingTime": "เวลาที่เหลือในการชำระเงิน",
@@ -182,7 +260,14 @@
       "stayMode": "รูปแบบการเข้าพัก",
       "depositAmount": "ยอดเงินมัดจำที่ต้องชำระ",
       "uploadSlip": "แนบสลิปการโอนเงิน (Deferred Upload)",
-      "confirmPayment": "ยืนยันการส่งสลิป"
+      "confirmPayment": "ยืนยันการส่งสลิป",
+      "statusBadge": "สถานะ: HOLD (TTL 15 นาที)",
+      "unitSample": "Standard 1-Bed (32 ตร.ม.)",
+      "stayModeSample": "Daily (รายวัน • 2 คืน)",
+      "bankInstruction": "ธนาคารไทยพาณิชย์ (SCB) 402-984711-2 บริษัท แทน เรสซิเดนซ์ จำกัด",
+      "slipSuccessTitle": "แนบสลิปเรียบร้อยแล้ว",
+      "slipSuccessDesc": "เจ้าหน้าที่หน้าเคาน์เตอร์กำลังตรวจสอบสลิป เมื่ออนุมัติแล้วจะได้รับรหัสเข้าห้องทันที",
+      "uploadSlipHelper": "เลือกรูปสลิปจากเครื่อง รูปจะถูกอัปโหลดเมื่อกดส่ง"
     },
     "leaseCard": {
       "title": "สัญญาเช่ารายเดือนปัจจุบัน",
@@ -190,7 +275,12 @@
       "unit": "ห้องพัก",
       "rentAmount": "ค่าเช่ารายเดือน",
       "depositBalance": "เงินประกันสัญญาคงเหลือ",
-      "status": "สถานะสัญญา"
+      "status": "สถานะสัญญา",
+      "unitLocation": "ห้องพัก A-301 (ชั้น 3)",
+      "monthlyUnit": "/ เดือน",
+      "cycleLabel": "รอบสัญญาเช่า",
+      "cycleDates": "1 พ.ย. 2026 – 31 ต.ค. 2027",
+      "statusActive": "สัญญาปกติ"
     },
     "invoiceSection": {
       "title": "ใบแจ้งหนี้และรายการภาษีแยกบรรทัด",
@@ -200,7 +290,16 @@
       "exempt": "ยกเว้นภาษี (ค่าเช่าห้อง)",
       "vatIncluded": "รวมภาษีมูลค่าเพิ่ม 7% (ค่าบริการ/มินิบาร์)",
       "vatExcluded": "แยกภาษีมูลค่าเพิ่ม 7% (ค่าน้ำ-ค่าไฟ)",
-      "payNow": "ชำระเงินและแนบสลิป"
+      "payNow": "ชำระเงินและแนบสลิป",
+      "statusUnpaid": "ยังไม่ชำระ",
+      "descHeader": "รายการ (Description)",
+      "taxModeHeader": "การคิดภาษี & ยอดเงิน",
+      "lineRentTitle": "ค่าเช่าห้องพักประจำเดือน (Monthly Rent)",
+      "lineRentDesc": "ตาม พ.ร.บ. ภาษีมูลค่าเพิ่ม สำหรับที่อยู่อาศัย",
+      "lineServiceTitle": "ค่าบริการส่วนกลางและอินเทอร์เน็ต",
+      "lineServiceDesc": "ราคารวมภาษีมูลค่าเพิ่มแล้ว",
+      "lineUtilityTitle": "ค่าน้ำประปาและไฟฟ้าตามมิเตอร์",
+      "lineUtilityDesc": "น้ำ 22 m³ (฿396) + ไฟ 210 kWh (฿1,454)"
     },
     "workOrders": {
       "title": "แจ้งซ่อมบำรุง (Work Order)",
@@ -208,7 +307,13 @@
       "description": "รายละเอียดอาการชำรุด",
       "attachPhoto": "แนบรูปภาพจุดชำรุด (อัปโหลดเมื่อกดส่ง)",
       "submit": "ส่งคำขอแจ้งซ่อม",
-      "history": "ประวัติการแจ้งซ่อม"
+      "history": "ประวัติการแจ้งซ่อม",
+      "successNotice": "ส่งใบแจ้งซ่อมสำเร็จ รหัสเอกสาร: BKK01-WKO-2611-0008",
+      "catAir": "เครื่องปรับอากาศ (Air Conditioning)",
+      "catPlumbing": "ระบบน้ำและประปา (Plumbing)",
+      "catElectric": "ระบบไฟฟ้าและแสงสว่าง (Electrical)",
+      "catFurniture": "เฟอร์นิเจอร์และประตู/กลอน (Furniture/Door)",
+      "attachPhotoHelper": "ถ่ายรูปจุดชำรุดไว้ รูปจะถูกอัปโหลดพร้อมคำขอเมื่อกดส่ง"
     },
     "parcels": {
       "title": "พัสดุรอรับที่เคาน์เตอร์",
@@ -216,7 +321,10 @@
       "carrier": "บริษัทขนส่ง",
       "arrivedAt": "เวลาที่พัสดุมาถึง",
       "status": "สถานะพัสดุ",
-      "waitingPickup": "รอรับที่เคาน์เตอร์ส่วนกลาง"
+      "waitingPickup": "รอรับที่เคาน์เตอร์ส่วนกลาง",
+      "carrierSample": "Kerry Express • TH029481920",
+      "parcelTitle": "พัสดุกล่องขนาดกลาง ถึงเคาน์เตอร์แล้ว",
+      "parcelDesc": "วันนี้ 11:32 น. • กรุณาแสดงหน้าจอนี้เพื่อรับพัสดุ"
     }
   }
 }

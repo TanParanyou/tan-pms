@@ -136,11 +136,19 @@ const task3DocsFiles = [
   'docs/06-operations/backup-restore-and-release.md',
 ];
 
+const skillFiles = [
+  '.agents/skills/building-pms-forms/SKILL.md',
+  '.agents/skills/building-pms-lists/SKILL.md',
+  '.agents/skills/building-pms-apis/SKILL.md',
+  '.agents/skills/pms-document-numbering/SKILL.md',
+  '.agent/skills/tiered-orchestration/SKILL.md',
+];
+
 if (!rootOnly) {
   requiredFiles.push(...task2Files);
 }
 if (!rootOnly && !throughTask2) {
-  requiredFiles.push(...task3DocsFiles, 'docs/README.md', 'README.md');
+  requiredFiles.push(...task3DocsFiles, ...skillFiles, 'docs/README.md', 'README.md');
 }
 
 const fileContents = new Map();
@@ -195,6 +203,26 @@ checkContainsNone('design.md', designContent, ['#0B3056'], 'legacy Navy color to
 const agentsContent = fileContents.get('AGENTS.md');
 checkContainsAll('AGENTS.md', agentsContent, ollamaTokens, 'Ollama Design System token');
 checkContainsAll('AGENTS.md', agentsContent, scopeTokens, 'Audience/Scope rule');
+checkContainsAll(
+  'AGENTS.md',
+  agentsContent,
+  [
+    '## Start here',
+    '## 1. Language & Communication',
+    '## 2. Reuse First Policy',
+    '## 3. Scope Guardrails & Minimal Blast Radius',
+    '## 6. PMS Form, List & UX Standards',
+    '## 7. Application & Clean Architecture Guardrails',
+    '## 8. Definition of Done & Verification Before Completion',
+    '## 9. Efficient Workflow',
+    'Table Cell Flow Integrity',
+    'Zero-Layout-Shift',
+    'No Arbitrary Fallback',
+    'One Type Per File',
+    'Feature Colocation',
+  ],
+  'tan-erp aligned governance rule'
+);
 checkContainsNone('AGENTS.md', agentsContent, ['#0B3056'], 'legacy Navy color token');
 
 // 4. Verify Task 2 files content (PM-01..PM-10 in implementation-roadmap.md, ADR sections)

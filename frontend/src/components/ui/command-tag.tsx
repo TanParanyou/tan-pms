@@ -14,13 +14,13 @@ export function CommandTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-[#e5e5e5] bg-[#fafafa] px-3 py-1 font-mono text-[13px] font-medium text-[#000000] tabular-nums tracking-tight shadow-none",
+        "inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-soft px-3 py-1 font-mono text-[13px] font-medium text-ink tabular-nums tracking-tight shadow-none",
         className
       )}
       {...props}
     >
       {prefixCode && (
-        <span className="text-[#737373] text-[11px] uppercase font-bold tracking-wider">
+        <span className="text-body text-[11px] uppercase font-bold tracking-wider">
           {prefixCode}
         </span>
       )}

@@ -11,14 +11,14 @@ const SelectPill = React.forwardRef<HTMLSelectElement, SelectPillProps>(
         <select
           ref={ref}
           className={cn(
-            "flex h-10 w-full appearance-none items-center justify-between rounded-full border border-[#e5e5e5] bg-[#ffffff] px-4 py-2 text-sm text-[#000000] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/50 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-colors pr-10",
+            "flex h-10 w-full appearance-none items-center justify-between rounded-full border border-hairline bg-canvas px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-focus-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-colors pr-10",
             className
           )}
           {...props}
         >
           {children}
         </select>
-        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#737373] text-xs">
+        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-body text-xs">
           ▼
         </span>
       </div>

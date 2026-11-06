@@ -1,6 +1,9 @@
+"use client";
+
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
+import { useTranslations } from "next-intl";
 import type { QueuedFile } from "@/hooks/use-deferred-file-upload";
 
 export interface DeferredFilePickerProps {
@@ -22,16 +25,19 @@ export function DeferredFilePicker({
   isUploading = false,
   accept = "image/*,.pdf",
   multiple = false,
-  label = "แนบไฟล์เอกสาร / รูปภาพ (Deferred)",
-  helperText = "ไฟล์จะถูกพักไว้ในหน่วยความจำ และอัปโหลดจริงเมื่อกดบันทึกฟอร์มเท่านั้น",
+  label,
+  helperText,
   className,
 }: DeferredFilePickerProps) {
+  const t = useTranslations("common.filePicker");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const resolvedLabel = label || t("defaultLabel");
+  const resolvedHelperText = helperText || t("defaultHelper");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       onFilesSelected(e.target.files);
-      // Reset input value so re-selecting same file triggers change
       e.target.value = "";
     }
   };
@@ -39,9 +45,9 @@ export function DeferredFilePicker({
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-[#000000]">{label}</label>
-        <span className="text-xs text-[#737373] tabular-nums">
-          {queuedFiles.length} ไฟล์รอส่ง
+        <span className="text-sm font-medium text-ink">{resolvedLabel}</span>
+        <span className="text-xs text-body tabular-nums">
+          {queuedFiles.length} {t("filesStaged")}
         </span>
       </div>
 
@@ -62,11 +68,11 @@ export function DeferredFilePicker({
           size="sm"
           disabled={isUploading}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-full border-[#e5e5e5] bg-[#ffffff] text-xs hover:bg-[#fafafa]"
+          className="rounded-full border-hairline bg-canvas text-xs hover:bg-surface-soft"
         >
-          📎 เลือกไฟล์...
+          📎 {t("chooseFile")}
         </Button>
-        <span className="text-xs text-[#737373]">{helperText}</span>
+        <span className="text-xs text-body">{resolvedHelperText}</span>
       </div>
 
       {queuedFiles.length > 0 && (
@@ -74,7 +80,7 @@ export function DeferredFilePicker({
           {queuedFiles.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-full border border-[#e5e5e5] bg-[#fafafa] px-3 py-1.5 text-xs"
+              className="flex items-center justify-between rounded-full border border-hairline bg-surface-soft px-3 py-1.5 text-xs"
             >
               <div className="flex items-center gap-2 overflow-hidden truncate">
                 {item.previewUrl ? (
@@ -82,30 +88,33 @@ export function DeferredFilePicker({
                   <img
                     src={item.previewUrl}
                     alt={item.name}
-                    className="h-6 w-6 rounded-full object-cover border border-[#e5e5e5]"
+                    className="h-6 w-6 rounded-full object-cover border border-hairline"
                   />
                 ) : (
-                  <span className="text-sm">📄</span>
+                  <span className="text-sm" aria-hidden="true">📄</span>
                 )}
-                <span className="font-mono truncate max-w-[200px] text-[#000000]">
+                <span className="font-mono truncate max-w-[200px] text-ink">
                   {item.name}
                 </span>
-                <span className="text-[#737373] tabular-nums">
+                <span className="text-body tabular-nums">
                   ({(item.size / 1024).toFixed(1)} KB)
                 </span>
-                <span className="rounded-full bg-[#ffbd2e]/20 text-[#966b0a] px-2 py-0.2 text-[10px] font-medium">
-                  Staged (รอ Submit)
+                <span className="rounded-full bg-terminal-yellow/20 text-amber-700 px-2 py-0.5 text-[10px] font-medium">
+                  {t("stagedBadge")}
                 </span>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => onRemoveFile(item.id)}
                 disabled={isUploading}
-                className="text-[#737373] hover:text-[#ff5f56] px-1 font-bold transition-colors"
-                title="Remove file"
+                title={t("removeFile")}
+                aria-label={t("removeFile")}
+                className="h-6 w-6 rounded-full text-body hover:text-destructive"
               >
                 ✕
-              </button>
+              </Button>
             </div>
           ))}
         </div>

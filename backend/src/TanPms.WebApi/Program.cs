@@ -1,8 +1,11 @@
-using TanPms.Application.Abstractions;
-using TanPms.Application.Contracts;
+using TanPms.Application.ClientPortal;
+using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Rack;
+using TanPms.Application.Stays;
 using TanPms.Infrastructure.Persistence;
 using TanPms.Infrastructure.Services;
-using TanPms.WebApi.Infrastructure;
+using TanPms.WebApi.ErrorHandling;
+using TanPms.WebApi.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,9 +15,13 @@ builder.Services.AddScoped<AuditableEntityInterceptor>();
 
 var operationalService = new InMemoryOperationalService();
 builder.Services.AddSingleton(operationalService);
-builder.Services.AddSingleton<IPmsOperationalService>(operationalService);
+builder.Services.AddSingleton<IPmsOperationalStore>(operationalService);
 builder.Services.AddSingleton<IDocumentNumberService>(operationalService);
 builder.Services.AddSingleton<IAuditLogger>(operationalService);
+
+builder.Services.AddScoped<GetAdminRoomRackHandler>();
+builder.Services.AddScoped<CheckInStayHandler>();
+builder.Services.AddScoped<GetClientDashboardHandler>();
 
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -30,30 +37,45 @@ var adminGroup = app.MapGroup("/api/v1/admin");
 
 adminGroup.MapGet("/properties/{propertyId:guid}/rack", (
     Guid propertyId,
-    IPmsOperationalService pmsService,
-    ICurrentUserContext userContext) =>
+    GetAdminRoomRackHandler handler,
+    HttpContext httpContext) =>
 {
-    var response = pmsService.GetRoomRack(propertyId, userContext);
-    return Results.Ok(response);
+    var result = handler.Handle(new GetAdminRoomRackQuery(propertyId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
 });
 
 adminGroup.MapPost("/stays/check-in", (
     CheckInStayRequest request,
-    IPmsOperationalService pmsService,
-    ICurrentUserContext userContext) =>
+    CheckInStayHandler handler,
+    HttpContext httpContext) =>
 {
-    var stay = pmsService.CheckInStay(request, userContext);
-    return Results.Created($"/api/v1/admin/stays/{stay.Id}", stay);
+    var command = new CheckInStayCommand(
+        PropertyId: request.PropertyId,
+        UnitId: request.UnitId,
+        CustomerId: request.CustomerId,
+        StayMode: request.StayMode,
+        KeyDepositAmount: request.KeyDepositAmount,
+        OverrideDirtyCheckIn: request.OverrideDirtyCheckIn,
+        OverrideReason: request.OverrideReason);
+
+    var result = handler.Handle(command);
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/admin/stays/{result.Value!.Id}", result.Value);
 });
 
 var clientGroup = app.MapGroup("/api/v1/client");
 
 clientGroup.MapGet("/dashboard", (
-    IPmsOperationalService pmsService,
-    ICurrentUserContext userContext) =>
+    GetClientDashboardHandler handler,
+    HttpContext httpContext) =>
 {
-    var dashboard = pmsService.GetClientDashboard(userContext);
-    return Results.Ok(dashboard);
+    var result = handler.Handle(new GetClientDashboardQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
 });
 
 app.Run();

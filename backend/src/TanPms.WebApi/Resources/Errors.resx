@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="validation.failed_TITLE" xml:space="preserve">
+    <value>ข้อมูลที่ส่งมาไม่ถูกต้อง</value>
+  </data>
+  <data name="validation.failed_DETAIL" xml:space="preserve">
+    <value>กรุณาตรวจสอบความครบถ้วนและรูปแบบของข้อมูลในคำขอ</value>
+  </data>
+  <data name="auth.unauthenticated_TITLE" xml:space="preserve">
+    <value>จำเป็นต้องเข้าสู่ระบบ</value>
+  </data>
+  <data name="auth.unauthenticated_DETAIL" xml:space="preserve">
+    <value>ไม่พบข้อมูลยืนยันตัวตนหรือเซสชันหมดอายุแล้ว</value>
+  </data>
+  <data name="auth.property_scope_denied_TITLE" xml:space="preserve">
+    <value>ไม่มีสิทธิ์เข้าถึงสาขาที่ระบุ</value>
+  </data>
+  <data name="auth.property_scope_denied_DETAIL" xml:space="preserve">
+    <value>บัญชีผู้ใช้งานไม่ได้รับอนุญาตให้เข้าถึงข้อมูลของสาขานี้</value>
+  </data>
+  <data name="auth.permission_denied_TITLE" xml:space="preserve">
+    <value>ไม่มีสิทธิ์ดำเนินการ</value>
+  </data>
+  <data name="auth.permission_denied_DETAIL" xml:space="preserve">
+    <value>บัญชีผู้ใช้งานไม่มีสิทธิ์สำหรับคำสั่งนี้</value>
+  </data>
+  <data name="unit.not_clean_TITLE" xml:space="preserve">
+    <value>ห้องพักยังไม่พร้อมเข้าพัก</value>
+  </data>
+  <data name="unit.not_clean_DETAIL" xml:space="preserve">
+    <value>ห้องพักไม่อยู่ในสถานะสะอาด (Clean) ไม่สามารถเปิดห้องได้โดยไม่มีสิทธิ์ Override</value>
+  </data>
+  <data name="reservation.slot_overlap_TITLE" xml:space="preserve">
+    <value>ช่วงเวลาเข้าพักทับซ้อนกัน</value>
+  </data>
+  <data name="reservation.slot_overlap_DETAIL" xml:space="preserve">
+    <value>ห้องพักมีการจองหรือการเข้าพักอื่นในช่วงเวลาที่เลือกแล้ว</value>
+  </data>
+  <data name="reservation.quota_exhausted_TITLE" xml:space="preserve">
+    <value>โควตาห้องว่างเต็มแล้ว</value>
+  </data>
+  <data name="reservation.quota_exhausted_DETAIL" xml:space="preserve">
+    <value>ไม่มีโควตาห้องว่างสำหรับประเภทห้องพักในช่วงเวลาที่เลือก</value>
+  </data>
+  <data name="reservation.hold_expired_TITLE" xml:space="preserve">
+    <value>เวลาถือครองใบจองหมดอายุ</value>
+  </data>
+  <data name="reservation.hold_expired_DETAIL" xml:space="preserve">
+    <value>ใบจองสถานะ Hold หมดเวลาชำระเงินตามกำหนดแล้ว</value>
+  </data>
+  <data name="stay.folio_unsettled_TITLE" xml:space="preserve">
+    <value>มียอดค้างชำระหรือเงินมัดจำคงค้าง</value>
+  </data>
+  <data name="stay.folio_unsettled_DETAIL" xml:space="preserve">
+    <value>กรุณาเคลียร์ยอดบัญชีห้องพัก (Folio) และเงินมัดจำกุญแจให้เป็น 0.00 ก่อนเช็กเอาต์</value>
+  </data>
+  <data name="invoice.immutable_status_TITLE" xml:space="preserve">
+    <value>ไม่สามารถแก้ไขหรือลบใบแจ้งหนี้ที่ออกแล้ว</value>
+  </data>
+  <data name="invoice.immutable_status_DETAIL" xml:space="preserve">
+    <value>ใบแจ้งหนี้ที่ออกแล้วห้ามลบหรือแก้ไขโดยตรง กรุณาใช้คำสั่งยกเลิกบิล (Void)</value>
+  </data>
+  <data name="shift.not_open_TITLE" xml:space="preserve">
+    <value>ยังไม่ได้เปิดกะแคชเชียร์</value>
+  </data>
+  <data name="shift.not_open_DETAIL" xml:space="preserve">
+    <value>พนักงานต้องมีกะแคชเชียร์สถานะ Open ในสาขานี้ก่อนทำรายการรับหรือจ่ายเงิน</value>
+  </data>
+  <data name="meter.rollover_unconfirmed_TITLE" xml:space="preserve">
+    <value>ต้องยืนยันการหมุนครบรอบของมิเตอร์</value>
+  </data>
+  <data name="meter.rollover_unconfirmed_DETAIL" xml:space="preserve">
+    <value>เลขมิเตอร์ปัจจุบันน้อยกว่าครั้งก่อนหน้า กรุณายืนยันสถานะมิเตอร์หมุนครบรอบ</value>
+  </data>
+  <data name="internal.unexpected_error_TITLE" xml:space="preserve">
+    <value>เกิดข้อผิดพลาดภายในระบบ</value>
+  </data>
+  <data name="internal.unexpected_error_DETAIL" xml:space="preserve">
+    <value>ไม่สามารถดำเนินการตามคำขอได้ในขณะนี้</value>
+  </data>
+</root>

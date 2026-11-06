@@ -1,34 +1,24 @@
 using System.Collections.Concurrent;
-using TanPms.Application.Abstractions;
-using TanPms.Application.Contracts;
+using TanPms.Application.ClientPortal;
+using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Contracts;
+using TanPms.Application.Common.Results;
+using TanPms.Application.Rack;
+using TanPms.Application.Stays;
+using TanPms.Domain.Billing;
 using TanPms.Domain.Common;
-using TanPms.Domain.Entities;
-using TanPms.Domain.Enums;
-using TanPms.Domain.Exceptions;
-using TanPms.Domain.Services;
+using TanPms.Domain.Customers;
+using TanPms.Domain.DocumentNumbering;
+using TanPms.Domain.Leases;
+using TanPms.Domain.Operations;
+using TanPms.Domain.Properties;
+using TanPms.Domain.Rates;
+using TanPms.Domain.Reservations;
+using TanPms.Domain.Stays;
 
 namespace TanPms.Infrastructure.Services;
 
-public static class PmsSeedConstants
-{
-    public static readonly Guid BkkPropertyId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    public static readonly Guid CnxPropertyId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-
-    public static readonly Guid BkkBuildingAId = Guid.Parse("11111111-aaaa-1111-1111-111111111111");
-    public static readonly Guid BkkFloor1Id = Guid.Parse("11111111-f001-1111-1111-111111111111");
-    public static readonly Guid BkkFloor2Id = Guid.Parse("11111111-f002-1111-1111-111111111111");
-    public static readonly Guid StandardUnitTypeId = Guid.Parse("11111111-cccc-1111-1111-111111111101");
-    public static readonly Guid DeluxeUnitTypeId = Guid.Parse("11111111-cccc-1111-1111-111111111102");
-
-    public static readonly Guid CleanUnitA101Id = Guid.Parse("33333333-3333-3333-3333-333333333301");
-    public static readonly Guid DirtyUnitA102Id = Guid.Parse("33333333-3333-3333-3333-333333333302");
-    public static readonly Guid OccupiedMonthlyUnitA201Id = Guid.Parse("33333333-3333-3333-3333-333333333303");
-
-    public static readonly Guid PrimaryCustomerId = Guid.Parse("44444444-4444-4444-4444-444444444401");
-    public static readonly Guid SecondaryCustomerId = Guid.Parse("44444444-4444-4444-4444-444444444402");
-}
-
-public sealed class InMemoryOperationalService : IPmsOperationalService, IDocumentNumberService, IAuditLogger
+public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocumentNumberService, IAuditLogger
 {
     private readonly ConcurrentDictionary<string, int> _sequences = new();
     private readonly ConcurrentBag<AuditEvent> _auditEvents = [];
@@ -73,18 +63,15 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
         return Task.CompletedTask;
     }
 
-    public RoomRackResponse GetRoomRack(Guid propertyId, ICurrentUserContext userContext)
+    public Result<RoomRackResponse> GetRoomRack(Guid propertyId)
     {
-        userContext.EnsureAdminPropertyAccess(propertyId);
-
         lock (_syncRoot)
         {
             if (!_properties.TryGetValue(propertyId, out var property))
             {
-                throw new DomainRuleException(
+                return Result<RoomRackResponse>.Failure(new Error(
                     DomainErrorCodes.ValidationFailed,
-                    $"Property '{propertyId}' was not found.",
-                    httpStatus: 400);
+                    $"Property '{propertyId}' was not found."));
             }
 
             var primaryCustomer = _customers[PmsSeedConstants.PrimaryCustomerId];
@@ -112,77 +99,77 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
                 })
                 .ToList();
 
-            return new RoomRackResponse(
-                Property: new PropertyRefDto(property.Id, property.Code, property.Name),
-                Items: items);
+            return Result<RoomRackResponse>.Success(new RoomRackResponse(
+                Property: new PropertyRefDto(
+                    property.Id,
+                    property.Code,
+                    LocalizedTextDto.FromDomain(property.Name)),
+                Items: items));
         }
     }
 
-    public StaySummaryDto CheckInStay(CheckInStayRequest request, ICurrentUserContext userContext)
+    public Result<StaySummaryDto> CheckInStay(
+        CheckInStayCommand command,
+        bool callerHasOverridePermission)
     {
-        userContext.EnsureAdminPropertyAccess(request.PropertyId);
-
-        if (!userContext.HasOpenCashierShift)
-        {
-            throw new DomainRuleException(
-                DomainErrorCodes.ShiftNotOpen,
-                "Cashier must have an Open CashierShift in the property before performing check-in.");
-        }
-
-        if (!Enum.TryParse<StayMode>(request.StayMode, ignoreCase: true, out var stayMode)
+        if (!Enum.TryParse<StayMode>(command.StayMode, ignoreCase: true, out var stayMode)
             || stayMode == StayMode.Monthly)
         {
-            throw new DomainRuleException(
+            return Result<StaySummaryDto>.Failure(new Error(
                 DomainErrorCodes.ValidationFailed,
-                "CheckInStay only supports Hourly or Daily StayMode.",
-                httpStatus: 400);
+                "CheckInStay only supports Hourly or Daily StayMode."));
         }
 
         lock (_syncRoot)
         {
-            if (!_units.TryGetValue(request.UnitId, out var unit) || unit.PropertyId != request.PropertyId)
+            if (!_units.TryGetValue(command.UnitId, out var unit) || unit.PropertyId != command.PropertyId)
             {
-                throw new DomainRuleException(
+                return Result<StaySummaryDto>.Failure(new Error(
                     DomainErrorCodes.ValidationFailed,
-                    $"Unit '{request.UnitId}' does not belong to property '{request.PropertyId}'.",
-                    httpStatus: 400);
+                    $"Unit '{command.UnitId}' does not belong to property '{command.PropertyId}'."));
             }
 
             if (unit.OccupancyStatus != OccupancyStatus.Vacant)
             {
-                throw new DomainRuleException(
+                return Result<StaySummaryDto>.Failure(new Error(
                     DomainErrorCodes.ReservationSlotOverlap,
-                    $"Unit {unit.UnitNumber} is already {unit.OccupancyStatus}.");
+                    $"Unit {unit.UnitNumber} is already {unit.OccupancyStatus}."));
             }
 
-            var hasOverridePerm = userContext.Permissions.Contains("admin.stay.override_dirty_checkin");
-            unit.EnsureCanCheckIn(request.OverrideDirtyCheckIn, hasOverridePerm, request.OverrideReason);
+            try
+            {
+                unit.EnsureCanCheckIn(command.OverrideDirtyCheckIn, callerHasOverridePermission, command.OverrideReason);
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<StaySummaryDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
 
-            if (unit.ConditionStatus != ConditionStatus.Clean && request.OverrideDirtyCheckIn)
+            if (unit.ConditionStatus != ConditionStatus.Clean && command.OverrideDirtyCheckIn)
             {
                 _auditEvents.Add(new AuditEvent
                 {
-                    PropertyId = request.PropertyId,
+                    PropertyId = command.PropertyId,
                     ActionKey = "admin.stay.override_dirty_checkin",
                     EntityId = unit.Id,
-                    Reason = request.OverrideReason!,
+                    Reason = command.OverrideReason!,
                     BeforeStateJson = $"{{\"conditionStatus\":\"{unit.ConditionStatus}\"}}",
                     AfterStateJson = "{\"occupancyStatus\":\"Occupied\"}"
                 });
             }
 
-            var property = _properties[request.PropertyId];
+            var property = _properties[command.PropertyId];
             var docNo = NextDocumentNumberAsync(
                 property.Id,
                 property.Code,
                 DocumentTypeCode.STY,
                 DateTimeOffset.UtcNow).GetAwaiter().GetResult();
 
-            if (!_customers.TryGetValue(request.CustomerId, out var customer))
+            if (!_customers.TryGetValue(command.CustomerId, out var customer))
             {
                 customer = new Customer
                 {
-                    Id = request.CustomerId,
+                    Id = command.CustomerId,
                     FullName = "Walk-in Guest",
                     NationalIdOrPassport = "1100501234123"
                 };
@@ -191,16 +178,16 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
 
             var stay = new Stay
             {
-                PropertyId = request.PropertyId,
+                PropertyId = command.PropertyId,
                 DocumentNumber = docNo,
                 UnitId = unit.Id,
                 CustomerId = customer.Id,
                 StayMode = stayMode,
                 CheckInAt = DateTimeOffset.UtcNow,
-                KeyDepositAmount = request.KeyDepositAmount
+                KeyDepositAmount = command.KeyDepositAmount
             };
 
-            return new StaySummaryDto(
+            return Result<StaySummaryDto>.Success(new StaySummaryDto(
                 Id: stay.Id,
                 DocumentNumber: stay.DocumentNumber,
                 StayMode: stay.StayMode.ToString(),
@@ -209,14 +196,12 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
                 Customer: new CustomerRefDto(
                     customer.Id,
                     customer.FullName,
-                    customer.GetMaskedIdentity()));
+                    customer.GetMaskedIdentity())));
         }
     }
 
-    public ClientDashboardResponse GetClientDashboard(ICurrentUserContext userContext)
+    public Result<ClientDashboardResponse> GetClientDashboard(Guid customerId)
     {
-        var customerId = userContext.RequireClientCustomerId();
-
         lock (_syncRoot)
         {
             if (!_customers.TryGetValue(customerId, out var customer))
@@ -238,7 +223,7 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
                 .Where(r => r.CustomerId == customerId && r.Status == ReservationStatus.Hold)
                 .Select(r => new ClientHoldReservationDto(
                     r.DocumentNumber,
-                    "Standard 24 sqm",
+                    new LocalizedTextDto("มาตรฐาน 24 ตร.ม.", "Standard 24 sqm"),
                     r.StayMode.ToString(),
                     r.HoldExpiresAt,
                     r.DepositAmount))
@@ -271,12 +256,12 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
                     p.ArrivedAt))
                 .ToList();
 
-            return new ClientDashboardResponse(
+            return Result<ClientDashboardResponse>.Success(new ClientDashboardResponse(
                 Customer: customerDto,
                 ActiveHoldReservation: hold,
                 ActiveLease: lease,
                 UnpaidInvoices: unpaidInvoices,
-                PendingParcels: pendingParcels);
+                PendingParcels: pendingParcels));
         }
     }
 
@@ -286,14 +271,14 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
         {
             Id = PmsSeedConstants.BkkPropertyId,
             Code = "BKK01",
-            Name = "TAN Residence Ratchada",
+            Name = LocalizedText.Create("แทน เรสซิเดนซ์ รัชดา", "TAN Residence Ratchada"),
             TaxBranchCode = "00000"
         };
         var cnx = new Property
         {
             Id = PmsSeedConstants.CnxPropertyId,
             Code = "CNX01",
-            Name = "TAN Suites Nimman",
+            Name = LocalizedText.Create("แทน สวีท นิมมาน", "TAN Suites Nimman"),
             TaxBranchCode = "00001"
         };
 
@@ -336,9 +321,13 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
         _units[unitA102.Id] = unitA102;
         _units[unitA201.Id] = unitA201;
 
-        _unitRefs[unitA101.Id] = new UnitRefDto(unitA101.Id, "A-101", "Building A", 1, "Standard 24 sqm");
-        _unitRefs[unitA102.Id] = new UnitRefDto(unitA102.Id, "A-102", "Building A", 1, "Standard 24 sqm");
-        _unitRefs[unitA201.Id] = new UnitRefDto(unitA201.Id, "A-201", "Building A", 2, "Deluxe 32 sqm");
+        var buildingADto = new LocalizedTextDto("อาคาร A", "Building A");
+        var standardTypeDto = new LocalizedTextDto("มาตรฐาน 24 ตร.ม.", "Standard 24 sqm");
+        var deluxeTypeDto = new LocalizedTextDto("ดีลักซ์ 32 ตร.ม.", "Deluxe 32 sqm");
+
+        _unitRefs[unitA101.Id] = new UnitRefDto(unitA101.Id, "A-101", buildingADto, 1, standardTypeDto);
+        _unitRefs[unitA102.Id] = new UnitRefDto(unitA102.Id, "A-102", buildingADto, 1, standardTypeDto);
+        _unitRefs[unitA201.Id] = new UnitRefDto(unitA201.Id, "A-201", buildingADto, 2, deluxeTypeDto);
 
         var customer1 = new Customer
         {
@@ -378,8 +367,8 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
             CustomerId = customer1.Id,
             LeaseId = lease1.Id
         };
-        invoice1.AddLine("Monthly Room Rent (Nov 2026)", 8500.00m, TaxMode.Exempt);
-        invoice1.AddLine("Furniture Rental", 1000.00m, TaxMode.VatExcluded);
+        invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)");
+        invoice1.AddLine("ค่าเช่าเฟอร์นิเจอร์", 1000.00m, TaxMode.VatExcluded, "Furniture Rental");
         invoice1.Issue();
         _invoices.Add(invoice1);
 
@@ -389,7 +378,7 @@ public sealed class InMemoryOperationalService : IPmsOperationalService, IDocume
             DocumentNumber = "BKK01-INV-2611-0002",
             CustomerId = customer2.Id
         };
-        invoice2.AddLine("Daily Stay Balance", 1200.00m, TaxMode.VatIncluded);
+        invoice2.AddLine("ยอดค้างค่าห้องรายวัน", 1200.00m, TaxMode.VatIncluded, "Daily Stay Balance");
         invoice2.Issue();
         _invoices.Add(invoice2);
 

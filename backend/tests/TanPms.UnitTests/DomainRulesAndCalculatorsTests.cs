@@ -1,7 +1,12 @@
-using TanPms.Domain.Entities;
-using TanPms.Domain.Enums;
-using TanPms.Domain.Exceptions;
-using TanPms.Domain.Services;
+using TanPms.Domain.Billing;
+using TanPms.Domain.Cashier;
+using TanPms.Domain.Common;
+using TanPms.Domain.DocumentNumbering;
+using TanPms.Domain.Operations;
+using TanPms.Domain.Properties;
+using TanPms.Domain.Rates;
+using TanPms.Domain.Reservations;
+using TanPms.Domain.Stays;
 using Xunit;
 
 namespace TanPms.UnitTests;
@@ -51,7 +56,7 @@ public sealed class DomainRulesAndCalculatorsTests
     [Fact]
     public void UtilityMeterCalculator_Should_Throw_RolloverUnconfirmed_When_Current_Lower_Than_Previous()
     {
-        var tariff = new UtilityTariffRule(UtilityBillingMode.PerUnit, RatePerUnit: 8.00m, MinimumChargeAmount: 100.00m);
+        var tariff = new UtilityTariff(UtilityBillingMode.PerUnit, RatePerUnit: 8.00m, MinimumChargeAmount: 100.00m);
 
         var ex = Assert.Throws<DomainRuleException>(() =>
             UtilityMeterCalculator.Calculate(
@@ -68,7 +73,7 @@ public sealed class DomainRulesAndCalculatorsTests
     [Fact]
     public void UtilityMeterCalculator_Should_Calculate_Rollover_And_All_Three_BillingModes()
     {
-        var perUnitTariff = new UtilityTariffRule(
+        var perUnitTariff = new UtilityTariff(
             UtilityBillingMode.PerUnit,
             RatePerUnit: 8.00m,
             MinimumChargeAmount: 100.00m);
@@ -84,7 +89,7 @@ public sealed class DomainRulesAndCalculatorsTests
         Assert.Equal(170.00m, rolloverResult.UsageUnits);
         Assert.Equal(1360.00m, rolloverResult.ChargeAmount);
 
-        var minUnitsTariff = new UtilityTariffRule(
+        var minUnitsTariff = new UtilityTariff(
             UtilityBillingMode.MinimumUnits,
             RatePerUnit: 18.00m,
             IncludedUnits: 10m,
@@ -98,7 +103,7 @@ public sealed class DomainRulesAndCalculatorsTests
         Assert.Equal(15.00m, aboveMin.UsageUnits);
         Assert.Equal(240.00m, aboveMin.ChargeAmount);
 
-        var flatPerOccupantTariff = new UtilityTariffRule(
+        var flatPerOccupantTariff = new UtilityTariff(
             UtilityBillingMode.FlatRate,
             RatePerUnit: 0m,
             FlatRateAmount: 120.00m,

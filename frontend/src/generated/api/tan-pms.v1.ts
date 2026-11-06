@@ -100,19 +100,23 @@ export interface components {
                 [key: string]: string[];
             };
         };
+        LocalizedTextDto: {
+            th: string;
+            en?: string | null;
+        };
         PropertyRefDto: {
             /** Format: uuid */
             id: string;
             code: string;
-            name: string;
+            name: components["schemas"]["LocalizedTextDto"];
         };
         UnitRefDto: {
             /** Format: uuid */
             id: string;
             unitNumber: string;
-            buildingName: string;
+            buildingName: components["schemas"]["LocalizedTextDto"];
             floorNumber: number;
-            unitTypeName: string;
+            unitTypeName: components["schemas"]["LocalizedTextDto"];
         };
         CustomerRefDto: {
             /** Format: uuid */
@@ -163,7 +167,7 @@ export interface components {
             customer: components["schemas"]["CustomerRefDto"];
             activeHoldReservation: {
                 documentNumber?: string;
-                unitTypeName?: string;
+                unitTypeName?: components["schemas"]["LocalizedTextDto"];
                 stayMode?: string;
                 /** Format: date-time */
                 holdExpiresAt?: string;

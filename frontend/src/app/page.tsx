@@ -1,15 +1,21 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CommandTag } from "@/components/ui/command-tag";
 import { TerminalCard } from "@/components/ui/terminal-card";
+import { useTranslations } from "next-intl";
+import { siteConfig } from "@/config/site";
 
 export default function HomePage() {
+  const t = useTranslations("home");
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-between p-6 sm:p-12 md:p-24 max-w-4xl mx-auto">
       {/* Top Bar with Status Tag */}
       <div className="w-full flex items-center justify-between">
-        <span className="font-rounded font-semibold text-xl tracking-tight text-[#000000]">
-          tan-pms
+        <span className="font-rounded font-semibold text-xl tracking-tight text-ink">
+          {siteConfig.name}
         </span>
         <div className="flex items-center gap-2">
           <CommandTag prefixCode="STATUS">ONLINE</CommandTag>
@@ -20,23 +26,19 @@ export default function HomePage() {
       {/* Hero Section (Ollama Minimal Design System) */}
       <div className="my-auto py-16 text-center space-y-8">
         <div className="space-y-4">
-          <h1 className="text-4xl sm:text-5xl font-rounded font-medium tracking-tight text-[#000000]">
-            Enterprise Property Management System
+          <h1 className="text-4xl sm:text-5xl font-rounded font-medium tracking-tight text-ink">
+            {t("subtitle")}
           </h1>
-          <p className="text-lg text-[#737373] max-w-2xl mx-auto leading-relaxed">
-            Single-Organization, Multi-Property PMS supporting{" "}
-            <span className="text-[#000000] font-medium">Hourly</span>,{" "}
-            <span className="text-[#000000] font-medium">Daily</span>, and{" "}
-            <span className="text-[#000000] font-medium">Monthly</span> StayModes in a unified
-            concurrency engine.
+          <p className="text-lg text-body max-w-2xl mx-auto leading-relaxed">
+            {t("description")}
           </p>
         </div>
 
         {/* Command Pill */}
         <div className="flex justify-center">
-          <div className="inline-flex items-center rounded-full bg-[#fafafa] border border-[#e5e5e5] px-6 py-2.5 text-sm font-mono text-[#000000]">
-            <span className="text-[#737373] mr-2">$</span>
-            <span>tan-pms --property BKK01 --mode unified</span>
+          <div className="inline-flex items-center rounded-full bg-surface-soft border border-hairline px-6 py-2.5 text-sm font-mono text-ink">
+            <span className="text-body mr-2">$</span>
+            <span>{siteConfig.name} --property BKK01 --mode unified</span>
           </div>
         </div>
 
@@ -44,17 +46,17 @@ export default function HomePage() {
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link href="/admin">
             <Button size="lg" className="rounded-full shadow-none">
-              Admin Operations (/admin) →
+              {t("adminCta")}
             </Button>
           </Link>
           <Link href="/client">
             <Button variant="outline" size="lg" className="rounded-full shadow-none">
-              Client Portal (/client) →
+              {t("clientCta")}
             </Button>
           </Link>
           <Link href="/login">
             <Button variant="secondary" size="lg" className="rounded-full shadow-none">
-              Scope Switcher (/login)
+              {t("loginCta")}
             </Button>
           </Link>
         </div>
@@ -63,20 +65,13 @@ export default function HomePage() {
       {/* Terminal Card Footer */}
       <div className="w-full pt-8">
         <TerminalCard
-          title="tan-pms.kernel.boot"
-          badge="RFC 9457 & Ollama Design System"
+          title={t("terminalTitle")}
+          badge={t("terminalBadge")}
         >
-          <div className="space-y-1 text-xs text-[#525252]">
-            <p>
-              [OK] PostgreSQL Exclusion Constraints (tstzrange EXCLUDE USING gist) verified
-            </p>
-            <p>
-              [OK] Ubiquitous Language: 20 Canonical Terms & 9 Document Sequences (RES, STY,
-              LSE, INV, RCT, DEP, SHF, WKO, PCL) loaded
-            </p>
-            <p>
-              [OK] Strict Zero Foreign Key .find() frontend resolution contract enforced
-            </p>
+          <div className="space-y-1 text-xs text-charcoal">
+            <p>{t("terminalLine1")}</p>
+            <p>{t("terminalLine2")}</p>
+            <p>{t("terminalLine3")}</p>
           </div>
         </TerminalCard>
       </div>

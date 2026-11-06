@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using TanPms.Application.Contracts;
-using TanPms.Domain.Exceptions;
+using TanPms.Application.ClientPortal;
+using TanPms.Application.Rack;
+using TanPms.Application.Stays;
+using TanPms.Domain.Common;
 using TanPms.Infrastructure.Services;
-using TanPms.WebApi.Infrastructure;
+using TanPms.WebApi.ErrorHandling;
 using Xunit;
 
 namespace TanPms.IntegrationTests;
@@ -31,11 +33,12 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
-    public async Task Admin_RoomRack_Should_Return_StructuredProjections_For_AllowedProperty_And_403_For_UnauthorizedProperty()
+    public async Task Admin_RoomRack_Should_Return_StructuredProjections_With_LocalizedText_And_403_For_UnauthorizedProperty()
     {
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
         client.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        client.DefaultRequestHeaders.Add("Accept-Language", "th-TH");
 
         var allowedResponse = await client.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rack");
         Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
@@ -43,22 +46,26 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         var rack = await allowedResponse.Content.ReadFromJsonAsync<RoomRackResponse>();
         Assert.NotNull(rack);
         Assert.Equal("BKK01", rack.Property.Code);
+        Assert.Equal("แทน เรสซิเดนซ์ รัชดา", rack.Property.Name.Th);
+        Assert.Equal("TAN Residence Ratchada", rack.Property.Name.En);
         Assert.NotEmpty(rack.Items);
         Assert.All(rack.Items, item =>
         {
             Assert.False(string.IsNullOrWhiteSpace(item.Unit.UnitNumber));
-            Assert.False(string.IsNullOrWhiteSpace(item.Unit.BuildingName));
-            Assert.False(string.IsNullOrWhiteSpace(item.Unit.UnitTypeName));
+            Assert.False(string.IsNullOrWhiteSpace(item.Unit.BuildingName.Th));
+            Assert.False(string.IsNullOrWhiteSpace(item.Unit.UnitTypeName.Th));
         });
 
         var deniedResponse = await client.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/rack");
         Assert.Equal(HttpStatusCode.Forbidden, deniedResponse.StatusCode);
         Assert.Equal("application/problem+json", deniedResponse.Content.Headers.ContentType?.MediaType);
 
-        var problem = await deniedResponse.Content.ReadFromJsonAsync<Rfc9457ProblemDetailsResponse>();
+        var problem = await deniedResponse.Content.ReadFromJsonAsync<ApiProblemDetails>();
         Assert.NotNull(problem);
         Assert.Equal(DomainErrorCodes.PropertyScopeDenied, problem.ErrorCode);
+        Assert.Equal(DomainErrorCodes.PropertyScopeDenied, problem.Code);
         Assert.Equal(403, problem.Status);
+        Assert.Equal("ไม่มีสิทธิ์เข้าถึงสาขาที่ระบุ", problem.Title);
         Assert.False(string.IsNullOrWhiteSpace(problem.TraceId));
     }
 
@@ -69,6 +76,7 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         noShiftClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
         noShiftClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
         noShiftClient.DefaultRequestHeaders.Add("X-TanPms-Open-Shift", "false");
+        noShiftClient.DefaultRequestHeaders.Add("Accept-Language", "en-US");
 
         var noShiftReq = new CheckInStayRequest(
             PropertyId: PmsSeedConstants.BkkPropertyId,
@@ -79,9 +87,10 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
 
         var noShiftRes = await noShiftClient.PostAsJsonAsync("/api/v1/admin/stays/check-in", noShiftReq);
         Assert.Equal(HttpStatusCode.Conflict, noShiftRes.StatusCode);
-        var noShiftProblem = await noShiftRes.Content.ReadFromJsonAsync<Rfc9457ProblemDetailsResponse>();
+        var noShiftProblem = await noShiftRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
         Assert.NotNull(noShiftProblem);
         Assert.Equal(DomainErrorCodes.ShiftNotOpen, noShiftProblem.ErrorCode);
+        Assert.Equal("Cashier shift is not open", noShiftProblem.Title);
 
         using var cashierClient = _factory.CreateClient();
         cashierClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
@@ -98,7 +107,7 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
 
         var dirtyRes = await cashierClient.PostAsJsonAsync("/api/v1/admin/stays/check-in", dirtyReq);
         Assert.Equal(HttpStatusCode.Conflict, dirtyRes.StatusCode);
-        var dirtyProblem = await dirtyRes.Content.ReadFromJsonAsync<Rfc9457ProblemDetailsResponse>();
+        var dirtyProblem = await dirtyRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
         Assert.NotNull(dirtyProblem);
         Assert.Equal(DomainErrorCodes.UnitNotClean, dirtyProblem.ErrorCode);
 
@@ -108,6 +117,8 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         Assert.NotNull(createdStay);
         Assert.StartsWith("BKK01-STY-", createdStay.DocumentNumber, StringComparison.Ordinal);
         Assert.Equal("A-101", createdStay.Unit.UnitNumber);
+        Assert.Equal("อาคาร A", createdStay.Unit.BuildingName.Th);
+        Assert.Equal("Building A", createdStay.Unit.BuildingName.En);
         Assert.Equal("1-xxxx-xxxxx-12-3", createdStay.Customer.MaskedNationalId);
     }
 
@@ -125,6 +136,8 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         Assert.Equal(PmsSeedConstants.PrimaryCustomerId, dash1.Customer.Id);
         Assert.Equal("1-xxxx-xxxxx-12-3", dash1.Customer.MaskedNationalId);
         Assert.NotNull(dash1.ActiveLease);
+        Assert.Equal("ดีลักซ์ 32 ตร.ม.", dash1.ActiveLease!.Unit.UnitTypeName.Th);
+        Assert.Equal("Deluxe 32 sqm", dash1.ActiveLease.Unit.UnitTypeName.En);
         Assert.Single(dash1.UnpaidInvoices);
         Assert.Equal("BKK01-INV-2611-0001", dash1.UnpaidInvoices[0].DocumentNumber);
         Assert.Single(dash1.PendingParcels);

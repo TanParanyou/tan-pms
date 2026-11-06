@@ -131,13 +131,21 @@
           }
         }
       },
+      "LocalizedTextDto": {
+        "type": "object",
+        "required": ["th"],
+        "properties": {
+          "th": { "type": "string" },
+          "en": { "type": "string", "nullable": true }
+        }
+      },
       "PropertyRefDto": {
         "type": "object",
         "required": ["id", "code", "name"],
         "properties": {
           "id": { "type": "string", "format": "uuid" },
           "code": { "type": "string" },
-          "name": { "type": "string" }
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" }
         }
       },
       "UnitRefDto": {
@@ -146,9 +154,9 @@
         "properties": {
           "id": { "type": "string", "format": "uuid" },
           "unitNumber": { "type": "string" },
-          "buildingName": { "type": "string" },
+          "buildingName": { "$ref": "#/components/schemas/LocalizedTextDto" },
           "floorNumber": { "type": "integer" },
-          "unitTypeName": { "type": "string" }
+          "unitTypeName": { "$ref": "#/components/schemas/LocalizedTextDto" }
         }
       },
       "CustomerRefDto": {
@@ -223,7 +231,7 @@
             "nullable": true,
             "properties": {
               "documentNumber": { "type": "string" },
-              "unitTypeName": { "type": "string" },
+              "unitTypeName": { "$ref": "#/components/schemas/LocalizedTextDto" },
               "stayMode": { "type": "string" },
               "holdExpiresAt": { "type": "string", "format": "date-time" },
               "depositAmount": { "type": "number" }

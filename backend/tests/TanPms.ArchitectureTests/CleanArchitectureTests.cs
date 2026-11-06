@@ -1,11 +1,21 @@
+using System.Text.RegularExpressions;
 using ArchUnitNET.Domain;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnit;
-using TanPms.Application.Abstractions;
+using TanPms.Application;
+using TanPms.Domain;
+using TanPms.Domain.Billing;
+using TanPms.Domain.Cashier;
 using TanPms.Domain.Common;
-using TanPms.Domain.Entities;
-using TanPms.Domain.Enums;
-using TanPms.Infrastructure.Persistence;
+using TanPms.Domain.Customers;
+using TanPms.Domain.Leases;
+using TanPms.Domain.Meters;
+using TanPms.Domain.Operations;
+using TanPms.Domain.Properties;
+using TanPms.Domain.Reservations;
+using TanPms.Domain.Stays;
+using TanPms.Infrastructure;
+using TanPms.WebApi;
 using Xunit;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
@@ -15,10 +25,10 @@ public sealed class CleanArchitectureTests
 {
     private static readonly Architecture Architecture = new ArchLoader()
         .LoadAssemblies(
-            typeof(AuditableEntity).Assembly,
-            typeof(ICurrentUserContext).Assembly,
-            typeof(TanPmsDbContext).Assembly,
-            typeof(Program).Assembly)
+            typeof(DomainMarker).Assembly,
+            typeof(ApplicationMarker).Assembly,
+            typeof(InfrastructureMarker).Assembly,
+            typeof(ApiMarker).Assembly)
         .Build();
 
     [Fact]
@@ -26,20 +36,20 @@ public sealed class CleanArchitectureTests
     {
         var rule = Types()
             .That()
-            .ResideInAssembly(typeof(AuditableEntity).Assembly)
+            .ResideInAssembly(typeof(DomainMarker).Assembly)
             .Should()
             .NotDependOnAny(
-                Types().That().ResideInAssembly(typeof(ICurrentUserContext).Assembly))
+                Types().That().ResideInAssembly(typeof(ApplicationMarker).Assembly))
             .AndShould()
             .NotDependOnAny(
-                Types().That().ResideInAssembly(typeof(TanPmsDbContext).Assembly))
+                Types().That().ResideInAssembly(typeof(InfrastructureMarker).Assembly))
             .AndShould()
             .NotDependOnAny(
-                Types().That().ResideInAssembly(typeof(Program).Assembly));
+                Types().That().ResideInAssembly(typeof(ApiMarker).Assembly));
 
         rule.Check(Architecture);
 
-        var referencedAssemblies = typeof(AuditableEntity).Assembly
+        var referencedAssemblies = typeof(DomainMarker).Assembly
             .GetReferencedAssemblies()
             .Select(a => a.Name ?? string.Empty)
             .ToList();
@@ -53,13 +63,13 @@ public sealed class CleanArchitectureTests
     {
         var rule = Types()
             .That()
-            .ResideInAssembly(typeof(ICurrentUserContext).Assembly)
+            .ResideInAssembly(typeof(ApplicationMarker).Assembly)
             .Should()
             .NotDependOnAny(
-                Types().That().ResideInAssembly(typeof(TanPmsDbContext).Assembly))
+                Types().That().ResideInAssembly(typeof(InfrastructureMarker).Assembly))
             .AndShould()
             .NotDependOnAny(
-                Types().That().ResideInAssembly(typeof(Program).Assembly));
+                Types().That().ResideInAssembly(typeof(ApiMarker).Assembly));
 
         rule.Check(Architecture);
     }
@@ -67,7 +77,7 @@ public sealed class CleanArchitectureTests
     [Fact]
     public void Domain_Types_Should_Never_Use_Float_Or_Double_Properties()
     {
-        var domainTypes = typeof(AuditableEntity).Assembly.GetTypes();
+        var domainTypes = typeof(DomainMarker).Assembly.GetTypes();
         foreach (var type in domainTypes)
         {
             foreach (var prop in type.GetProperties())
@@ -83,7 +93,7 @@ public sealed class CleanArchitectureTests
     [Fact]
     public void Domain_Should_Contain_All_20_Canonical_Ubiquitous_Language_Terms()
     {
-        var domainTypeNames = typeof(AuditableEntity).Assembly
+        var domainTypeNames = typeof(DomainMarker).Assembly
             .GetTypes()
             .Select(t => t.Name)
             .ToHashSet(StringComparer.Ordinal);
@@ -115,6 +125,44 @@ public sealed class CleanArchitectureTests
         foreach (var term in canonicalTerms)
         {
             Assert.Contains(term, domainTypeNames);
+        }
+    }
+
+    [Fact]
+    public void Domain_And_Application_Source_Files_Should_Enforce_One_Public_Type_Per_File()
+    {
+        var repoBackendSrc = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..", "src"));
+
+        var targetDirs = new[]
+        {
+            Path.Combine(repoBackendSrc, "TanPms.Domain"),
+            Path.Combine(repoBackendSrc, "TanPms.Application")
+        };
+
+        var publicTypeRegex = new Regex(
+            @"^\s*public\s+(?:(?:sealed|abstract|static|partial)\s+)*(?:class|record|enum|interface|struct)\s+([A-Za-z0-9_]+)",
+            RegexOptions.Multiline | RegexOptions.Compiled);
+
+        foreach (var dir in targetDirs)
+        {
+            Assert.True(Directory.Exists(dir), $"Expected source directory {dir} to exist.");
+            var csFiles = Directory.GetFiles(dir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                         && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                .ToList();
+
+            Assert.NotEmpty(csFiles);
+
+            foreach (var file in csFiles)
+            {
+                var content = File.ReadAllText(file);
+                var matches = publicTypeRegex.Matches(content);
+                Assert.True(
+                    matches.Count == 1,
+                    $"File '{Path.GetRelativePath(repoBackendSrc, file)}' must declare exactly 1 public type, but found {matches.Count}.");
+            }
         }
     }
 }
