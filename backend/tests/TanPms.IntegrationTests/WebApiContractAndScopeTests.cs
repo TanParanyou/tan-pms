@@ -1,10 +1,15 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using TanPms.Application.ClientPortal;
+using TanPms.Application.Common.Contracts;
+using TanPms.Application.Identity;
+using TanPms.Application.Notifications;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
+using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
 using TanPms.WebApi.ErrorHandling;
 using Xunit;
@@ -30,6 +35,132 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
 
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+    }
+
+    [Fact]
+    public async Task Auth_Login_And_Me_Should_Return_Session_For_Valid_Credentials_And_401_For_Wrong_Password()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("Accept-Language", "en-US");
+
+        var invalidRes = await client.PostAsJsonAsync(
+            "/api/v1/auth/login",
+            new LoginRequest("admin", "naphat.admin", "wrong-password"));
+        Assert.Equal(HttpStatusCode.Unauthorized, invalidRes.StatusCode);
+
+        var invalidProblem = await invalidRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(invalidProblem);
+        Assert.Equal(DomainErrorCodes.InvalidCredentials, invalidProblem.ErrorCode);
+        Assert.Equal("Invalid credentials", invalidProblem.Title);
+
+        var validAdminRes = await client.PostAsJsonAsync(
+            "/api/v1/auth/login",
+            new LoginRequest("admin", "naphat.admin", "demo-pass-123"));
+        Assert.Equal(HttpStatusCode.OK, validAdminRes.StatusCode);
+
+        var session = await validAdminRes.Content.ReadFromJsonAsync<AuthSessionResponse>();
+        Assert.NotNull(session);
+        Assert.Equal("admin", session.Scope);
+        Assert.Equal(RoleCodes.OrganizationAdmin, session.RoleCode);
+        Assert.NotEmpty(session.AllowedProperties);
+        Assert.Contains(PermissionKeys.AdminUsersManage, session.Permissions);
+
+        var meRes = await client.GetAsync("/api/v1/auth/me");
+        Assert.Equal(HttpStatusCode.OK, meRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_Users_And_Roles_Should_Enforce_PropertyScope_Permission_And_Record_AuditEvent()
+    {
+        using var bkkOnlyClient = _factory.CreateClient();
+        bkkOnlyClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        bkkOnlyClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        bkkOnlyClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminUsersRead);
+
+        var rolesRes = await bkkOnlyClient.GetAsync("/api/v1/admin/roles");
+        Assert.Equal(HttpStatusCode.OK, rolesRes.StatusCode);
+        var catalog = await rolesRes.Content.ReadFromJsonAsync<RoleCatalogResponse>();
+        Assert.NotNull(catalog);
+        Assert.Equal(7, catalog.Roles.Count);
+        Assert.Equal(25, catalog.Permissions.Count);
+
+        var deniedScopeRes = await bkkOnlyClient.GetAsync($"/api/v1/admin/users?propertyId={PmsSeedConstants.CnxPropertyId}");
+        Assert.Equal(HttpStatusCode.Forbidden, deniedScopeRes.StatusCode);
+        var scopeProblem = await deniedScopeRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(scopeProblem);
+        Assert.Equal(DomainErrorCodes.PropertyScopeDenied, scopeProblem.ErrorCode);
+
+        var upsertReq = new UpsertAdminUserRequest(
+            Id: null,
+            Username: "arthit.bkk",
+            FullName: "Arthit Charoen",
+            Email: "arthit@tan-pms.internal",
+            RoleCode: RoleCodes.FrontDeskCashier,
+            AllowedPropertyIds: [PmsSeedConstants.BkkPropertyId],
+            IsActive: true);
+
+        var noManagePermRes = await bkkOnlyClient.PostAsJsonAsync("/api/v1/admin/users", upsertReq);
+        Assert.Equal(HttpStatusCode.Forbidden, noManagePermRes.StatusCode);
+        var permProblem = await noManagePermRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(permProblem);
+        Assert.Equal(DomainErrorCodes.PermissionDenied, permProblem.ErrorCode);
+
+        using var adminManagerClient = _factory.CreateClient();
+        adminManagerClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        adminManagerClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        adminManagerClient.DefaultRequestHeaders.Add(
+            "X-TanPms-Permissions",
+            $"{PermissionKeys.AdminUsersRead},{PermissionKeys.AdminUsersManage}");
+
+        var createdUserRes = await adminManagerClient.PostAsJsonAsync("/api/v1/admin/users", upsertReq);
+        Assert.Equal(HttpStatusCode.OK, createdUserRes.StatusCode);
+        var createdUser = await createdUserRes.Content.ReadFromJsonAsync<AdminUserDto>();
+        Assert.NotNull(createdUser);
+        Assert.Equal("arthit.bkk", createdUser.Username);
+        Assert.Equal(RoleCodes.FrontDeskCashier, createdUser.RoleCode);
+
+        var operationalService = _factory.Services.GetRequiredService<InMemoryOperationalService>();
+        Assert.Contains(operationalService.AuditEvents, e =>
+            e.ActionKey == PermissionKeys.AdminUsersManage && e.EntityId == createdUser.Id);
+    }
+
+    [Fact]
+    public async Task Notifications_Dispatch_And_Client_Feed_Should_Isolate_By_CustomerId()
+    {
+        using var adminClient = _factory.CreateClient();
+        adminClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        adminClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+
+        var dispatchReq = new DispatchNotificationRequest(
+            PropertyId: PmsSeedConstants.BkkPropertyId,
+            CustomerId: PmsSeedConstants.PrimaryCustomerId,
+            Channel: "Line",
+            TemplateKey: "invoice.issued",
+            Title: new LocalizedTextDto("แจ้งใบแจ้งหนี้รอบใหม่", "New Monthly Invoice Issued"),
+            Body: new LocalizedTextDto("ใบแจ้งหนี้ BKK01-INV-2611-0001 พร้อมชำระ", "Invoice BKK01-INV-2611-0001 is ready."));
+
+        var dispatchRes = await adminClient.PostAsJsonAsync("/api/v1/admin/notifications/dispatch", dispatchReq);
+        Assert.Equal(HttpStatusCode.Created, dispatchRes.StatusCode);
+
+        using var customer1Client = _factory.CreateClient();
+        customer1Client.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer1Client.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.PrimaryCustomerId.ToString());
+
+        var list1Res = await customer1Client.GetAsync("/api/v1/client/notifications");
+        Assert.Equal(HttpStatusCode.OK, list1Res.StatusCode);
+        var list1 = await list1Res.Content.ReadFromJsonAsync<NotificationListResponse>();
+        Assert.NotNull(list1);
+        Assert.Contains(list1.Items, n => n.TemplateKey == "invoice.issued" && n.Title.Th == "แจ้งใบแจ้งหนี้รอบใหม่");
+
+        using var customer2Client = _factory.CreateClient();
+        customer2Client.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer2Client.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.SecondaryCustomerId.ToString());
+
+        var list2Res = await customer2Client.GetAsync("/api/v1/client/notifications");
+        Assert.Equal(HttpStatusCode.OK, list2Res.StatusCode);
+        var list2 = await list2Res.Content.ReadFromJsonAsync<NotificationListResponse>();
+        Assert.NotNull(list2);
+        Assert.Empty(list2.Items);
     }
 
     [Fact]

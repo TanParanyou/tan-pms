@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
 
 namespace TanPms.WebApi.Security;
@@ -89,7 +90,9 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                 return new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
                     "admin.rack.view",
-                    "admin.stay.checkin"
+                    PermissionKeys.AdminStayCheckIn,
+                    PermissionKeys.AdminUsersRead,
+                    PermissionKeys.AdminUsersManage
                 };
             }
 

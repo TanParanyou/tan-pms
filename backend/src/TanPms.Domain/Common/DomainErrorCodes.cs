@@ -6,6 +6,7 @@ public static class DomainErrorCodes
     public const string LocalizedTextThaiRequired = "localized_text.thai_required";
     public const string LocalizedTextTooLong = "localized_text.too_long";
     public const string Unauthenticated = "auth.unauthenticated";
+    public const string InvalidCredentials = "auth.invalid_credentials";
     public const string PropertyScopeDenied = "auth.property_scope_denied";
     public const string PermissionDenied = "auth.permission_denied";
     public const string UnitNotClean = "unit.not_clean";

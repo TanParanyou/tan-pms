@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { HoldTtlInvertedCard } from "@/features/client-portal/components/HoldTtlInvertedCard";
 import { ActiveLeaseAndBillingSection } from "@/features/client-portal/components/ActiveLeaseAndBillingSection";
 import { ClientOperationsSection } from "@/features/client-portal/components/ClientOperationsSection";
+import { ClientNotificationsSection } from "@/features/notifications/components/ClientNotificationsSection";
 import { useAppLocale } from "@/components/shared/locale-provider";
 import { useTranslations } from "next-intl";
 import { siteConfig } from "@/config/site";
@@ -60,6 +61,9 @@ export default function ClientPage() {
 
         {/* Maintenance WorkOrder & Parcel Alerts */}
         <ClientOperationsSection />
+
+        {/* Client Notification Center (PM-01) */}
+        <ClientNotificationsSection />
       </main>
     </div>
   );

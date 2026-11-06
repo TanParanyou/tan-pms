@@ -15,7 +15,10 @@ public static class ProblemDetailsMapper
     public static int GetStatus(string code) => code switch
     {
         DomainErrorCodes.ValidationFailed => StatusCodes.Status400BadRequest,
+        DomainErrorCodes.LocalizedTextThaiRequired => StatusCodes.Status400BadRequest,
+        DomainErrorCodes.LocalizedTextTooLong => StatusCodes.Status400BadRequest,
         DomainErrorCodes.Unauthenticated => StatusCodes.Status401Unauthorized,
+        DomainErrorCodes.InvalidCredentials => StatusCodes.Status401Unauthorized,
         DomainErrorCodes.PropertyScopeDenied => StatusCodes.Status403Forbidden,
         DomainErrorCodes.PermissionDenied => StatusCodes.Status403Forbidden,
         DomainErrorCodes.UnitNotClean => StatusCodes.Status409Conflict,

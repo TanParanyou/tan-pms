@@ -6,12 +6,17 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SelectPill } from "@/components/ui/select-pill";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CommandTag } from "@/components/ui/command-tag";
 import { useTranslations } from "next-intl";
 import { useAppLocale } from "@/components/shared/locale-provider";
-import { DEMO_AUTH_CREDENTIALS, AUTHORIZED_PROPERTY_CODES } from "../constants";
+import {
+  DEMO_AUTH_CREDENTIALS,
+  DEMO_ROLE_PRESETS,
+  type DemoRolePreset,
+} from "../constants";
 import { siteConfig } from "@/config/site";
 
 export function LoginView() {
@@ -20,19 +25,33 @@ export function LoginView() {
   const tTerms = useTranslations("terms");
   const { locale, toggleLocale } = useAppLocale();
   const [scope, setScope] = useState<"admin" | "client">("admin");
-  const [identifier, setIdentifier] = useState<string>(
-    scope === "admin"
-      ? DEMO_AUTH_CREDENTIALS.adminUsername
-      : DEMO_AUTH_CREDENTIALS.clientNationalId
+  const [selectedPreset, setSelectedPreset] = useState<DemoRolePreset>(
+    DEMO_ROLE_PRESETS[0]
   );
-  const [password, setPassword] = useState<string>(DEMO_AUTH_CREDENTIALS.maskedPassword);
+  const [identifier, setIdentifier] = useState<string>(
+    DEMO_ROLE_PRESETS[0].username
+  );
+  const [password, setPassword] = useState<string>(
+    DEMO_AUTH_CREDENTIALS.maskedPassword
+  );
 
   const handleScopeChange = (newScope: "admin" | "client") => {
     setScope(newScope);
     if (newScope === "admin") {
-      setIdentifier(DEMO_AUTH_CREDENTIALS.adminUsername);
+      setIdentifier(selectedPreset.username);
+      setPassword(selectedPreset.password);
     } else {
       setIdentifier(DEMO_AUTH_CREDENTIALS.clientNationalId);
+      setPassword(DEMO_AUTH_CREDENTIALS.maskedPassword);
+    }
+  };
+
+  const handleRolePresetChange = (roleCode: string) => {
+    const found = DEMO_ROLE_PRESETS.find((r) => r.roleCode === roleCode);
+    if (found) {
+      setSelectedPreset(found);
+      setIdentifier(found.username);
+      setPassword(found.password);
     }
   };
 
@@ -73,7 +92,7 @@ export function LoginView() {
             <div className="flex justify-center">
               <CommandTag prefixCode="AUTH">{t("scopeTag")}</CommandTag>
             </div>
-            <CardTitle className="text-2xl font-rounded font-medium">
+            <CardTitle className="text-2xl font-rounded font-medium text-ink">
               {t("title")}
             </CardTitle>
             <CardDescription className="text-xs text-body">
@@ -114,6 +133,36 @@ export function LoginView() {
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
+              {scope === "admin" && (
+                <div className="space-y-2 p-3 rounded-lg border border-hairline bg-surface-soft">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="rolePreset" className="text-xs font-medium text-ink">
+                      {t("demoRole")}
+                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="mono" className="text-[10px]">
+                        {t("permissionsBadge", { count: selectedPreset.permissionsCount })}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {t("propertiesBadge", { count: selectedPreset.propertiesCount })}
+                      </Badge>
+                    </div>
+                  </div>
+                  <SelectPill
+                    id="rolePreset"
+                    value={selectedPreset.roleCode}
+                    onChange={(e) => handleRolePresetChange(e.target.value)}
+                    className="h-9 text-xs bg-canvas"
+                  >
+                    {DEMO_ROLE_PRESETS.map((p) => (
+                      <option key={p.roleCode} value={p.roleCode}>
+                        {t(p.labelKey as "roleSuperAdmin" | "rolePropertyManager" | "roleFrontDesk")} ({p.roleCode})
+                      </option>
+                    ))}
+                  </SelectPill>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label htmlFor="identifier" className="text-xs font-medium text-charcoal">
                   {scope === "admin" ? t("username") : t("nationalId")}
@@ -149,7 +198,7 @@ export function LoginView() {
                     {t("propertyScopeLabel")} ({tTerms("Property")}):
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {AUTHORIZED_PROPERTY_CODES.map((code) => (
+                    {selectedPreset.propertyCodes.map((code) => (
                       <Badge key={code} variant="mono">
                         {code}
                       </Badge>

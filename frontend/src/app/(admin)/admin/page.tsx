@@ -8,6 +8,7 @@ import { CashierShiftInvertedCard } from "@/features/cashier/components/CashierS
 import { UnifiedRoomRackSection } from "@/features/rack/components/UnifiedRoomRackSection";
 import { QuickWalkInModal } from "@/features/rack/components/QuickWalkInModal";
 import { BulkMeterReadingSection } from "@/features/meters/components/BulkMeterReadingSection";
+import { AdminRbacUsersSection } from "@/features/users/components/AdminRbacUsersSection";
 import { useAppLocale } from "@/components/shared/locale-provider";
 import { useTranslations } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
@@ -115,6 +116,9 @@ export default function AdminPage() {
 
         {/* Zero-Layout-Shift Bulk Meter Table */}
         <BulkMeterReadingSection />
+
+        {/* Multi-Property Admin RBAC User Management (PM-01) */}
+        <AdminRbacUsersSection />
 
         {/* Quick Walk-In & Check-in Modal */}
         <QuickWalkInModal

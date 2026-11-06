@@ -92,6 +92,156 @@
         }
       }
     },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "loginAuthSession",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated session for AdminScope or ClientScope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthSessionResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "getCurrentAuthSession",
+        "tags": ["Auth"],
+        "responses": {
+          "200": {
+            "description": "Current caller security context",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthSessionResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roles": {
+      "get": {
+        "operationId": "getAdminRoleCatalog",
+        "tags": ["AdminIdentity"],
+        "responses": {
+          "200": {
+            "description": "Default enterprise roles and 24 canonical permission definitions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RoleCatalogResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "getAdminUsers",
+        "tags": ["AdminIdentity"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin users scoped to caller AllowedPropertyIds",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminUserListResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing admin.users.read permission or unauthorized propertyId",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "upsertAdminUser",
+        "tags": ["AdminIdentity"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpsertAdminUserRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admin user created or updated with audit trail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminUserDto" }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing admin.users.manage permission",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/notifications/dispatch": {
+      "post": {
+        "operationId": "dispatchAdminNotification",
+        "tags": ["AdminNotifications"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DispatchNotificationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Notification dispatched via InApp / Line / Email adapter",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotificationItemDto" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/client/dashboard": {
       "get": {
         "operationId": "getClientDashboard",
@@ -102,6 +252,22 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ClientDashboardResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/notifications": {
+      "get": {
+        "operationId": "getClientNotifications",
+        "tags": ["ClientPortal"],
+        "responses": {
+          "200": {
+            "description": "Notifications scoped strictly to CurrentUser.CustomerId",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotificationListResponse" }
               }
             }
           }
@@ -272,6 +438,155 @@
                 "arrivedAt": { "type": "string", "format": "date-time" }
               }
             }
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["scope", "identifier", "password"],
+        "properties": {
+          "scope": { "type": "string", "enum": ["admin", "client"] },
+          "identifier": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "AuthSessionResponse": {
+        "type": "object",
+        "required": ["userId", "scope", "displayName", "roleCode", "roleName", "allowedProperties", "permissions", "accessToken"],
+        "properties": {
+          "userId": { "type": "string" },
+          "scope": { "type": "string", "enum": ["admin", "client"] },
+          "displayName": { "type": "string" },
+          "roleCode": { "type": "string" },
+          "roleName": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "allowedProperties": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PropertyRefDto" }
+          },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "customer": { "$ref": "#/components/schemas/CustomerRefDto" },
+          "accessToken": { "type": "string" }
+        }
+      },
+      "RoleDefinitionDto": {
+        "type": "object",
+        "required": ["code", "name", "scope", "defaultPermissions"],
+        "properties": {
+          "code": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "scope": { "type": "string", "enum": ["AdminScope", "ClientScope"] },
+          "defaultPermissions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "PermissionDefinitionDto": {
+        "type": "object",
+        "required": ["key", "moduleCode", "description", "isHighRisk"],
+        "properties": {
+          "key": { "type": "string" },
+          "moduleCode": { "type": "string" },
+          "description": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "isHighRisk": { "type": "boolean" }
+        }
+      },
+      "RoleCatalogResponse": {
+        "type": "object",
+        "required": ["roles", "permissions"],
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RoleDefinitionDto" }
+          },
+          "permissions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PermissionDefinitionDto" }
+          }
+        }
+      },
+      "AdminUserDto": {
+        "type": "object",
+        "required": ["id", "username", "fullName", "email", "roleCode", "roleName", "isActive", "allowedProperties", "permissions"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "username": { "type": "string" },
+          "fullName": { "type": "string" },
+          "email": { "type": "string" },
+          "roleCode": { "type": "string" },
+          "roleName": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "isActive": { "type": "boolean" },
+          "allowedProperties": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PropertyRefDto" }
+          },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "AdminUserListResponse": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AdminUserDto" }
+          }
+        }
+      },
+      "UpsertAdminUserRequest": {
+        "type": "object",
+        "required": ["username", "fullName", "email", "roleCode", "allowedPropertyIds", "isActive"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "nullable": true },
+          "username": { "type": "string" },
+          "fullName": { "type": "string" },
+          "email": { "type": "string" },
+          "roleCode": { "type": "string" },
+          "allowedPropertyIds": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" }
+          },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "DispatchNotificationRequest": {
+        "type": "object",
+        "required": ["propertyId", "customerId", "channel", "templateKey", "title", "body"],
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid" },
+          "customerId": { "type": "string", "format": "uuid" },
+          "channel": { "type": "string", "enum": ["InApp", "Line", "Email"] },
+          "templateKey": { "type": "string" },
+          "title": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "body": { "$ref": "#/components/schemas/LocalizedTextDto" }
+        }
+      },
+      "NotificationItemDto": {
+        "type": "object",
+        "required": ["id", "channel", "templateKey", "title", "body", "isRead", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "channel": { "type": "string", "enum": ["InApp", "Line", "Email"] },
+          "templateKey": { "type": "string" },
+          "title": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "body": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "isRead": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NotificationListResponse": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/NotificationItemDto" }
           }
         }
       }

@@ -18,11 +18,29 @@
   <data name="validation.failed_DETAIL" xml:space="preserve">
     <value>กรุณาตรวจสอบความครบถ้วนและรูปแบบของข้อมูลในคำขอ</value>
   </data>
+  <data name="localized_text.thai_required_TITLE" xml:space="preserve">
+    <value>จำเป็นต้องระบุข้อความภาษาไทย</value>
+  </data>
+  <data name="localized_text.thai_required_DETAIL" xml:space="preserve">
+    <value>ข้อมูลสองภาษาต้องมีข้อความภาษาไทย (th) เสมอ</value>
+  </data>
+  <data name="localized_text.too_long_TITLE" xml:space="preserve">
+    <value>ข้อความยาวเกินกำหนด</value>
+  </data>
+  <data name="localized_text.too_long_DETAIL" xml:space="preserve">
+    <value>ความยาวของข้อความเกินจำนวนตัวอักษรสูงสุดที่ระบบอนุญาต</value>
+  </data>
   <data name="auth.unauthenticated_TITLE" xml:space="preserve">
     <value>จำเป็นต้องเข้าสู่ระบบ</value>
   </data>
   <data name="auth.unauthenticated_DETAIL" xml:space="preserve">
     <value>ไม่พบข้อมูลยืนยันตัวตนหรือเซสชันหมดอายุแล้ว</value>
+  </data>
+  <data name="auth.invalid_credentials_TITLE" xml:space="preserve">
+    <value>ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</value>
+  </data>
+  <data name="auth.invalid_credentials_DETAIL" xml:space="preserve">
+    <value>ไม่สามารถเข้าสู่ระบบได้ กรุณาตรวจสอบรหัสผู้ใช้งานและรหัสผ่านอีกครั้ง</value>
   </data>
   <data name="auth.property_scope_denied_TITLE" xml:space="preserve">
     <value>ไม่มีสิทธิ์เข้าถึงสาขาที่ระบุ</value>

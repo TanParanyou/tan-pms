@@ -18,11 +18,29 @@
   <data name="validation.failed_DETAIL" xml:space="preserve">
     <value>One or more request parameters failed validation.</value>
   </data>
+  <data name="localized_text.thai_required_TITLE" xml:space="preserve">
+    <value>Thai text is required</value>
+  </data>
+  <data name="localized_text.thai_required_DETAIL" xml:space="preserve">
+    <value>Bilingual localized fields require a non-empty Thai (th) value.</value>
+  </data>
+  <data name="localized_text.too_long_TITLE" xml:space="preserve">
+    <value>Localized text exceeds maximum length</value>
+  </data>
+  <data name="localized_text.too_long_DETAIL" xml:space="preserve">
+    <value>The provided text exceeds the maximum allowed character length.</value>
+  </data>
   <data name="auth.unauthenticated_TITLE" xml:space="preserve">
     <value>Authentication required</value>
   </data>
   <data name="auth.unauthenticated_DETAIL" xml:space="preserve">
     <value>Authentication credentials are missing or expired.</value>
+  </data>
+  <data name="auth.invalid_credentials_TITLE" xml:space="preserve">
+    <value>Invalid credentials</value>
+  </data>
+  <data name="auth.invalid_credentials_DETAIL" xml:space="preserve">
+    <value>The provided identifier or password is invalid.</value>
   </data>
   <data name="auth.property_scope_denied_TITLE" xml:space="preserve">
     <value>Property scope access denied</value>

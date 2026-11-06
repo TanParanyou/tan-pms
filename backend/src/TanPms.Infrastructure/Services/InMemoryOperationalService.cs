@@ -3,13 +3,17 @@ using TanPms.Application.ClientPortal;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
+using TanPms.Application.Identity;
+using TanPms.Application.Notifications;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Domain.Billing;
 using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
 using TanPms.Domain.DocumentNumbering;
+using TanPms.Domain.Identity;
 using TanPms.Domain.Leases;
+using TanPms.Domain.Notifications;
 using TanPms.Domain.Operations;
 using TanPms.Domain.Properties;
 using TanPms.Domain.Rates;
@@ -18,7 +22,8 @@ using TanPms.Domain.Stays;
 
 namespace TanPms.Infrastructure.Services;
 
-public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocumentNumberService, IAuditLogger
+public sealed class InMemoryOperationalService
+    : IPmsOperationalStore, IDocumentNumberService, IAuditLogger, INotificationSender
 {
     private readonly ConcurrentDictionary<string, int> _sequences = new();
     private readonly ConcurrentBag<AuditEvent> _auditEvents = [];
@@ -26,6 +31,10 @@ public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocument
     private readonly Dictionary<Guid, Unit> _units = [];
     private readonly Dictionary<Guid, UnitRefDto> _unitRefs = [];
     private readonly Dictionary<Guid, Customer> _customers = [];
+    private readonly List<RoleDefinitionDto> _roles = [];
+    private readonly List<PermissionDefinitionDto> _permissions = [];
+    private readonly List<AdminUser> _adminUsers = [];
+    private readonly List<NotificationMessage> _notifications = [];
     private readonly List<Invoice> _invoices = [];
     private readonly List<Parcel> _parcels = [];
     private readonly List<Lease> _leases = [];
@@ -61,6 +70,261 @@ public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocument
     {
         _auditEvents.Add(auditEvent);
         return Task.CompletedTask;
+    }
+
+    public Task NotifyCustomerAsync(
+        Guid customerId,
+        string templateKey,
+        IReadOnlyDictionary<string, string> parameters,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Result<AuthSessionResponse> Login(LoginAuthSessionCommand command)
+    {
+        lock (_syncRoot)
+        {
+            var isClient = string.Equals(command.Scope, "client", StringComparison.OrdinalIgnoreCase);
+            if (isClient)
+            {
+                var customer = _customers[PmsSeedConstants.PrimaryCustomerId];
+                var customerRef = new CustomerRefDto(
+                    customer.Id,
+                    customer.FullName,
+                    customer.GetMaskedIdentity());
+
+                return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
+                    UserId: $"client-{customer.Id:N}",
+                    Scope: "client",
+                    DisplayName: customer.FullName,
+                    RoleCode: RoleCodes.ClientCustomer,
+                    RoleName: new LocalizedTextDto("ลูกค้า / ผู้เช่า", "Client / Tenant"),
+                    AllowedProperties: [],
+                    Permissions: [],
+                    Customer: customerRef,
+                    AccessToken: $"tok_client_{customer.Id:N}"));
+            }
+
+            var matchedUser = _adminUsers.FirstOrDefault(u =>
+                    string.Equals(u.Username, command.Identifier, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(u.Email, command.Identifier, StringComparison.OrdinalIgnoreCase))
+                ?? _adminUsers[0];
+
+            var allowedProps = matchedUser.AllowedPropertyIds
+                .Where(id => _properties.ContainsKey(id))
+                .Select(id =>
+                {
+                    var prop = _properties[id];
+                    return new PropertyRefDto(prop.Id, prop.Code, LocalizedTextDto.FromDomain(prop.Name));
+                })
+                .ToList();
+
+            return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
+                UserId: matchedUser.Id.ToString(),
+                Scope: "admin",
+                DisplayName: matchedUser.FullName,
+                RoleCode: matchedUser.RoleCode,
+                RoleName: LocalizedTextDto.FromDomain(matchedUser.RoleName),
+                AllowedProperties: allowedProps,
+                Permissions: matchedUser.Permissions.ToList(),
+                Customer: null,
+                AccessToken: $"tok_admin_{matchedUser.Id:N}"));
+        }
+    }
+
+    public Result<AuthSessionResponse> GetCurrentAuthSession(ICurrentUserContext currentUser)
+    {
+        lock (_syncRoot)
+        {
+            if (currentUser.IsClientScope)
+            {
+                var customerId = currentUser.CustomerId ?? PmsSeedConstants.PrimaryCustomerId;
+                if (!_customers.TryGetValue(customerId, out var customer))
+                {
+                    customer = _customers[PmsSeedConstants.PrimaryCustomerId];
+                }
+
+                return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
+                    UserId: currentUser.UserId,
+                    Scope: "client",
+                    DisplayName: customer.FullName,
+                    RoleCode: RoleCodes.ClientCustomer,
+                    RoleName: new LocalizedTextDto("ลูกค้า / ผู้เช่า", "Client / Tenant"),
+                    AllowedProperties: [],
+                    Permissions: [],
+                    Customer: new CustomerRefDto(customer.Id, customer.FullName, customer.GetMaskedIdentity()),
+                    AccessToken: $"tok_client_{customer.Id:N}"));
+            }
+
+            var allowedProps = currentUser.AllowedPropertyIds
+                .Where(id => _properties.ContainsKey(id))
+                .Select(id =>
+                {
+                    var prop = _properties[id];
+                    return new PropertyRefDto(prop.Id, prop.Code, LocalizedTextDto.FromDomain(prop.Name));
+                })
+                .ToList();
+
+            return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
+                UserId: currentUser.UserId,
+                Scope: "admin",
+                DisplayName: "Admin Operator",
+                RoleCode: RoleCodes.PropertyManager,
+                RoleName: new LocalizedTextDto("ผู้จัดการสาขา", "Property Manager"),
+                AllowedProperties: allowedProps,
+                Permissions: currentUser.Permissions.ToList(),
+                Customer: null,
+                AccessToken: "tok_admin_session"));
+        }
+    }
+
+    public Result<RoleCatalogResponse> GetRoleCatalog()
+    {
+        lock (_syncRoot)
+        {
+            return Result<RoleCatalogResponse>.Success(new RoleCatalogResponse(
+                Roles: _roles.ToList(),
+                Permissions: _permissions.ToList()));
+        }
+    }
+
+    public Result<AdminUserListResponse> GetAdminUsers(
+        Guid? propertyId,
+        IReadOnlySet<Guid> callerAllowedPropertyIds)
+    {
+        lock (_syncRoot)
+        {
+            var items = _adminUsers
+                .Where(u => u.AllowedPropertyIds.Any(callerAllowedPropertyIds.Contains))
+                .Where(u => !propertyId.HasValue || u.AllowedPropertyIds.Contains(propertyId.Value))
+                .Select(MapAdminUserDto)
+                .ToList();
+
+            return Result<AdminUserListResponse>.Success(new AdminUserListResponse(items));
+        }
+    }
+
+    public Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command)
+    {
+        lock (_syncRoot)
+        {
+            var role = _roles.FirstOrDefault(r =>
+                string.Equals(r.Code, command.RoleCode, StringComparison.OrdinalIgnoreCase));
+
+            if (role is null)
+            {
+                return Result<AdminUserDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Role '{command.RoleCode}' does not exist."));
+            }
+
+            AdminUser user;
+            if (command.Id.HasValue)
+            {
+                user = _adminUsers.FirstOrDefault(u => u.Id == command.Id.Value)
+                    ?? new AdminUser
+                    {
+                        Id = command.Id.Value,
+                        Username = command.Username.Trim(),
+                        FullName = command.FullName.Trim(),
+                        Email = command.Email.Trim(),
+                        RoleCode = role.Code,
+                        RoleName = LocalizedText.Create(role.Name.Th, role.Name.En)
+                    };
+
+                if (!_adminUsers.Contains(user))
+                {
+                    _adminUsers.Add(user);
+                }
+            }
+            else
+            {
+                user = new AdminUser
+                {
+                    Username = command.Username.Trim(),
+                    FullName = command.FullName.Trim(),
+                    Email = command.Email.Trim(),
+                    RoleCode = role.Code,
+                    RoleName = LocalizedText.Create(role.Name.Th, role.Name.En)
+                };
+                _adminUsers.Add(user);
+            }
+
+            user.Username = command.Username.Trim();
+            user.FullName = command.FullName.Trim();
+            user.Email = command.Email.Trim();
+
+            try
+            {
+                user.AssignRoleAndScope(
+                    role.Code,
+                    LocalizedText.Create(role.Name.Th, role.Name.En),
+                    command.AllowedPropertyIds,
+                    role.DefaultPermissions,
+                    command.IsActive);
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<AdminUserDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+
+            return Result<AdminUserDto>.Success(MapAdminUserDto(user));
+        }
+    }
+
+    public Result<NotificationItemDto> DispatchNotification(DispatchAdminNotificationCommand command)
+    {
+        if (!Enum.TryParse<NotificationChannel>(command.Channel, ignoreCase: true, out var channel))
+        {
+            return Result<NotificationItemDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                $"Unsupported notification channel '{command.Channel}'."));
+        }
+
+        lock (_syncRoot)
+        {
+            LocalizedText title;
+            LocalizedText body;
+            try
+            {
+                title = LocalizedText.Create(command.Title.Th, command.Title.En);
+                body = LocalizedText.Create(command.Body.Th, command.Body.En, maxLength: 1000);
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<NotificationItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+
+            var message = new NotificationMessage
+            {
+                PropertyId = command.PropertyId,
+                CustomerId = command.CustomerId,
+                Channel = channel,
+                TemplateKey = command.TemplateKey,
+                Title = title,
+                Body = body,
+                SentAtUtc = DateTimeOffset.UtcNow
+            };
+
+            _notifications.Insert(0, message);
+
+            return Result<NotificationItemDto>.Success(MapNotificationDto(message));
+        }
+    }
+
+    public Result<NotificationListResponse> GetClientNotifications(Guid customerId)
+    {
+        lock (_syncRoot)
+        {
+            var items = _notifications
+                .Where(n => n.CustomerId == customerId)
+                .OrderByDescending(n => n.SentAtUtc)
+                .Select(MapNotificationDto)
+                .ToList();
+
+            return Result<NotificationListResponse>.Success(new NotificationListResponse(items));
+        }
     }
 
     public Result<RoomRackResponse> GetRoomRack(Guid propertyId)
@@ -150,7 +414,7 @@ public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocument
                 _auditEvents.Add(new AuditEvent
                 {
                     PropertyId = command.PropertyId,
-                    ActionKey = "admin.stay.override_dirty_checkin",
+                    ActionKey = PermissionKeys.AdminStayOverrideDirtyCheckIn,
                     EntityId = unit.Id,
                     Reason = command.OverrideReason!,
                     BeforeStateJson = $"{{\"conditionStatus\":\"{unit.ConditionStatus}\"}}",
@@ -265,6 +529,39 @@ public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocument
         }
     }
 
+    private AdminUserDto MapAdminUserDto(AdminUser user)
+    {
+        var allowedProps = user.AllowedPropertyIds
+            .Where(id => _properties.ContainsKey(id))
+            .Select(id =>
+            {
+                var p = _properties[id];
+                return new PropertyRefDto(p.Id, p.Code, LocalizedTextDto.FromDomain(p.Name));
+            })
+            .ToList();
+
+        return new AdminUserDto(
+            Id: user.Id,
+            Username: user.Username,
+            FullName: user.FullName,
+            Email: user.Email,
+            RoleCode: user.RoleCode,
+            RoleName: LocalizedTextDto.FromDomain(user.RoleName),
+            IsActive: user.IsActive,
+            AllowedProperties: allowedProps,
+            Permissions: user.Permissions.ToList());
+    }
+
+    private static NotificationItemDto MapNotificationDto(NotificationMessage message) =>
+        new(
+            Id: message.Id,
+            Channel: message.Channel.ToString(),
+            TemplateKey: message.TemplateKey,
+            Title: LocalizedTextDto.FromDomain(message.Title),
+            Body: LocalizedTextDto.FromDomain(message.Body),
+            IsRead: message.IsRead,
+            CreatedAt: message.SentAtUtc);
+
     private void Seed()
     {
         var bkk = new Property
@@ -284,6 +581,134 @@ public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocument
 
         _properties[bkk.Id] = bkk;
         _properties[cnx.Id] = cnx;
+
+        _roles.AddRange(
+        [
+            new RoleDefinitionDto(
+                RoleCodes.OrganizationAdmin,
+                new LocalizedTextDto("ผู้บริหารระดับองค์กร", "Organization Administrator"),
+                "AdminScope",
+                PermissionKeys.All),
+            new RoleDefinitionDto(
+                RoleCodes.PropertyManager,
+                new LocalizedTextDto("ผู้จัดการสาขา", "Property Manager"),
+                "AdminScope",
+                [
+                    PermissionKeys.AdminUsersRead,
+                    PermissionKeys.AdminPropertiesRead,
+                    PermissionKeys.AdminReservationsRead,
+                    PermissionKeys.AdminReservationsManage,
+                    PermissionKeys.AdminStayCheckIn,
+                    PermissionKeys.AdminStayCheckOut,
+                    PermissionKeys.AdminStayOverrideDirtyCheckIn,
+                    PermissionKeys.AdminCashierReconcileShift,
+                    PermissionKeys.AdminInvoicesVoid,
+                    PermissionKeys.AdminLeasesSettleMoveOut,
+                    PermissionKeys.AdminAnalyticsRead
+                ]),
+            new RoleDefinitionDto(
+                RoleCodes.FrontDeskCashier,
+                new LocalizedTextDto("พนักงานต้อนรับและแคชเชียร์", "Front Desk & Cashier"),
+                "AdminScope",
+                [
+                    PermissionKeys.AdminReservationsRead,
+                    PermissionKeys.AdminReservationsManage,
+                    PermissionKeys.AdminStayCheckIn,
+                    PermissionKeys.AdminStayCheckOut,
+                    PermissionKeys.AdminCashierOperateShift,
+                    PermissionKeys.AdminPaymentsVerifySlip,
+                    PermissionKeys.AdminParcelsManage
+                ]),
+            new RoleDefinitionDto(
+                RoleCodes.PropertyAccountant,
+                new LocalizedTextDto("ฝ่ายบัญชีประจำสาขา", "Property Accountant"),
+                "AdminScope",
+                [
+                    PermissionKeys.AdminMetersRecord,
+                    PermissionKeys.AdminBillingIssueBatch,
+                    PermissionKeys.AdminPaymentsVerifySlip,
+                    PermissionKeys.AdminAnalyticsRead
+                ]),
+            new RoleDefinitionDto(
+                RoleCodes.HousekeepingStaff,
+                new LocalizedTextDto("ฝ่ายแม่บ้าน", "Housekeeping Staff"),
+                "AdminScope",
+                [PermissionKeys.AdminHousekeepingUpdate]),
+            new RoleDefinitionDto(
+                RoleCodes.MaintenanceTechnician,
+                new LocalizedTextDto("ช่างซ่อมบำรุง", "Maintenance Technician"),
+                "AdminScope",
+                [PermissionKeys.AdminWorkOrdersManage]),
+            new RoleDefinitionDto(
+                RoleCodes.ClientCustomer,
+                new LocalizedTextDto("ลูกค้า / ผู้เช่า", "Client / Tenant"),
+                "ClientScope",
+                [])
+        ]);
+
+        foreach (var key in PermissionKeys.All)
+        {
+            var isHighRisk = key is PermissionKeys.AdminStayOverrideDirtyCheckIn
+                or PermissionKeys.AdminCustomerUnmaskPii
+                or PermissionKeys.AdminLeasesSettleMoveOut
+                or PermissionKeys.AdminMetersOverrideLocked
+                or PermissionKeys.AdminCashierReconcileShift
+                or PermissionKeys.AdminInvoicesVoid
+                or PermissionKeys.AdminUsersManage;
+
+            _permissions.Add(new PermissionDefinitionDto(
+                Key: key,
+                ModuleCode: key.Split('.')[1].ToUpperInvariant(),
+                Description: new LocalizedTextDto($"สิทธิ์ {key}", $"Permission {key}"),
+                IsHighRisk: isHighRisk));
+        }
+
+        var orgAdmin = new AdminUser
+        {
+            Username = "naphat.admin",
+            FullName = "Naphat Wattanakul",
+            Email = "naphat@tan-pms.internal",
+            RoleCode = RoleCodes.OrganizationAdmin,
+            RoleName = LocalizedText.Create("ผู้บริหารระดับองค์กร", "Organization Administrator")
+        };
+        orgAdmin.AssignRoleAndScope(
+            RoleCodes.OrganizationAdmin,
+            LocalizedText.Create("ผู้บริหารระดับองค์กร", "Organization Administrator"),
+            [bkk.Id, cnx.Id],
+            PermissionKeys.All,
+            isActive: true);
+
+        var bkkCashier = new AdminUser
+        {
+            Username = "pimchanok.bkk",
+            FullName = "Pimchanok Srisawat",
+            Email = "pimchanok@tan-pms.internal",
+            RoleCode = RoleCodes.FrontDeskCashier,
+            RoleName = LocalizedText.Create("พนักงานต้อนรับและแคชเชียร์", "Front Desk & Cashier")
+        };
+        bkkCashier.AssignRoleAndScope(
+            RoleCodes.FrontDeskCashier,
+            LocalizedText.Create("พนักงานต้อนรับและแคชเชียร์", "Front Desk & Cashier"),
+            [bkk.Id],
+            _roles[2].DefaultPermissions,
+            isActive: true);
+
+        var cnxManager = new AdminUser
+        {
+            Username = "kittisak.cnx",
+            FullName = "Kittisak Lertlum",
+            Email = "kittisak@tan-pms.internal",
+            RoleCode = RoleCodes.PropertyManager,
+            RoleName = LocalizedText.Create("ผู้จัดการสาขา", "Property Manager")
+        };
+        cnxManager.AssignRoleAndScope(
+            RoleCodes.PropertyManager,
+            LocalizedText.Create("ผู้จัดการสาขา", "Property Manager"),
+            [cnx.Id],
+            _roles[1].DefaultPermissions,
+            isActive: true);
+
+        _adminUsers.AddRange([orgAdmin, bkkCashier, cnxManager]);
 
         var unitA101 = new Unit
         {
@@ -390,6 +815,16 @@ public sealed class InMemoryOperationalService : IPmsOperationalStore, IDocument
             CustomerId = customer1.Id,
             CarrierName = "Kerry Express",
             TrackingNumber = "KEX123456789TH"
+        });
+
+        _notifications.Add(new NotificationMessage
+        {
+            PropertyId = bkk.Id,
+            CustomerId = customer1.Id,
+            Channel = NotificationChannel.InApp,
+            TemplateKey = "parcel.arrived",
+            Title = LocalizedText.Create("มีพัสดุมาถึงห้อง A-201", "New parcel arrived for Unit A-201"),
+            Body = LocalizedText.Create("พัสดุ Kerry Express เลขที่ BKK01-PCL-2611-0001 รอรับที่เคาน์เตอร์", "Parcel BKK01-PCL-2611-0001 from Kerry Express is ready for pickup.")
         });
     }
 }

@@ -151,7 +151,13 @@
     "scopeTag": "AUTHORIZATION SCOPE",
     "scopeAdmin": "AdminScope",
     "scopeClient": "ClientScope",
-    "footer": "Single-Organization Multi-Property • Strict Token Isolation"
+    "footer": "Single-Organization Multi-Property • Strict Token Isolation",
+    "demoRole": "Demo Role Preset",
+    "roleSuperAdmin": "Super Admin (HQ)",
+    "rolePropertyManager": "Property Manager (BKK)",
+    "roleFrontDesk": "Front Desk Cashier (BKK01)",
+    "permissionsBadge": "{count} perms",
+    "propertiesBadge": "{count} properties"
   },
   "admin": {
     "nav": {
@@ -159,7 +165,42 @@
       "meters": "Bulk Meters (PM-07)",
       "cashier": "Cashier Shift (SHF)",
       "leases": "Leases (PM-06)",
-      "operations": "Operations"
+      "operations": "Operations",
+      "rbac": "Users & RBAC (PM-01)"
+    },
+    "rbac": {
+      "title": "User Management & Multi-Property RBAC",
+      "description": "Role-based access control and branch scope enforcement for administrative personnel.",
+      "searchPlaceholder": "Search by name, email, or username...",
+      "filterRoleAll": "All Roles",
+      "addUser": "Add User",
+      "editUser": "Edit Access",
+      "modalTitleCreate": "Create Admin User",
+      "modalTitleEdit": "Edit Role & Property Scope",
+      "modalDesc": "Configure user profile, role permissions, and assigned property scopes.",
+      "tabProfile": "1. User Profile & Role",
+      "tabScope": "2. Property Scope Assignment",
+      "fieldFullName": "Full Name",
+      "fieldUsername": "Username",
+      "fieldEmail": "Email",
+      "fieldRole": "Role Definition",
+      "fieldStatus": "Account Status",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "allowedProperties": "Allowed Properties",
+      "propertiesCount": "properties",
+      "permissionsCount": "perms",
+      "confirmHighRiskTitle": "Confirm High-Risk Permission Change",
+      "confirmHighRiskMessage": "Modifying user roles and property scopes takes immediate effect across the organization. Are you sure you want to save?",
+      "colUser": "User",
+      "colRole": "Role",
+      "colProperties": "Allowed Properties",
+      "colPermissions": "Permissions",
+      "colStatus": "Status",
+      "colActions": "Actions",
+      "emptyTitle": "No Users Found",
+      "emptyDesc": "Try adjusting your search criteria or role filter.",
+      "saveSuccess": "User access updated successfully."
     },
     "propertySwitcher": "Active Property",
     "roomRack": {
@@ -325,6 +366,19 @@
       "carrierSample": "Kerry Express • TH029481920",
       "parcelTitle": "Medium Package Arrived at Front Desk",
       "parcelDesc": "Today 11:32 AM • Please present this screen to collect package"
+    },
+    "notifications": {
+      "title": "Client Notification Center",
+      "description": "Track reservation holds, invoices, and parcel alerts across InApp, LINE, and Email channels.",
+      "channelAll": "All",
+      "channelInApp": "In-App",
+      "channelLine": "LINE Official",
+      "channelEmail": "Email",
+      "unreadBadge": "Unread",
+      "markAllRead": "Mark All as Read",
+      "markAsRead": "Mark Read",
+      "emptyTitle": "No Notifications",
+      "emptyDesc": "You have no notifications in this channel."
     }
   }
 }

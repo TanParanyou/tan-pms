@@ -151,7 +151,13 @@
     "scopeTag": "ขอบเขตสิทธิ์การใช้งาน",
     "scopeAdmin": "AdminScope",
     "scopeClient": "ClientScope",
-    "footer": "องค์กรเดียว หลายสาขา • แยกการยืนยันตัวตนอย่างเคร่งครัด"
+    "footer": "องค์กรเดียว หลายสาขา • แยกการยืนยันตัวตนอย่างเคร่งครัด",
+    "demoRole": "เลือกบทบาททดสอบ (Demo Role)",
+    "roleSuperAdmin": "Super Admin (สำนักงานใหญ่ HQ)",
+    "rolePropertyManager": "ผู้จัดการสาขา (BKK)",
+    "roleFrontDesk": "พนักงานต้อนรับ (BKK01)",
+    "permissionsBadge": "{count} สิทธิ์",
+    "propertiesBadge": "{count} สาขา"
   },
   "admin": {
     "nav": {
@@ -159,7 +165,42 @@
       "meters": "จดมิเตอร์ยกตึก (PM-07)",
       "cashier": "กะแคชเชียร์ (SHF)",
       "leases": "สัญญาเช่า (PM-06)",
-      "operations": "งานปฏิบัติการ"
+      "operations": "งานปฏิบัติการ",
+      "rbac": "จัดการสิทธิ์และผู้ใช้ (PM-01)"
+    },
+    "rbac": {
+      "title": "การจัดการผู้ใช้และสิทธิ์การเข้าถึง (Admin RBAC)",
+      "description": "ควบคุมสิทธิ์ตามบทบาท (Role-Based Access Control) และขอบเขตสาขาที่อนุญาต (Multi-Property Scope)",
+      "searchPlaceholder": "ค้นหาชื่อผู้ใช้, อีเมล...",
+      "filterRoleAll": "ทุกบทบาท (All Roles)",
+      "addUser": "เพิ่มผู้ใช้ใหม่",
+      "editUser": "แก้ไขสิทธิ์",
+      "modalTitleCreate": "สร้างบัญชีผู้ใช้งานระบบ",
+      "modalTitleEdit": "แก้ไขบทบาทและขอบเขตสาขา",
+      "modalDesc": "กำหนดข้อมูลผู้ใช้ บทบาทหน้าที่ และสาขาที่ได้รับอนุญาตในการปฏิบัติงาน",
+      "tabProfile": "1. ข้อมูลผู้ใช้และบทบาท",
+      "tabScope": "2. ขอบเขตสาขาที่อนุญาต",
+      "fieldFullName": "ชื่อ-นามสกุล",
+      "fieldUsername": "ชื่อบัญชีผู้ใช้ (Username)",
+      "fieldEmail": "อีเมล",
+      "fieldRole": "บทบาทหน้าที่ (Role)",
+      "fieldStatus": "สถานะการใช้งาน",
+      "statusActive": "เปิดใช้งาน (Active)",
+      "statusInactive": "ระงับใช้งาน (Inactive)",
+      "allowedProperties": "สาขาที่อนุญาต",
+      "propertiesCount": "สาขา",
+      "permissionsCount": "สิทธิ์",
+      "confirmHighRiskTitle": "ยืนยันการเปลี่ยนแปลงสิทธิ์ระดับสูง",
+      "confirmHighRiskMessage": "การแก้ไขสิทธิ์และขอบเขตสาขาของผู้ใช้รายนี้มีผลทันทีในระดับระบบ คุณยืนยันที่จะบันทึกหรือไม่?",
+      "colUser": "ผู้ใช้งาน",
+      "colRole": "บทบาท",
+      "colProperties": "สาขาที่อนุญาต",
+      "colPermissions": "จำนวนสิทธิ์",
+      "colStatus": "สถานะ",
+      "colActions": "การดำเนินการ",
+      "emptyTitle": "ไม่พบบัญชีผู้ใช้งานที่ตรงกับเงื่อนไข",
+      "emptyDesc": "ลองเปลี่ยนคำค้นหาหรือเลือกบทบาทอื่น",
+      "saveSuccess": "บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว"
     },
     "propertySwitcher": "สาขาปฏิบัติการ",
     "roomRack": {
@@ -325,6 +366,19 @@
       "carrierSample": "Kerry Express • TH029481920",
       "parcelTitle": "พัสดุกล่องขนาดกลาง ถึงเคาน์เตอร์แล้ว",
       "parcelDesc": "วันนี้ 11:32 น. • กรุณาแสดงหน้าจอนี้เพื่อรับพัสดุ"
+    },
+    "notifications": {
+      "title": "ศูนย์การแจ้งเตือน (Notification Center)",
+      "description": "ติดตามสถานะการจอง ใบแจ้งหนี้ และพัสดุผ่านช่องทาง InApp, LINE และ Email",
+      "channelAll": "ทั้งหมด",
+      "channelInApp": "In-App",
+      "channelLine": "LINE Official",
+      "channelEmail": "Email",
+      "unreadBadge": "ยังไม่ได้อ่าน",
+      "markAllRead": "ทำเครื่องหมายว่าอ่านทั้งหมด",
+      "markAsRead": "อ่านแล้ว",
+      "emptyTitle": "ไม่มีการแจ้งเตือนในช่องทางนี้",
+      "emptyDesc": "คุณไม่มีข้อความแจ้งเตือนใหม่ในขณะนี้"
     }
   }
 }

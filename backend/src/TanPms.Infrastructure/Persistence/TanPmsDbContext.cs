@@ -6,8 +6,10 @@ using TanPms.Domain.Billing;
 using TanPms.Domain.Cashier;
 using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
+using TanPms.Domain.Identity;
 using TanPms.Domain.Leases;
 using TanPms.Domain.Meters;
+using TanPms.Domain.Notifications;
 using TanPms.Domain.Operations;
 using TanPms.Domain.Properties;
 using TanPms.Domain.Reservations;
@@ -17,30 +19,9 @@ namespace TanPms.Infrastructure.Persistence;
 
 public sealed class TanPmsDbContext : DbContext
 {
-    private static readonly ValueConverter<LocalizedText, string> LocalizedConverter = new(
-        v => JsonSerializer.Serialize(new { th = v.Thai, en = v.English }, (JsonSerializerOptions?)null),
-        v => DeserializeLocalizedText(v));
-
-    private static readonly ValueConverter<LocalizedText?, string?> OptionalLocalizedConverter = new(
-        v => v == null ? null : JsonSerializer.Serialize(new { th = v.Thai, en = v.English }, (JsonSerializerOptions?)null),
-        v => v == null ? null : DeserializeLocalizedText(v));
-
     public TanPmsDbContext(DbContextOptions<TanPmsDbContext> options)
         : base(options)
     {
-    }
-
-    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-    {
-        base.ConfigureConventions(configurationBuilder);
-
-        configurationBuilder.Properties<LocalizedText>()
-            .HaveConversion<LocalizedTextValueConverter>()
-            .HaveColumnType("jsonb");
-
-        configurationBuilder.Properties<LocalizedText?>()
-            .HaveConversion<OptionalLocalizedTextValueConverter>()
-            .HaveColumnType("jsonb");
     }
 
     public DbSet<Property> Properties => Set<Property>();
@@ -51,6 +32,8 @@ public sealed class TanPmsDbContext : DbContext
     public DbSet<UnitAsset> UnitAssets => Set<UnitAsset>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Occupant> Occupants => Set<Occupant>();
+    public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<NotificationMessage> NotificationMessages => Set<NotificationMessage>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<Stay> Stays => Set<Stay>();
     public DbSet<Folio> Folios => Set<Folio>();
@@ -67,36 +50,19 @@ public sealed class TanPmsDbContext : DbContext
     public DbSet<Parcel> Parcels => Set<Parcel>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        configurationBuilder
+            .Properties<LocalizedText>()
+            .HaveConversion<LocalizedTextJsonConverter>()
+            .HaveColumnType("jsonb");
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        modelBuilder.Entity<Property>(b =>
-        {
-            b.Property(x => x.Name).HasColumnType("jsonb").HasConversion(LocalizedConverter).IsRequired();
-            b.Property(x => x.Address).HasColumnType("jsonb").HasConversion(OptionalLocalizedConverter);
-        });
-
-        modelBuilder.Entity<Building>(b =>
-        {
-            b.Property(x => x.Name).HasColumnType("jsonb").HasConversion(LocalizedConverter).IsRequired();
-        });
-
-        modelBuilder.Entity<Floor>(b =>
-        {
-            b.Property(x => x.Name).HasColumnType("jsonb").HasConversion(LocalizedConverter).IsRequired();
-        });
-
-        modelBuilder.Entity<UnitType>(b =>
-        {
-            b.Property(x => x.Name).HasColumnType("jsonb").HasConversion(LocalizedConverter).IsRequired();
-            b.Property(x => x.Description).HasColumnType("jsonb").HasConversion(OptionalLocalizedConverter);
-        });
-
-        modelBuilder.Entity<UnitAsset>(b =>
-        {
-            b.Property(x => x.Name).HasColumnType("jsonb").HasConversion(LocalizedConverter).IsRequired();
-        });
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -120,12 +86,22 @@ public sealed class TanPmsDbContext : DbContext
         }
     }
 
-    private static LocalizedText DeserializeLocalizedText(string json)
+    private sealed class LocalizedTextJsonConverter : ValueConverter<LocalizedText, string>
     {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        var th = root.TryGetProperty("th", out var thProp) ? thProp.GetString() ?? string.Empty : string.Empty;
-        var en = root.TryGetProperty("en", out var enProp) ? enProp.GetString() : null;
-        return new LocalizedText(th, en);
+        public LocalizedTextJsonConverter()
+            : base(
+                v => JsonSerializer.Serialize(new { th = v.Thai, en = v.English }, (JsonSerializerOptions?)null),
+                v => DeserializeLocalizedText(v))
+        {
+        }
+
+        private static LocalizedText DeserializeLocalizedText(string json)
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var th = root.TryGetProperty("th", out var thProp) ? thProp.GetString() ?? string.Empty : string.Empty;
+            var en = root.TryGetProperty("en", out var enProp) ? enProp.GetString() : null;
+            return new LocalizedText(th, en);
+        }
     }
 }

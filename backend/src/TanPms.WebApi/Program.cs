@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using TanPms.Application.ClientPortal;
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Identity;
+using TanPms.Application.Notifications;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Infrastructure.Persistence;
@@ -14,22 +15,20 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
 builder.Services.AddScoped<AuditableEntityInterceptor>();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-if (!string.IsNullOrWhiteSpace(connectionString))
-{
-    builder.Services.AddDbContext<TanPmsDbContext>((sp, options) =>
-    {
-        options.UseNpgsql(connectionString);
-        options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
-    });
-}
-
 var operationalService = new InMemoryOperationalService();
 builder.Services.AddSingleton(operationalService);
 builder.Services.AddSingleton<IPmsOperationalStore>(operationalService);
 builder.Services.AddSingleton<IDocumentNumberService>(operationalService);
 builder.Services.AddSingleton<IAuditLogger>(operationalService);
+builder.Services.AddSingleton<INotificationSender>(operationalService);
 
+builder.Services.AddScoped<LoginAuthSessionHandler>();
+builder.Services.AddScoped<GetCurrentAuthSessionHandler>();
+builder.Services.AddScoped<GetAdminRoleCatalogHandler>();
+builder.Services.AddScoped<GetAdminUsersHandler>();
+builder.Services.AddScoped<UpsertAdminUserHandler>();
+builder.Services.AddScoped<DispatchAdminNotificationHandler>();
+builder.Services.AddScoped<GetClientNotificationsHandler>();
 builder.Services.AddScoped<GetAdminRoomRackHandler>();
 builder.Services.AddScoped<CheckInStayHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
@@ -44,7 +43,92 @@ app.UseExceptionHandler();
 app.MapGet("/health/live", () => Results.Ok(new { status = "Live" }));
 app.MapGet("/health/ready", () => Results.Ok(new { status = "Ready" }));
 
+var authGroup = app.MapGroup("/api/v1/auth");
+
+authGroup.MapPost("/login", (
+    LoginRequest request,
+    LoginAuthSessionHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new LoginAuthSessionCommand(
+        Scope: request.Scope,
+        Identifier: request.Identifier,
+        Password: request.Password));
+
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+authGroup.MapGet("/me", (
+    GetCurrentAuthSessionHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetCurrentAuthSessionQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
 var adminGroup = app.MapGroup("/api/v1/admin");
+
+adminGroup.MapGet("/roles", (
+    GetAdminRoleCatalogHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminRoleCatalogQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/users", (
+    Guid? propertyId,
+    GetAdminUsersHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminUsersQuery(propertyId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/users", (
+    UpsertAdminUserRequest request,
+    UpsertAdminUserHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminUserCommand(
+        Id: request.Id,
+        Username: request.Username,
+        FullName: request.FullName,
+        Email: request.Email,
+        RoleCode: request.RoleCode,
+        AllowedPropertyIds: request.AllowedPropertyIds,
+        IsActive: request.IsActive));
+
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/notifications/dispatch", (
+    DispatchNotificationRequest request,
+    DispatchAdminNotificationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DispatchAdminNotificationCommand(
+        PropertyId: request.PropertyId,
+        CustomerId: request.CustomerId,
+        Channel: request.Channel,
+        TemplateKey: request.TemplateKey,
+        Title: request.Title,
+        Body: request.Body));
+
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/client/notifications/{result.Value!.Id}", result.Value);
+});
 
 adminGroup.MapGet("/properties/{propertyId:guid}/rack", (
     Guid propertyId,
@@ -84,6 +168,16 @@ clientGroup.MapGet("/dashboard", (
     HttpContext httpContext) =>
 {
     var result = handler.Handle(new GetClientDashboardQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/notifications", (
+    GetClientNotificationsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientNotificationsQuery());
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

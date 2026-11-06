@@ -68,6 +68,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["loginAuthSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCurrentAuthSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRoleCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminUsers"];
+        put?: never;
+        post: operations["upsertAdminUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/notifications/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dispatchAdminNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/client/dashboard": {
         parameters: {
             query?: never;
@@ -76,6 +156,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getClientDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getClientNotifications"];
         put?: never;
         post?: never;
         delete?: never;
@@ -195,6 +291,92 @@ export interface components {
                 arrivedAt: string;
             }[];
         };
+        LoginRequest: {
+            /** @enum {string} */
+            scope: "admin" | "client";
+            identifier: string;
+            password: string;
+        };
+        AuthSessionResponse: {
+            userId: string;
+            /** @enum {string} */
+            scope: "admin" | "client";
+            displayName: string;
+            roleCode: string;
+            roleName: components["schemas"]["LocalizedTextDto"];
+            allowedProperties: components["schemas"]["PropertyRefDto"][];
+            permissions: string[];
+            customer?: components["schemas"]["CustomerRefDto"];
+            accessToken: string;
+        };
+        RoleDefinitionDto: {
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            /** @enum {string} */
+            scope: "AdminScope" | "ClientScope";
+            defaultPermissions: string[];
+        };
+        PermissionDefinitionDto: {
+            key: string;
+            moduleCode: string;
+            description: components["schemas"]["LocalizedTextDto"];
+            isHighRisk: boolean;
+        };
+        RoleCatalogResponse: {
+            roles: components["schemas"]["RoleDefinitionDto"][];
+            permissions: components["schemas"]["PermissionDefinitionDto"][];
+        };
+        AdminUserDto: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            fullName: string;
+            email: string;
+            roleCode: string;
+            roleName: components["schemas"]["LocalizedTextDto"];
+            isActive: boolean;
+            allowedProperties: components["schemas"]["PropertyRefDto"][];
+            permissions: string[];
+        };
+        AdminUserListResponse: {
+            items: components["schemas"]["AdminUserDto"][];
+        };
+        UpsertAdminUserRequest: {
+            /** Format: uuid */
+            id?: string | null;
+            username: string;
+            fullName: string;
+            email: string;
+            roleCode: string;
+            allowedPropertyIds: string[];
+            isActive: boolean;
+        };
+        DispatchNotificationRequest: {
+            /** Format: uuid */
+            propertyId: string;
+            /** Format: uuid */
+            customerId: string;
+            /** @enum {string} */
+            channel: "InApp" | "Line" | "Email";
+            templateKey: string;
+            title: components["schemas"]["LocalizedTextDto"];
+            body: components["schemas"]["LocalizedTextDto"];
+        };
+        NotificationItemDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            channel: "InApp" | "Line" | "Email";
+            templateKey: string;
+            title: components["schemas"]["LocalizedTextDto"];
+            body: components["schemas"]["LocalizedTextDto"];
+            isRead: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        NotificationListResponse: {
+            items: components["schemas"]["NotificationItemDto"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -304,6 +486,167 @@ export interface operations {
             };
         };
     };
+    loginAuthSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Authenticated session for AdminScope or ClientScope */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
+                };
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getCurrentAuthSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current caller security context */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
+                };
+            };
+        };
+    };
+    getAdminRoleCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default enterprise roles and 24 canonical permission definitions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleCatalogResponse"];
+                };
+            };
+        };
+    };
+    getAdminUsers: {
+        parameters: {
+            query?: {
+                propertyId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin users scoped to caller AllowedPropertyIds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserListResponse"];
+                };
+            };
+            /** @description Missing admin.users.read permission or unauthorized propertyId */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertAdminUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Admin user created or updated with audit trail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDto"];
+                };
+            };
+            /** @description Missing admin.users.manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    dispatchAdminNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DispatchNotificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Notification dispatched via InApp / Line / Email adapter */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationItemDto"];
+                };
+            };
+        };
+    };
     getClientDashboard: {
         parameters: {
             query?: never;
@@ -320,6 +663,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientDashboardResponse"];
+                };
+            };
+        };
+    };
+    getClientNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notifications scoped strictly to CurrentUser.CustomerId */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationListResponse"];
                 };
             };
         };
