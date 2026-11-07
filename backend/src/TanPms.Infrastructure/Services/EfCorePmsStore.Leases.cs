@@ -320,6 +320,10 @@ public sealed partial class EfCorePmsStore
             return Result<LeaseSettlementDto>.Failure(LeaseRecordMapper.LeaseNotFound(propertyId, leaseId));
         }
 
+        // Serialize concurrent settlements on the unit row, then re-read status so a double submit cannot refund twice.
+        LockUnitRow(lease.UnitId);
+        _dbContext.Entry(lease).Reload();
+
         if (lease.Status != LeaseStatus.MoveOutNotice)
         {
             return Result<LeaseSettlementDto>.Failure(new Error(
