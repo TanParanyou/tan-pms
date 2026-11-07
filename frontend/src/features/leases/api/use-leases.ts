@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import type {
@@ -38,6 +38,7 @@ export function useAdminCustomerSearch(propertyId: string, search: string) {
   return useQuery<CustomerListResponse>({
     queryKey: queryKeys.customers.search(propertyId, search),
     queryFn: () => apiClient.searchAdminCustomers(propertyId, search),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -45,9 +46,17 @@ function useLeaseMutation<TVars, TResult>(mutationFn: (vars: TVars) => Promise<T
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.leases.all });
-    },
+    // Lease changes alter unit occupancy: refresh dependent caches before the UI moves on.
+    onSuccess: () =>
+      Promise.all(
+        [
+          queryKeys.leases.all,
+          queryKeys.properties.all,
+          queryKeys.rack.all,
+          queryKeys.availability.all,
+          queryKeys.stays.all,
+        ].map((queryKey) => queryClient.invalidateQueries({ queryKey }))
+      ),
   });
 }
 

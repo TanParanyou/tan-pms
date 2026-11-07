@@ -829,7 +829,8 @@
       "placeholderSettleReason": "Enter reason for the deductions or refund",
       "errorDeductionExceedsBalance": "Total deductions exceed the deposit balance.",
       "confirmSettleTitle": "Confirm Move-out Settlement",
-      "confirmSettleMessage": "This finalizes the move-out, releases the unit and refunds the deposit. This cannot be undone."
+      "confirmSettleMessage": "This finalizes the move-out, releases the unit and refunds the deposit. This cannot be undone.",
+      "customerSearchError": "Unable to search customers."
     }
   },
   "client": {

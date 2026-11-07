@@ -38,6 +38,7 @@ import { FormField } from "@/components/forms/form-field";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { usePermission } from "@/hooks/use-permission";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { formatCurrencyThb } from "@/lib/formatters";
@@ -131,6 +132,20 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
     defaultValues: { utilityDeductionAmount: 0, damageDeductionAmount: 0, reason: "" },
   });
 
+  const isBusy =
+    addOccupant.isPending ||
+    addVehicle.isPending ||
+    renew.isPending ||
+    moveOutNotice.isPending ||
+    settle.isPending;
+
+  useUnsavedChanges(
+    occupantForm.formState.isDirty ||
+      vehicleForm.formState.isDirty ||
+      renewForm.formState.isDirty ||
+      settleForm.formState.isDirty
+  );
+
   const utilityDeduction = settleForm.watch("utilityDeductionAmount");
   const damageDeduction = settleForm.watch("damageDeductionAmount");
   const totalDeduction = (utilityDeduction || 0) + (damageDeduction || 0);
@@ -138,6 +153,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   const computedRefund = Math.max(0, lease.securityDepositBalance - totalDeduction);
 
   const submitOccupant = occupantForm.handleSubmit(async (values) => {
+    if (isBusy) return;
     try {
       await addOccupant.mutateAsync({ leaseId: lease.id, req: values });
       toastSuccess(t("toastOccupantAdded"));
@@ -148,6 +164,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   });
 
   const submitVehicle = vehicleForm.handleSubmit(async (values) => {
+    if (isBusy) return;
     try {
       await addVehicle.mutateAsync({ leaseId: lease.id, req: values });
       toastSuccess(t("toastVehicleAdded"));
@@ -158,6 +175,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   });
 
   const executeRenew = async () => {
+    if (isBusy) return;
     const v = renewForm.getValues();
     try {
       await renew.mutateAsync({
@@ -174,6 +192,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   };
 
   const executeNotice = async () => {
+    if (isBusy) return;
     try {
       await moveOutNotice.mutateAsync(lease.id);
       toastSuccess(t("toastNoticeGiven"));
@@ -185,6 +204,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   };
 
   const executeSettle = async () => {
+    if (isBusy) return;
     const v = settleForm.getValues();
     try {
       await settle.mutateAsync({ leaseId: lease.id, req: v });
@@ -218,7 +238,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={status !== "Active"}
+                  disabled={status !== "Active" || isBusy}
                   onClick={() => setShowRenew(true)}
                   className="h-9 rounded-full px-4 gap-1.5 text-xs"
                 >
@@ -229,7 +249,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={status !== "Active"}
+                  disabled={status !== "Active" || isBusy}
                   onClick={() => setShowConfirmNotice(true)}
                   className="h-9 rounded-full px-4 gap-1.5 text-xs"
                 >
@@ -242,7 +262,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
               <Button
                 type="button"
                 size="sm"
-                disabled={status !== "MoveOutNotice"}
+                disabled={status !== "MoveOutNotice" || isBusy}
                 onClick={() => setShowSettle(true)}
                 className="h-9 rounded-full px-4 gap-1.5 text-xs"
               >
@@ -345,7 +365,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
                 </div>
               )}
             />
-            <Button type="submit" size="sm" disabled={addOccupant.isPending} className="h-10 rounded-full px-4 gap-1.5 text-xs">
+            <Button type="submit" size="sm" disabled={isBusy} className="h-10 rounded-full px-4 gap-1.5 text-xs">
               <Plus className="h-4 w-4" />
               <span>{t("btnAddOccupant")}</span>
             </Button>
@@ -407,7 +427,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
                 {...vehicleForm.register("vehicleBrandModel")}
               />
             </FormField>
-            <Button type="submit" size="sm" disabled={addVehicle.isPending} className="h-10 rounded-full px-4 gap-1.5 text-xs">
+            <Button type="submit" size="sm" disabled={isBusy} className="h-10 rounded-full px-4 gap-1.5 text-xs">
               <Plus className="h-4 w-4" />
               <span>{t("btnAddVehicle")}</span>
             </Button>
@@ -461,6 +481,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
             </Button>
             <Button
               type="button"
+              disabled={isBusy}
               onClick={renewForm.handleSubmit(() => setShowConfirmRenew(true))}
               className="rounded-full"
             >
@@ -541,7 +562,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
             </Button>
             <Button
               type="button"
-              disabled={exceedsBalance || settle.isPending}
+              disabled={exceedsBalance || isBusy}
               onClick={settleForm.handleSubmit(() => setShowConfirmSettle(true))}
               className="rounded-full"
             >

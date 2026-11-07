@@ -21,6 +21,7 @@ import { FormField } from "@/components/forms/form-field";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { useFormTabErrors } from "@/hooks/use-form-tab-errors";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -53,11 +54,12 @@ export function LeaseCreateEditor() {
     register,
     handleSubmit,
     getValues,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<LeaseCreateFormValues>({
     resolver: zodResolver(leaseCreateSchema),
     defaultValues: LEASE_CREATE_DEFAULTS,
   });
+  useUnsavedChanges(isDirty && !createMutation.isSuccess);
   const occupants = useFieldArray({ control, name: "occupants" });
   const vehicles = useFieldArray({ control, name: "vehicles" });
 
@@ -84,7 +86,12 @@ export function LeaseCreateEditor() {
 
   const [customerSearch, setCustomerSearch] = useState("");
   const debouncedCustomerSearch = useDebouncedValue(customerSearch.trim(), CUSTOMER_SEARCH_DEBOUNCE_MS);
-  const { data: customerData, isLoading: isCustomersLoading } = useAdminCustomerSearch(
+  const {
+    data: customerData,
+    isLoading: isCustomersLoading,
+    isError: isCustomersError,
+    refetch: refetchCustomers,
+  } = useAdminCustomerSearch(
     activeProperty.id,
     debouncedCustomerSearch
   );
@@ -107,6 +114,7 @@ export function LeaseCreateEditor() {
   };
 
   const executeCreate = async () => {
+    if (createMutation.isPending) return;
     const v = getValues();
     try {
       await createMutation.mutateAsync({
@@ -148,6 +156,7 @@ export function LeaseCreateEditor() {
                     options={unitOptions}
                     value={field.value}
                     onValueChange={field.onChange}
+                    isLoading={isUnitsPlaceholder}
                     placeholder={t("placeholderUnit")}
                     searchPlaceholder={t("placeholderUnit")}
                     hasError={Boolean(errors.unitId)}
@@ -156,7 +165,25 @@ export function LeaseCreateEditor() {
                 )}
               />
             </FormField>
-            <FormField id="lease-customer" label={t("fieldCustomer")} required error={errors.customerId?.message}>
+            <FormField
+              id="lease-customer"
+              label={t("fieldCustomer")}
+              required
+              error={isCustomersError ? t("customerSearchError") : errors.customerId?.message}
+              topRightAction={
+                isCustomersError ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void refetchCustomers()}
+                    className="h-6 rounded-full px-2 text-[11px]"
+                  >
+                    {t("btnRetry")}
+                  </Button>
+                ) : undefined
+              }
+            >
               <Controller
                 name="customerId"
                 control={control}
