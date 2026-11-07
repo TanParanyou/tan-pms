@@ -1,6 +1,8 @@
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Customers;
 using TanPms.Application.Identity;
+using TanPms.Application.Leases;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
@@ -64,6 +66,15 @@ builder.Services.AddScoped<AddAdminFolioChargeHandler>();
 builder.Services.AddScoped<RecordAdminFolioPaymentHandler>();
 builder.Services.AddScoped<CheckOutAdminStayHandler>();
 builder.Services.AddScoped<GetAdminRegulatoryExportHandler>();
+builder.Services.AddScoped<GetAdminLeasesHandler>();
+builder.Services.AddScoped<GetAdminLeaseHandler>();
+builder.Services.AddScoped<SearchAdminCustomersHandler>();
+builder.Services.AddScoped<CreateAdminLeaseHandler>();
+builder.Services.AddScoped<AddAdminLeaseOccupantHandler>();
+builder.Services.AddScoped<AddAdminLeaseVehicleHandler>();
+builder.Services.AddScoped<RenewAdminLeaseHandler>();
+builder.Services.AddScoped<GiveAdminLeaseMoveOutNoticeHandler>();
+builder.Services.AddScoped<SettleAdminLeaseMoveOutHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
 
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
@@ -438,6 +449,119 @@ adminGroup.MapGet("/properties/{propertyId:guid}/regulatory-exports", (
         propertyId,
         reportType,
         unmaskPii ?? false));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/leases", (
+    Guid propertyId,
+    string? status,
+    string? licensePlate,
+    GetAdminLeasesHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminLeasesQuery(propertyId, status, licensePlate));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/leases/{leaseId:guid}", (
+    Guid propertyId,
+    Guid leaseId,
+    GetAdminLeaseHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminLeaseQuery(propertyId, leaseId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/customers", (
+    Guid propertyId,
+    string? search,
+    SearchAdminCustomersHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new SearchAdminCustomersQuery(propertyId, search));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/leases", (
+    Guid propertyId,
+    CreateLeaseRequest request,
+    CreateAdminLeaseHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CreateAdminLeaseCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/admin/properties/{propertyId}/leases/{result.Value!.Id}", result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/occupants", (
+    Guid propertyId,
+    Guid leaseId,
+    LeaseOccupantRequest request,
+    AddAdminLeaseOccupantHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new AddAdminLeaseOccupantCommand(propertyId, leaseId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/vehicles", (
+    Guid propertyId,
+    Guid leaseId,
+    LeaseVehicleRequest request,
+    AddAdminLeaseVehicleHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new AddAdminLeaseVehicleCommand(propertyId, leaseId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/renew", (
+    Guid propertyId,
+    Guid leaseId,
+    RenewLeaseRequest request,
+    RenewAdminLeaseHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new RenewAdminLeaseCommand(propertyId, leaseId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/move-out-notice", (
+    Guid propertyId,
+    Guid leaseId,
+    GiveAdminLeaseMoveOutNoticeHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GiveAdminLeaseMoveOutNoticeCommand(propertyId, leaseId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/settle-move-out", (
+    Guid propertyId,
+    Guid leaseId,
+    SettleLeaseMoveOutRequest request,
+    SettleAdminLeaseMoveOutHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new SettleAdminLeaseMoveOutCommand(propertyId, leaseId, request));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

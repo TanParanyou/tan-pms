@@ -3,7 +3,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Customers;
 using TanPms.Application.Identity;
+using TanPms.Application.Leases;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
@@ -46,6 +48,8 @@ public static class DependencyInjection
             services.AddSingleton<IRateCatalogStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IReservationStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IStayStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<ILeaseStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<ICustomerStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IRoomRackStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IClientDashboardStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IDocumentNumberService>(sp => sp.GetRequiredService<InMemoryOperationalService>());
@@ -65,6 +69,8 @@ public static class DependencyInjection
             services.AddScoped<IRateCatalogStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IReservationStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IStayStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<ILeaseStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<ICustomerStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IRoomRackStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IClientDashboardStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
         }

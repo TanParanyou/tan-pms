@@ -29,6 +29,8 @@ export interface EntityAutocompleteProps {
   hasError?: boolean;
   id?: string;
   wrapperClassName?: string;
+  /** Server-side search: when provided, options are not filtered locally. */
+  onSearchChange?: (search: string) => void;
   adjacentAction?: {
     tooltip: string;
     ariaLabel: string;
@@ -49,6 +51,7 @@ export function EntityAutocomplete({
   hasError = false,
   id,
   wrapperClassName,
+  onSearchChange,
   adjacentAction,
 }: EntityAutocompleteProps) {
   const [open, setOpen] = React.useState(false);
@@ -67,7 +70,7 @@ export function EntityAutocomplete({
   const selectedOption = optionsMap.get(value);
 
   const filteredOptions = React.useMemo(() => {
-    if (!search.trim()) return options;
+    if (onSearchChange || !search.trim()) return options;
     const query = search.toLowerCase();
     return options.filter((opt) => {
       const matchLabel = opt.label.toLowerCase().includes(query);
@@ -75,7 +78,7 @@ export function EntityAutocomplete({
       const matchCode = opt.code?.toLowerCase().includes(query) ?? false;
       return matchLabel || matchSub || matchCode;
     });
-  }, [options, search]);
+  }, [options, search, onSearchChange]);
 
   React.useEffect(() => {
     setHighlightedIndex(0);
@@ -85,6 +88,7 @@ export function EntityAutocomplete({
     onValueChange(val);
     setOpen(false);
     setSearch("");
+    onSearchChange?.("");
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -192,7 +196,10 @@ export function EntityAutocomplete({
         <div className="relative mb-2">
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              onSearchChange?.(e.target.value);
+            }}
             placeholder={searchPlaceholder}
             className="pl-8 h-9 text-xs rounded-full"
             autoFocus

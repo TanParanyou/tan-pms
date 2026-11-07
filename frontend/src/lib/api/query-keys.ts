@@ -61,6 +61,18 @@ export const queryKeys = {
     detail: (id: string) =>
       ["admin-stay-detail", id] as const,
   },
+  leases: {
+    all: ["admin-leases"] as const,
+    list: (propertyId: string, status?: string, licensePlate?: string) =>
+      [...queryKeys.leases.all, propertyId, status ?? "", licensePlate ?? ""] as const,
+    detail: (propertyId: string, leaseId: string) =>
+      [...queryKeys.leases.all, "detail", propertyId, leaseId] as const,
+  },
+  customers: {
+    all: ["admin-customers"] as const,
+    search: (propertyId: string, search: string) =>
+      [...queryKeys.customers.all, propertyId, search] as const,
+  },
   regulatoryExports: {
     all: ["admin-regulatory"] as const,
     export: (propertyId: string, date?: string) =>

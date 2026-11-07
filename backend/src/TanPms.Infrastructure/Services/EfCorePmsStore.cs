@@ -29,7 +29,7 @@ using TanPms.Infrastructure.Persistence;
 
 namespace TanPms.Infrastructure.Services;
 
-public sealed class EfCorePmsStore : IPmsOperationalStore
+public sealed partial class EfCorePmsStore : IPmsOperationalStore
 {
     private readonly TanPmsDbContext _dbContext;
     private readonly IDocumentNumberService _documentNumberService;

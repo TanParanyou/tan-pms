@@ -532,6 +532,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/properties/{propertyId}/leases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminLeases"];
+        put?: never;
+        post: operations["createAdminLease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/occupants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addAdminLeaseOccupant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addAdminLeaseVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["renewAdminLease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/move-out-notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["giveAdminLeaseMoveOutNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/settle-move-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["settleAdminLeaseMoveOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminLease"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["searchAdminCustomers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1188,6 +1316,103 @@ export interface components {
             isPiiUnmasked: boolean;
             csvContent: string;
             rows: components["schemas"]["RegulatoryGuestRowDto"][];
+        };
+        LeaseOccupantDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+            nationalityCode: string;
+            maskedIdentityNumber: string;
+            isPrimaryOccupant: boolean;
+        };
+        LeaseVehicleDto: {
+            /** Format: uuid */
+            id: string;
+            licensePlate: string;
+            province: string;
+            vehicleBrandModel: string;
+        };
+        LeaseItemDto: {
+            /** Format: uuid */
+            id: string;
+            documentNumber: string;
+            status: string;
+            unit: components["schemas"]["UnitRefDto"];
+            customer: components["schemas"]["CustomerRefDto"];
+            /** Format: date */
+            startDate: string;
+            /** Format: date */
+            endDate: string;
+            /** Format: double */
+            monthlyRentAmount: number;
+            /** Format: double */
+            securityDepositAmount: number;
+            /** Format: double */
+            securityDepositBalance: number;
+            /** Format: double */
+            initialWaterMeterReading: number;
+            /** Format: double */
+            initialElectricMeterReading: number;
+            occupants: components["schemas"]["LeaseOccupantDto"][];
+            vehicles: components["schemas"]["LeaseVehicleDto"][];
+        };
+        LeaseListResponse: {
+            items: components["schemas"]["LeaseItemDto"][];
+        };
+        LeaseSettlementDto: {
+            lease: components["schemas"]["LeaseItemDto"];
+            /** Format: double */
+            deductedAmount: number;
+            /** Format: double */
+            refundedAmount: number;
+            generatedHousekeepingTaskStatus?: string | null;
+        };
+        LeaseOccupantRequest: {
+            fullName: string;
+            nationalityCode: string;
+            identityNumber: string;
+            isPrimaryOccupant: boolean;
+        };
+        LeaseVehicleRequest: {
+            licensePlate: string;
+            province?: string | null;
+            vehicleBrandModel?: string | null;
+        };
+        CreateLeaseRequest: {
+            /** Format: uuid */
+            unitId: string;
+            /** Format: uuid */
+            customerId: string;
+            /** Format: date */
+            startDate: string;
+            /** Format: date */
+            endDate: string;
+            /** Format: double */
+            monthlyRentAmount: number;
+            /** Format: double */
+            securityDepositAmount: number;
+            /** Format: double */
+            initialWaterMeterReading: number;
+            /** Format: double */
+            initialElectricMeterReading: number;
+            occupants?: components["schemas"]["LeaseOccupantRequest"][] | null;
+            vehicles?: components["schemas"]["LeaseVehicleRequest"][] | null;
+        };
+        RenewLeaseRequest: {
+            /** Format: date */
+            newEndDate: string;
+            /** Format: double */
+            newMonthlyRentAmount?: number | null;
+        };
+        SettleLeaseMoveOutRequest: {
+            /** Format: double */
+            utilityDeductionAmount: number;
+            /** Format: double */
+            damageDeductionAmount: number;
+            reason: string;
+        };
+        CustomerListResponse: {
+            items: components["schemas"]["CustomerRefDto"][];
         };
     };
     responses: never;
@@ -2328,6 +2553,433 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationListResponse"];
+                };
+            };
+        };
+    };
+    getAdminLeases: {
+        parameters: {
+            query?: {
+                status?: "Draft" | "PendingSignature" | "Active" | "MoveOutNotice" | "MovedOut" | "Terminated" | "Cancelled";
+                licensePlate?: string;
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Leases with occupants and vehicles; supports license plate search */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseListResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    createAdminLease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLeaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Lease created and unit occupied */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Slot overlap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    addAdminLeaseOccupant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                leaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaseOccupantRequest"];
+            };
+        };
+        responses: {
+            /** @description Occupant added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Slot overlap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    addAdminLeaseVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                leaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaseVehicleRequest"];
+            };
+        };
+        responses: {
+            /** @description Vehicle registered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Slot overlap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    renewAdminLease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                leaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenewLeaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Lease renewed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Slot overlap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    giveAdminLeaseMoveOutNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                leaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Move-out notice recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Slot overlap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    settleAdminLeaseMoveOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                leaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleLeaseMoveOutRequest"];
+            };
+        };
+        responses: {
+            /** @description Move-out settled and security deposit refunded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseSettlementDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Slot overlap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminLease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                leaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Single lease with occupants and vehicles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseItemDto"];
+                };
+            };
+            /** @description Lease not found in property */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    searchAdminCustomers: {
+        parameters: {
+            query?: {
+                search?: string;
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to 20 customers matching name or identity suffix; identity always masked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerListResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
                 };
             };
         };

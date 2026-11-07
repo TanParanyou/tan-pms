@@ -1269,6 +1269,640 @@
           }
         }
       }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases": {
+      "get": {
+        "operationId": "getAdminLeases",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Draft",
+                "PendingSignature",
+                "Active",
+                "MoveOutNotice",
+                "MovedOut",
+                "Terminated",
+                "Cancelled"
+              ]
+            }
+          },
+          {
+            "name": "licensePlate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leases with occupants and vehicles; supports license plate search",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseListResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAdminLease",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lease created and unit occupied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/occupants": {
+      "post": {
+        "operationId": "addAdminLeaseOccupant",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseOccupantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Occupant added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/vehicles": {
+      "post": {
+        "operationId": "addAdminLeaseVehicle",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseVehicleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vehicle registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/renew": {
+      "post": {
+        "operationId": "renewAdminLease",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewLeaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lease renewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/move-out-notice": {
+      "post": {
+        "operationId": "giveAdminLeaseMoveOutNotice",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Move-out notice recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/settle-move-out": {
+      "post": {
+        "operationId": "settleAdminLeaseMoveOut",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleLeaseMoveOutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Move-out settled and security deposit refunded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseSettlementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}": {
+      "get": {
+        "operationId": "getAdminLease",
+        "tags": [
+          "AdminLease"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Single lease with occupants and vehicles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lease not found in property",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/customers": {
+      "get": {
+        "operationId": "searchAdminCustomers",
+        "tags": [
+          "AdminCustomer"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Up to 20 customers matching name or identity suffix; identity always masked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerListResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2299,6 +2933,329 @@
           "rows": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/RegulatoryGuestRowDto" }
+          }
+        }
+      },
+      "LeaseOccupantDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "fullName",
+          "nationalityCode",
+          "maskedIdentityNumber",
+          "isPrimaryOccupant"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "nationalityCode": {
+            "type": "string"
+          },
+          "maskedIdentityNumber": {
+            "type": "string"
+          },
+          "isPrimaryOccupant": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LeaseVehicleDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "licensePlate",
+          "province",
+          "vehicleBrandModel"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "licensePlate": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "vehicleBrandModel": {
+            "type": "string"
+          }
+        }
+      },
+      "LeaseItemDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentNumber",
+          "status",
+          "unit",
+          "customer",
+          "startDate",
+          "endDate",
+          "monthlyRentAmount",
+          "securityDepositAmount",
+          "securityDepositBalance",
+          "initialWaterMeterReading",
+          "initialElectricMeterReading",
+          "occupants",
+          "vehicles"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/UnitRefDto"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "monthlyRentAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "securityDepositAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "securityDepositBalance": {
+            "type": "number",
+            "format": "double"
+          },
+          "initialWaterMeterReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "initialElectricMeterReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "occupants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaseOccupantDto"
+            }
+          },
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaseVehicleDto"
+            }
+          }
+        }
+      },
+      "LeaseListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaseItemDto"
+            }
+          }
+        }
+      },
+      "LeaseSettlementDto": {
+        "type": "object",
+        "required": [
+          "lease",
+          "deductedAmount",
+          "refundedAmount"
+        ],
+        "properties": {
+          "lease": {
+            "$ref": "#/components/schemas/LeaseItemDto"
+          },
+          "deductedAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "refundedAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "generatedHousekeepingTaskStatus": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "LeaseOccupantRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "nationalityCode",
+          "identityNumber",
+          "isPrimaryOccupant"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "nationalityCode": {
+            "type": "string"
+          },
+          "identityNumber": {
+            "type": "string"
+          },
+          "isPrimaryOccupant": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LeaseVehicleRequest": {
+        "type": "object",
+        "required": [
+          "licensePlate"
+        ],
+        "properties": {
+          "licensePlate": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicleBrandModel": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateLeaseRequest": {
+        "type": "object",
+        "required": [
+          "unitId",
+          "customerId",
+          "startDate",
+          "endDate",
+          "monthlyRentAmount",
+          "securityDepositAmount",
+          "initialWaterMeterReading",
+          "initialElectricMeterReading"
+        ],
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "monthlyRentAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "securityDepositAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "initialWaterMeterReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "initialElectricMeterReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "occupants": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/LeaseOccupantRequest"
+            }
+          },
+          "vehicles": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/LeaseVehicleRequest"
+            }
+          }
+        }
+      },
+      "RenewLeaseRequest": {
+        "type": "object",
+        "required": [
+          "newEndDate"
+        ],
+        "properties": {
+          "newEndDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "newMonthlyRentAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        }
+      },
+      "SettleLeaseMoveOutRequest": {
+        "type": "object",
+        "required": [
+          "utilityDeductionAmount",
+          "damageDeductionAmount",
+          "reason"
+        ],
+        "properties": {
+          "utilityDeductionAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "damageDeductionAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomerListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerRefDto"
+            }
           }
         }
       }

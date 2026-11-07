@@ -99,7 +99,9 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                     PermissionKeys.AdminReservationsRead,
                     PermissionKeys.AdminReservationsManage,
                     PermissionKeys.AdminStayCheckOut,
-                    PermissionKeys.AdminRegulatoryExport
+                    PermissionKeys.AdminRegulatoryExport,
+                    PermissionKeys.AdminLeasesManage,
+                    PermissionKeys.AdminLeasesSettleMoveOut
                 };
             }
 

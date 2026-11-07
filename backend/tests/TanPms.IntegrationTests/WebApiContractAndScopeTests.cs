@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Contracts;
+using TanPms.Application.Customers;
 using TanPms.Application.Identity;
+using TanPms.Application.Leases;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
@@ -269,6 +271,71 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         Assert.Equal("อาคาร A", createdStay.Unit.BuildingName.Th);
         Assert.Equal("Building A", createdStay.Unit.BuildingName.En);
         Assert.Equal("1-xxxx-xxxxx-12-3", createdStay.Customer.MaskedNationalId);
+    }
+
+    [Fact]
+    public async Task Admin_Leases_Should_Search_By_Plate_Validate_Create_And_Require_Settle_Permission()
+    {
+        using var managerClient = _factory.CreateClient();
+        managerClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        managerClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        managerClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminLeasesManage);
+
+        var listRes = await managerClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases?licensePlate={Uri.EscapeDataString("1กข 8899")}");
+        Assert.Equal(HttpStatusCode.OK, listRes.StatusCode);
+        var list = await listRes.Content.ReadFromJsonAsync<LeaseListResponse>();
+        Assert.NotNull(list);
+        var seedLease = Assert.Single(list.Items);
+        Assert.Equal("A-201", seedLease.Unit.UnitNumber);
+        Assert.Equal("1-xxxx-xxxxx-12-3", seedLease.Customer.MaskedNationalId);
+
+        var byIdRes = await managerClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases/{seedLease.Id}");
+        Assert.Equal(HttpStatusCode.OK, byIdRes.StatusCode);
+        var byId = await byIdRes.Content.ReadFromJsonAsync<LeaseItemDto>();
+        Assert.NotNull(byId);
+        Assert.Equal(seedLease.DocumentNumber, byId.DocumentNumber);
+
+        var missingRes = await managerClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.BadRequest, missingRes.StatusCode);
+
+        var customersRes = await managerClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/customers?search=somchai");
+        Assert.Equal(HttpStatusCode.OK, customersRes.StatusCode);
+        var customers = await customersRes.Content.ReadFromJsonAsync<CustomerListResponse>();
+        Assert.NotNull(customers);
+        Assert.Equal("1-xxxx-xxxxx-12-3", Assert.Single(customers.Items).MaskedNationalId);
+
+        var deniedCustomersRes = await managerClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/customers");
+        Assert.Equal(HttpStatusCode.Forbidden, deniedCustomersRes.StatusCode);
+
+        var invalidCreate = new CreateLeaseRequest(
+            UnitId: PmsSeedConstants.DirtyUnitA102Id,
+            CustomerId: PmsSeedConstants.SecondaryCustomerId,
+            StartDate: new DateOnly(2026, 12, 1),
+            EndDate: new DateOnly(2026, 11, 1),
+            MonthlyRentAmount: 6500m,
+            SecurityDepositAmount: 10000m,
+            InitialWaterMeterReading: 0m,
+            InitialElectricMeterReading: 0m);
+        var invalidRes = await managerClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases",
+            invalidCreate);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidRes.StatusCode);
+        var invalidProblem = await invalidRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(invalidProblem);
+        Assert.Equal(DomainErrorCodes.ValidationFailed, invalidProblem.ErrorCode);
+
+        var settleRes = await managerClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases/{seedLease.Id}/settle-move-out",
+            new SettleLeaseMoveOutRequest(0m, 0m, "Unauthorized attempt"));
+        Assert.Equal(HttpStatusCode.Forbidden, settleRes.StatusCode);
+        var settleProblem = await settleRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(settleProblem);
+        Assert.Equal(DomainErrorCodes.PermissionDenied, settleProblem.ErrorCode);
     }
 
     [Fact]

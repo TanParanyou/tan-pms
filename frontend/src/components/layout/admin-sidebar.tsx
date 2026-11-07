@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Percent,
+  FileText,
   Receipt,
   Users,
   Wallet,
@@ -23,6 +24,7 @@ import {
 export type AdminModuleKey =
   | "rack"
   | "stays"
+  | "leases"
   | "reservations"
   | "meters"
   | "properties"
@@ -58,6 +60,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       { key: "rack", href: "/admin/rack", icon: BedDouble, labelKey: "rack" },
       { key: "stays", href: "/admin/stays", icon: Receipt, labelKey: "stays" },
       { key: "reservations", href: "/admin/reservations", icon: CalendarDays, labelKey: "reservations" },
+      { key: "leases", href: "/admin/leases", icon: FileText, labelKey: "leases" },
       { key: "meters", href: "/admin/meters", icon: Zap, labelKey: "meters" },
     ],
   },

@@ -1,5 +1,7 @@
 using TanPms.Application.Client;
+using TanPms.Application.Customers;
 using TanPms.Application.Identity;
+using TanPms.Application.Leases;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
@@ -16,5 +18,7 @@ public interface IPmsOperationalStore
       IRateCatalogStore,
       IReservationStore,
       IStayStore,
+      ILeaseStore,
+      ICustomerStore,
       IRoomRackStore,
       IClientDashboardStore;

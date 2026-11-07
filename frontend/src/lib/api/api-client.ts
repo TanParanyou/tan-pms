@@ -41,6 +41,18 @@ import type {
   CheckOutStayRequest,
   RegulatoryExportResponse,
 } from "@/generated/api";
+import type {
+  LeaseListResponse,
+  LeaseItemDto,
+  LeaseSettlementDto,
+  CreateLeaseRequest,
+  LeaseOccupantRequest,
+  LeaseVehicleRequest,
+  RenewLeaseRequest,
+  SettleLeaseMoveOutRequest,
+  LeaseStatusType,
+  CustomerListResponse,
+} from "@/features/leases/types";
 import { ApiError } from "./api-error";
 
 export interface ApiClientConfig {
@@ -408,6 +420,87 @@ export class ApiClient {
     return this.request<RegulatoryExportResponse>(`/api/v1/admin/properties/${propertyId}/regulatory-exports`, {
       method: "GET",
       headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  // --- 6b. Monthly Leases APIs (PM-06) ---
+  async getAdminLeases(
+    propertyId: string,
+    params: { status?: LeaseStatusType; licensePlate?: string } = {}
+  ): Promise<LeaseListResponse> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.licensePlate) qs.set("licensePlate", params.licensePlate);
+    const query = qs.toString();
+    return this.request<LeaseListResponse>(
+      `/api/v1/admin/properties/${propertyId}/leases${query ? `?${query}` : ""}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
+  }
+
+  async getAdminLease(propertyId: string, leaseId: string): Promise<LeaseItemDto> {
+    return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}`, {
+      method: "GET",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async searchAdminCustomers(propertyId: string, search = ""): Promise<CustomerListResponse> {
+    const query = search ? `?search=${encodeURIComponent(search)}` : "";
+    return this.request<CustomerListResponse>(`/api/v1/admin/properties/${propertyId}/customers${query}`, {
+      method: "GET",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async createAdminLease(propertyId: string, req: CreateLeaseRequest): Promise<LeaseItemDto> {
+    return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async addAdminLeaseOccupant(propertyId: string, leaseId: string, req: LeaseOccupantRequest): Promise<LeaseItemDto> {
+    return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/occupants`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async addAdminLeaseVehicle(propertyId: string, leaseId: string, req: LeaseVehicleRequest): Promise<LeaseItemDto> {
+    return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/vehicles`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async renewAdminLease(propertyId: string, leaseId: string, req: RenewLeaseRequest): Promise<LeaseItemDto> {
+    return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/renew`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async giveAdminLeaseMoveOutNotice(propertyId: string, leaseId: string): Promise<LeaseItemDto> {
+    return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/move-out-notice`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async settleAdminLeaseMoveOut(
+    propertyId: string,
+    leaseId: string,
+    req: SettleLeaseMoveOutRequest
+  ): Promise<LeaseSettlementDto> {
+    return this.request<LeaseSettlementDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/settle-move-out`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
     });
   }
 

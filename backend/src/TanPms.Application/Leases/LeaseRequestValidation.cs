@@ -1,0 +1,92 @@
+using TanPms.Application.Common.Results;
+using TanPms.Domain.Common;
+using TanPms.Domain.Leases;
+
+namespace TanPms.Application.Leases;
+
+// Shared shape validation so both persistence providers reject the same requests.
+public static class LeaseRequestValidation
+{
+    public static Error? ParseStatusFilter(string? status, out LeaseStatus? parsed)
+    {
+        parsed = null;
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return null;
+        }
+
+        if (!Enum.TryParse<LeaseStatus>(status, ignoreCase: true, out var value))
+        {
+            return Invalid($"Invalid LeaseStatus '{status}'.");
+        }
+
+        parsed = value;
+        return null;
+    }
+
+    public static Error? ValidateCreate(CreateLeaseRequest request)
+    {
+        if (request.EndDate <= request.StartDate)
+        {
+            return Invalid("EndDate must be after StartDate.");
+        }
+
+        if (request.MonthlyRentAmount < 0m || request.SecurityDepositAmount < 0m)
+        {
+            return Invalid("MonthlyRentAmount and SecurityDepositAmount cannot be negative.");
+        }
+
+        if (request.InitialWaterMeterReading < 0m || request.InitialElectricMeterReading < 0m)
+        {
+            return Invalid("Initial meter readings cannot be negative.");
+        }
+
+        foreach (var occupant in request.Occupants ?? [])
+        {
+            if (ValidateOccupant(occupant) is { } occupantError)
+            {
+                return occupantError;
+            }
+        }
+
+        var plates = new HashSet<string>();
+        foreach (var vehicle in request.Vehicles ?? [])
+        {
+            if (ValidateVehicle(vehicle) is { } vehicleError)
+            {
+                return vehicleError;
+            }
+
+            if (!plates.Add(LicensePlateNormalizer.Normalize(vehicle.LicensePlate)))
+            {
+                return Invalid($"LicensePlate '{vehicle.LicensePlate}' is duplicated in the request.");
+            }
+        }
+
+        return null;
+    }
+
+    public static Error? ValidateOccupant(LeaseOccupantRequest request) =>
+        string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.IdentityNumber)
+            ? Invalid("Occupant FullName and IdentityNumber are required.")
+            : null;
+
+    public static Error? ValidateVehicle(LeaseVehicleRequest request) =>
+        LicensePlateNormalizer.Normalize(request.LicensePlate).Length == 0
+            ? Invalid("Vehicle LicensePlate is required.")
+            : null;
+
+    public static Error? ValidateSettle(SettleLeaseMoveOutRequest request)
+    {
+        if (request.UtilityDeductionAmount < 0m || request.DamageDeductionAmount < 0m)
+        {
+            return Invalid("Deduction amounts cannot be negative.");
+        }
+
+        return string.IsNullOrWhiteSpace(request.Reason)
+            ? Invalid("Reason is required for move-out settlement.")
+            : null;
+    }
+
+    private static Error Invalid(string message) => new(DomainErrorCodes.ValidationFailed, message);
+}

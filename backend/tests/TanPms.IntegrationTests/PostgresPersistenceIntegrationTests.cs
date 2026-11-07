@@ -8,6 +8,8 @@ using Npgsql;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
+using TanPms.Application.Customers;
+using TanPms.Application.Leases;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
@@ -168,6 +170,70 @@ public sealed class PostgresPersistenceIntegrationTests
             Assert.NotNull(checkedOut);
             Assert.Equal("CheckedOut", checkedOut.Status);
             Assert.Equal("Pending", checkedOut.GeneratedHousekeepingTaskStatus);
+
+            // 5. PM-06 monthly lease lifecycle through EfCorePmsStore + PostgreSQL
+            using var leaseClient = factory.CreateClient();
+            leaseClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            leaseClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+            leaseClient.DefaultRequestHeaders.Add(
+                "X-TanPms-Permissions",
+                string.Join(",", PermissionKeys.AdminLeasesManage, PermissionKeys.AdminLeasesSettleMoveOut));
+            var leasesUrl = $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases";
+
+            var createLeaseRes = await leaseClient.PostAsJsonAsync(leasesUrl, new CreateLeaseRequest(
+                UnitId: PmsSeedConstants.DirtyUnitA102Id,
+                CustomerId: PmsSeedConstants.SecondaryCustomerId,
+                StartDate: new DateOnly(2027, 6, 1),
+                EndDate: new DateOnly(2027, 11, 30),
+                MonthlyRentAmount: 6500m,
+                SecurityDepositAmount: 10000m,
+                InitialWaterMeterReading: 120m,
+                InitialElectricMeterReading: 4500m,
+                Vehicles: [new LeaseVehicleRequest("2กค 1234", "Bangkok", "Honda City")]));
+            Assert.Equal(HttpStatusCode.Created, createLeaseRes.StatusCode);
+            var createdLease = await createLeaseRes.Content.ReadFromJsonAsync<LeaseItemDto>();
+            Assert.NotNull(createdLease);
+            Assert.StartsWith("BKK01-LSE-", createdLease.DocumentNumber, StringComparison.Ordinal);
+            Assert.Equal(10000m, createdLease.SecurityDepositBalance);
+            Assert.Single(createdLease.Occupants);
+
+            var addOccupantRes = await leaseClient.PostAsJsonAsync(
+                $"{leasesUrl}/{createdLease.Id}/occupants",
+                new LeaseOccupantRequest("Co Tenant", "THA", "1100700000001", false));
+            Assert.Equal(HttpStatusCode.OK, addOccupantRes.StatusCode);
+
+            var renewRes = await leaseClient.PostAsJsonAsync(
+                $"{leasesUrl}/{createdLease.Id}/renew",
+                new RenewLeaseRequest(new DateOnly(2028, 5, 31), 6800m));
+            Assert.Equal(HttpStatusCode.OK, renewRes.StatusCode);
+
+            var plateRes = await leaseClient.GetFromJsonAsync<LeaseListResponse>($"{leasesUrl}?licensePlate=2กค-1234");
+            Assert.NotNull(plateRes);
+            var found = Assert.Single(plateRes.Items);
+            Assert.Equal(2, found.Occupants.Count);
+            Assert.Equal(6800m, found.MonthlyRentAmount);
+
+            var leaseById = await leaseClient.GetFromJsonAsync<LeaseItemDto>($"{leasesUrl}/{createdLease.Id}");
+            Assert.NotNull(leaseById);
+            Assert.Equal(createdLease.DocumentNumber, leaseById.DocumentNumber);
+
+            var customerLookup = await leaseClient.GetFromJsonAsync<CustomerListResponse>(
+                $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/customers?search=6541");
+            Assert.NotNull(customerLookup);
+            var lookedUp = Assert.Single(customerLookup.Items);
+            Assert.Equal(PmsSeedConstants.SecondaryCustomerId, lookedUp.Id);
+            Assert.Equal("3-xxxx-xxxxx-54-1", lookedUp.MaskedNationalId);
+
+            Assert.Equal(HttpStatusCode.OK, (await leaseClient.PostAsync($"{leasesUrl}/{createdLease.Id}/move-out-notice", null)).StatusCode);
+            var settleLeaseRes = await leaseClient.PostAsJsonAsync(
+                $"{leasesUrl}/{createdLease.Id}/settle-move-out",
+                new SettleLeaseMoveOutRequest(1500m, 500m, "Final utilities and wall repair"));
+            Assert.Equal(HttpStatusCode.OK, settleLeaseRes.StatusCode);
+            var settlement = await settleLeaseRes.Content.ReadFromJsonAsync<LeaseSettlementDto>();
+            Assert.NotNull(settlement);
+            Assert.Equal(8000m, settlement.RefundedAmount);
+            Assert.Equal(0m, settlement.Lease.SecurityDepositBalance);
+            Assert.Equal("MovedOut", settlement.Lease.Status);
 
             using var clientApp = factory.CreateClient();
             clientApp.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");

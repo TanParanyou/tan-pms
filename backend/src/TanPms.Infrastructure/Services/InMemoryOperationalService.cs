@@ -27,7 +27,7 @@ using TanPms.Domain.Stays;
 
 namespace TanPms.Infrastructure.Services;
 
-public sealed class InMemoryOperationalService
+public sealed partial class InMemoryOperationalService
     : IPmsOperationalStore, IDocumentNumberService, IAuditLogger, INotificationSender
 {
     private readonly ConcurrentDictionary<string, int> _sequences = new();
