@@ -8,6 +8,7 @@ using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
+using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
 using TanPms.Domain.Billing;
 using TanPms.Domain.Common;
@@ -47,6 +48,7 @@ public sealed class InMemoryOperationalService
     private readonly List<Parcel> _parcels = [];
     private readonly List<Lease> _leases = [];
     private readonly List<Reservation> _reservations = [];
+    private readonly List<Stay> _stays = [];
     private readonly object _syncRoot = new();
 
     public InMemoryOperationalService()
@@ -1005,6 +1007,705 @@ public sealed class InMemoryOperationalService
             DefaultWithholdingTaxPercent: profile.DefaultWithholdingTaxPercent,
             IsActive: profile.IsActive);
 
+    public Result<AvailabilitySearchResponse> SearchAvailability(
+        Guid propertyId,
+        string stayMode,
+        DateTimeOffset slotStartAt,
+        DateTimeOffset slotEndAt,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (!Enum.TryParse<StayMode>(stayMode, ignoreCase: true, out var parsedStayMode))
+        {
+            return Result<AvailabilitySearchResponse>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                $"Invalid StayMode '{stayMode}'."));
+        }
+
+        if (slotEndAt <= slotStartAt)
+        {
+            return Result<AvailabilitySearchResponse>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "Requested SlotEndAt must be strictly after SlotStartAt."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(propertyId, out var property))
+            {
+                return Result<AvailabilitySearchResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Property '{propertyId}' was not found."));
+            }
+
+            ExpireStaleHoldsLocked(clockUtc);
+
+            var unitTypes = _unitTypes.Values
+                .Where(ut => ut.PropertyId == propertyId && ut.SupportedStayModes.Contains(parsedStayMode))
+                .OrderBy(ut => ut.AreaSqm)
+                .ToList();
+
+            var items = new List<UnitTypeAvailabilityDto>();
+            foreach (var unitType in unitTypes)
+            {
+                var ratePlan = FindActiveRatePlanLocked(propertyId, unitType.Id);
+                var turnaroundBufferMinutes = ratePlan?.TurnaroundBufferMinutes ?? 30;
+
+                var availability = UnifiedAvailabilityCalculator.EvaluateUnitTypeAvailability(
+                    unitType: unitType,
+                    unitsOfUnitType: _units.Values.Where(u => u.PropertyId == propertyId && u.UnitTypeId == unitType.Id),
+                    propertyLeases: _leases,
+                    propertyStays: _stays,
+                    propertyReservations: _reservations,
+                    requestedStayMode: parsedStayMode,
+                    slotStartAt: slotStartAt,
+                    slotEndAt: slotEndAt,
+                    nowUtc: clockUtc,
+                    turnaroundBufferMinutes: turnaroundBufferMinutes);
+
+                var (estimatedRoomRate, estimatedDepositAmount) = ComputeEstimatedQuote(
+                    unitType,
+                    ratePlan,
+                    parsedStayMode,
+                    slotStartAt,
+                    slotEndAt);
+
+                var assignableUnits = availability.AvailableUnitIds
+                    .Where(id => _units.ContainsKey(id))
+                    .Select(id =>
+                    {
+                        var u = _units[id];
+                        var b = _buildings[u.BuildingId];
+                        var f = _floors[u.FloorId];
+                        return new AssignableUnitOptionDto(
+                            Id: u.Id,
+                            UnitNumber: u.UnitNumber,
+                            BuildingName: LocalizedTextDto.FromDomain(b.Name),
+                            FloorNumber: f.FloorNumber,
+                            ConditionStatus: u.ConditionStatus.ToString());
+                    })
+                    .OrderBy(u => u.UnitNumber)
+                    .ToList();
+
+                items.Add(new UnitTypeAvailabilityDto(
+                    UnitType: new UnitTypeRefDto(
+                        unitType.Id,
+                        unitType.Code,
+                        LocalizedTextDto.FromDomain(unitType.Name),
+                        unitType.AreaSqm),
+                    SupportedStayModes: unitType.SupportedStayModes.Select(m => m.ToString()).ToList(),
+                    TotalPhysicalUnits: availability.TotalPhysicalUnits,
+                    UnassignedQuotaHeld: availability.UnassignedQuotaHeld,
+                    NetAvailableQuota: availability.NetAvailableQuota,
+                    TurnaroundBufferMinutes: availability.TurnaroundBufferMinutes,
+                    EstimatedRoomRate: estimatedRoomRate,
+                    EstimatedDepositAmount: estimatedDepositAmount,
+                    AvailableUnits: assignableUnits));
+            }
+
+            return Result<AvailabilitySearchResponse>.Success(new AvailabilitySearchResponse(
+                Property: new PropertyRefDto(
+                    property.Id,
+                    property.Code,
+                    LocalizedTextDto.FromDomain(property.Name)),
+                StayMode: parsedStayMode.ToString(),
+                SlotStartAt: slotStartAt,
+                SlotEndAt: slotEndAt,
+                Items: items));
+        }
+    }
+
+    public Result<ReservationListResponse> GetAdminReservations(
+        Guid propertyId,
+        string? status,
+        string? stayMode,
+        DateTimeOffset? nowUtc = null)
+    {
+        ReservationStatus? statusFilter = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<ReservationStatus>(status, ignoreCase: true, out var parsedStatus))
+            {
+                return Result<ReservationListResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid ReservationStatus '{status}'."));
+            }
+
+            statusFilter = parsedStatus;
+        }
+
+        StayMode? stayModeFilter = null;
+        if (!string.IsNullOrWhiteSpace(stayMode))
+        {
+            if (!Enum.TryParse<StayMode>(stayMode, ignoreCase: true, out var parsedStayMode))
+            {
+                return Result<ReservationListResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid StayMode '{stayMode}'."));
+            }
+
+            stayModeFilter = parsedStayMode;
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<ReservationListResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Property '{propertyId}' was not found."));
+            }
+
+            ExpireStaleHoldsLocked(clockUtc);
+
+            var items = _reservations
+                .Where(r => r.PropertyId == propertyId)
+                .Where(r => !statusFilter.HasValue || r.Status == statusFilter.Value)
+                .Where(r => !stayModeFilter.HasValue || r.StayMode == stayModeFilter.Value)
+                .OrderByDescending(r => r.SlotStartAt)
+                .ThenByDescending(r => r.DocumentNumber)
+                .Select(MapReservationItemDtoLocked)
+                .ToList();
+
+            return Result<ReservationListResponse>.Success(new ReservationListResponse(items));
+        }
+    }
+
+    public Result<ReservationItemDto> CreateAdminReservation(
+        Guid propertyId,
+        CreateAdminReservationRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (!Enum.TryParse<StayMode>(request.StayMode, ignoreCase: true, out var parsedStayMode))
+        {
+            return Result<ReservationItemDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                $"Invalid StayMode '{request.StayMode}'."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(propertyId, out var property))
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Property '{propertyId}' was not found."));
+            }
+
+            if (!_unitTypes.TryGetValue(request.UnitTypeId, out var unitType) || unitType.PropertyId != propertyId)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"UnitType '{request.UnitTypeId}' does not belong to property '{propertyId}'."));
+            }
+
+            if (!unitType.SupportedStayModes.Contains(parsedStayMode))
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"UnitType '{unitType.Code}' does not support StayMode '{parsedStayMode}'."));
+            }
+
+            if (request.UnitId.HasValue)
+            {
+                if (!_units.TryGetValue(request.UnitId.Value, out var requestedUnit)
+                    || requestedUnit.PropertyId != propertyId
+                    || requestedUnit.UnitTypeId != unitType.Id)
+                {
+                    return Result<ReservationItemDto>.Failure(new Error(
+                        DomainErrorCodes.ValidationFailed,
+                        $"Unit '{request.UnitId}' does not belong to UnitType '{unitType.Code}' in property '{propertyId}'."));
+                }
+            }
+
+            ExpireStaleHoldsLocked(clockUtc);
+
+            var ratePlan = FindActiveRatePlanLocked(propertyId, unitType.Id);
+            var turnaroundBufferMinutes = ratePlan?.TurnaroundBufferMinutes ?? 30;
+
+            try
+            {
+                var availability = UnifiedAvailabilityCalculator.EvaluateUnitTypeAvailability(
+                    unitType: unitType,
+                    unitsOfUnitType: _units.Values.Where(u => u.PropertyId == propertyId && u.UnitTypeId == unitType.Id),
+                    propertyLeases: _leases,
+                    propertyStays: _stays,
+                    propertyReservations: _reservations,
+                    requestedStayMode: parsedStayMode,
+                    slotStartAt: request.SlotStartAt,
+                    slotEndAt: request.SlotEndAt,
+                    nowUtc: clockUtc,
+                    turnaroundBufferMinutes: turnaroundBufferMinutes);
+
+                if (request.UnitId.HasValue)
+                {
+                    UnifiedAvailabilityCalculator.EnsureSpecificUnitAvailable(request.UnitId.Value, availability);
+                }
+
+                UnifiedAvailabilityCalculator.EnsureQuotaAvailable(availability);
+
+                EnsureCustomerExistsLocked(request.CustomerId);
+
+                var docNo = NextDocumentNumberAsync(
+                    property.Id,
+                    property.Code,
+                    DocumentTypeCode.RES,
+                    clockUtc).GetAwaiter().GetResult();
+
+                var reservation = Reservation.CreateByAdmin(
+                    propertyId: propertyId,
+                    documentNumber: docNo,
+                    customerId: request.CustomerId,
+                    unitTypeId: unitType.Id,
+                    stayMode: parsedStayMode,
+                    slotStartAt: request.SlotStartAt,
+                    slotEndAt: request.SlotEndAt,
+                    depositAmount: request.DepositAmount,
+                    nowUtc: clockUtc,
+                    confirmImmediately: request.ConfirmImmediately,
+                    unitId: request.UnitId);
+
+                _reservations.Add(reservation);
+                return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<ReservationItemDto> AssignReservationUnit(
+        Guid propertyId,
+        Guid reservationId,
+        Guid unitId,
+        DateTimeOffset? nowUtc = null)
+    {
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var reservation = _reservations.FirstOrDefault(r => r.Id == reservationId && r.PropertyId == propertyId);
+            if (reservation is null)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Reservation '{reservationId}' was not found in property '{propertyId}'."));
+            }
+
+            ExpireStaleHoldsLocked(clockUtc);
+
+            if (reservation.Status == ReservationStatus.Expired)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ReservationHoldExpired,
+                    $"Reservation {reservation.DocumentNumber} hold has already expired."));
+            }
+
+            if (!_units.TryGetValue(unitId, out var unit)
+                || unit.PropertyId != propertyId
+                || unit.UnitTypeId != reservation.UnitTypeId)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Unit '{unitId}' does not match reservation UnitType '{reservation.UnitTypeId}'."));
+            }
+
+            var unitType = _unitTypes[reservation.UnitTypeId];
+            var ratePlan = FindActiveRatePlanLocked(propertyId, unitType.Id);
+            var turnaroundBufferMinutes = ratePlan?.TurnaroundBufferMinutes ?? 30;
+
+            try
+            {
+                var availability = UnifiedAvailabilityCalculator.EvaluateUnitTypeAvailability(
+                    unitType: unitType,
+                    unitsOfUnitType: _units.Values.Where(u => u.PropertyId == propertyId && u.UnitTypeId == unitType.Id),
+                    propertyLeases: _leases,
+                    propertyStays: _stays,
+                    propertyReservations: _reservations,
+                    requestedStayMode: reservation.StayMode,
+                    slotStartAt: reservation.SlotStartAt,
+                    slotEndAt: reservation.SlotEndAt,
+                    nowUtc: clockUtc,
+                    turnaroundBufferMinutes: turnaroundBufferMinutes,
+                    ignoreReservationId: reservation.Id);
+
+                UnifiedAvailabilityCalculator.EnsureSpecificUnitAvailable(unitId, availability);
+                UnifiedAvailabilityCalculator.EnsureQuotaAvailable(availability);
+
+                reservation.AssignUnit(unitId);
+                return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<ReservationItemDto> ConfirmReservation(
+        Guid propertyId,
+        Guid reservationId,
+        DateTimeOffset? nowUtc = null)
+    {
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var reservation = _reservations.FirstOrDefault(r => r.Id == reservationId && r.PropertyId == propertyId);
+            if (reservation is null)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Reservation '{reservationId}' was not found in property '{propertyId}'."));
+            }
+
+            ExpireStaleHoldsLocked(clockUtc);
+
+            if (reservation.Status == ReservationStatus.Expired)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ReservationHoldExpired,
+                    $"Reservation {reservation.DocumentNumber} hold has already expired."));
+            }
+
+            try
+            {
+                reservation.ConfirmByAdmin();
+                return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<ReservationItemDto> CancelReservation(
+        Guid propertyId,
+        Guid reservationId,
+        CancelReservationRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var reservation = _reservations.FirstOrDefault(r => r.Id == reservationId && r.PropertyId == propertyId);
+            if (reservation is null)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Reservation '{reservationId}' was not found in property '{propertyId}'."));
+            }
+
+            ExpireStaleHoldsLocked(clockUtc);
+
+            try
+            {
+                if (request.MarkNoShow)
+                {
+                    reservation.MarkNoShow(request.Reason);
+                }
+                else
+                {
+                    reservation.Cancel(request.Reason);
+                }
+
+                return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<ReservationListResponse> GetClientReservations(
+        Guid customerId,
+        DateTimeOffset? nowUtc = null)
+    {
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            ExpireStaleHoldsLocked(clockUtc);
+
+            var items = _reservations
+                .Where(r => r.CustomerId == customerId)
+                .OrderByDescending(r => r.SlotStartAt)
+                .ThenByDescending(r => r.DocumentNumber)
+                .Select(MapReservationItemDtoLocked)
+                .ToList();
+
+            return Result<ReservationListResponse>.Success(new ReservationListResponse(items));
+        }
+    }
+
+    public Result<ReservationItemDto> CreateClientHoldReservation(
+        Guid customerId,
+        CreateClientHoldReservationRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (!Enum.TryParse<StayMode>(request.StayMode, ignoreCase: true, out var parsedStayMode))
+        {
+            return Result<ReservationItemDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                $"Invalid StayMode '{request.StayMode}'."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(request.PropertyId, out var property))
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Property '{request.PropertyId}' was not found."));
+            }
+
+            if (!_unitTypes.TryGetValue(request.UnitTypeId, out var unitType) || unitType.PropertyId != request.PropertyId)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"UnitType '{request.UnitTypeId}' does not belong to property '{request.PropertyId}'."));
+            }
+
+            if (!unitType.SupportedStayModes.Contains(parsedStayMode))
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"UnitType '{unitType.Code}' does not support StayMode '{parsedStayMode}'."));
+            }
+
+            if (request.UnitId.HasValue)
+            {
+                if (!_units.TryGetValue(request.UnitId.Value, out var requestedUnit)
+                    || requestedUnit.PropertyId != request.PropertyId
+                    || requestedUnit.UnitTypeId != unitType.Id)
+                {
+                    return Result<ReservationItemDto>.Failure(new Error(
+                        DomainErrorCodes.ValidationFailed,
+                        $"Unit '{request.UnitId}' does not belong to UnitType '{unitType.Code}' in property '{request.PropertyId}'."));
+                }
+            }
+
+            ExpireStaleHoldsLocked(clockUtc);
+
+            var ratePlan = FindActiveRatePlanLocked(request.PropertyId, unitType.Id);
+            var turnaroundBufferMinutes = ratePlan?.TurnaroundBufferMinutes ?? 30;
+
+            try
+            {
+                var availability = UnifiedAvailabilityCalculator.EvaluateUnitTypeAvailability(
+                    unitType: unitType,
+                    unitsOfUnitType: _units.Values.Where(u => u.PropertyId == request.PropertyId && u.UnitTypeId == unitType.Id),
+                    propertyLeases: _leases,
+                    propertyStays: _stays,
+                    propertyReservations: _reservations,
+                    requestedStayMode: parsedStayMode,
+                    slotStartAt: request.SlotStartAt,
+                    slotEndAt: request.SlotEndAt,
+                    nowUtc: clockUtc,
+                    turnaroundBufferMinutes: turnaroundBufferMinutes);
+
+                if (request.UnitId.HasValue)
+                {
+                    UnifiedAvailabilityCalculator.EnsureSpecificUnitAvailable(request.UnitId.Value, availability);
+                }
+
+                UnifiedAvailabilityCalculator.EnsureQuotaAvailable(availability);
+
+                EnsureCustomerExistsLocked(customerId);
+
+                var (_, estimatedDepositAmount) = ComputeEstimatedQuote(
+                    unitType,
+                    ratePlan,
+                    parsedStayMode,
+                    request.SlotStartAt,
+                    request.SlotEndAt);
+
+                var docNo = NextDocumentNumberAsync(
+                    property.Id,
+                    property.Code,
+                    DocumentTypeCode.RES,
+                    clockUtc).GetAwaiter().GetResult();
+
+                var reservation = Reservation.CreateOnlineHold(
+                    propertyId: request.PropertyId,
+                    documentNumber: docNo,
+                    customerId: customerId,
+                    unitTypeId: unitType.Id,
+                    stayMode: parsedStayMode,
+                    slotStartAt: request.SlotStartAt,
+                    slotEndAt: request.SlotEndAt,
+                    depositAmount: estimatedDepositAmount,
+                    nowUtc: clockUtc,
+                    holdTtlMinutes: 15,
+                    unitId: request.UnitId);
+
+                _reservations.Add(reservation);
+                return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<ReservationItemDto> SubmitClientReservationSlip(
+        Guid customerId,
+        Guid reservationId,
+        SubmitReservationSlipRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var reservation = _reservations.FirstOrDefault(r => r.Id == reservationId);
+            if (reservation is null)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Reservation '{reservationId}' was not found."));
+            }
+
+            if (reservation.CustomerId != customerId)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(
+                    DomainErrorCodes.PermissionDenied,
+                    "Client cannot submit slip for another customer's reservation."));
+            }
+
+            try
+            {
+                reservation.SubmitPaymentSlip(request.PaymentSlipFileKey, clockUtc);
+                return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<ReservationItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    private void ExpireStaleHoldsLocked(DateTimeOffset clockUtc)
+    {
+        foreach (var reservation in _reservations)
+        {
+            reservation.ExpireHoldIfPastDue(clockUtc);
+        }
+    }
+
+    private RatePlan? FindActiveRatePlanLocked(Guid propertyId, Guid unitTypeId) =>
+        _ratePlans.Values.FirstOrDefault(rp =>
+            rp.PropertyId == propertyId && rp.UnitTypeId == unitTypeId && rp.IsActive);
+
+    private void EnsureCustomerExistsLocked(Guid customerId)
+    {
+        if (!_customers.ContainsKey(customerId))
+        {
+            _customers[customerId] = new Customer
+            {
+                Id = customerId,
+                FullName = "Guest Customer",
+                NationalIdOrPassport = "1100501234999"
+            };
+        }
+    }
+
+    private static (decimal EstimatedRoomRate, decimal EstimatedDepositAmount) ComputeEstimatedQuote(
+        UnitType unitType,
+        RatePlan? ratePlan,
+        StayMode stayMode,
+        DateTimeOffset slotStartAt,
+        DateTimeOffset slotEndAt)
+    {
+        decimal roomRate;
+        decimal depositAmount;
+
+        if (stayMode == StayMode.Hourly)
+        {
+            var durationMinutes = Math.Max(60, (int)Math.Ceiling((slotEndAt - slotStartAt).TotalMinutes));
+            if (ratePlan is not null)
+            {
+                var quote = HourlyPricingCalculator.Calculate(durationMinutes, ratePlan.ToHourlyRateRule());
+                roomRate = quote.FinalHourlyRoomCharge;
+            }
+            else
+            {
+                roomRate = unitType.HourlyBasePackagePrice;
+            }
+
+            depositAmount = Math.Max(200m, decimal.Round(roomRate * 0.50m, 2, MidpointRounding.AwayFromZero));
+        }
+        else if (stayMode == StayMode.Daily)
+        {
+            var nights = Math.Max(1, (int)Math.Ceiling((slotEndAt - slotStartAt).TotalDays));
+            var nightlyRate = ratePlan?.WeekdayRate ?? unitType.DailyRate;
+            roomRate = decimal.Round(nights * nightlyRate, 2, MidpointRounding.AwayFromZero);
+            depositAmount = decimal.Round(roomRate * 0.50m, 2, MidpointRounding.AwayFromZero);
+        }
+        else
+        {
+            roomRate = ratePlan?.MonthlyRentRate ?? unitType.MonthlyRentRate;
+            depositAmount = roomRate;
+        }
+
+        return (roomRate, depositAmount);
+    }
+
+    private ReservationItemDto MapReservationItemDtoLocked(Reservation reservation)
+    {
+        var property = _properties[reservation.PropertyId];
+        var unitType = _unitTypes[reservation.UnitTypeId];
+        EnsureCustomerExistsLocked(reservation.CustomerId);
+        var customer = _customers[reservation.CustomerId];
+        var ratePlan = FindActiveRatePlanLocked(reservation.PropertyId, reservation.UnitTypeId);
+        var turnaroundBufferMinutes = ratePlan?.TurnaroundBufferMinutes ?? 30;
+
+        UnitRefDto? assignedUnit = null;
+        if (reservation.UnitId.HasValue && _unitRefs.TryGetValue(reservation.UnitId.Value, out var unitRef))
+        {
+            assignedUnit = unitRef;
+        }
+
+        return new ReservationItemDto(
+            Id: reservation.Id,
+            DocumentNumber: reservation.DocumentNumber,
+            Property: new PropertyRefDto(
+                property.Id,
+                property.Code,
+                LocalizedTextDto.FromDomain(property.Name)),
+            Customer: new CustomerRefDto(
+                customer.Id,
+                customer.FullName,
+                customer.GetMaskedIdentity()),
+            UnitType: new UnitTypeRefDto(
+                unitType.Id,
+                unitType.Code,
+                LocalizedTextDto.FromDomain(unitType.Name),
+                unitType.AreaSqm),
+            AssignedUnit: assignedUnit,
+            StayMode: reservation.StayMode.ToString(),
+            SlotStartAt: reservation.SlotStartAt,
+            SlotEndAt: reservation.SlotEndAt,
+            EffectiveBlockedEndAt: reservation.GetEffectiveBlockedEndAt(turnaroundBufferMinutes),
+            HoldExpiresAt: reservation.HoldExpiresAt,
+            DepositAmount: reservation.DepositAmount,
+            PaymentSlipFileKey: reservation.PaymentSlipFileKey,
+            CancellationReason: reservation.CancellationReason,
+            Status: reservation.Status.ToString());
+    }
+
     public Result<RoomRackResponse> GetRoomRack(Guid propertyId)
     {
         lock (_syncRoot)
@@ -1128,6 +1829,7 @@ public sealed class InMemoryOperationalService
                 CheckInAt = DateTimeOffset.UtcNow,
                 KeyDepositAmount = command.KeyDepositAmount
             };
+            _stays.Add(stay);
 
             return Result<StaySummaryDto>.Success(new StaySummaryDto(
                 Id: stay.Id,
@@ -1161,14 +1863,24 @@ public sealed class InMemoryOperationalService
                 customer.FullName,
                 customer.GetMaskedIdentity());
 
+            var clockUtc = DateTimeOffset.UtcNow;
+            ExpireStaleHoldsLocked(clockUtc);
+
             var hold = _reservations
-                .Where(r => r.CustomerId == customerId && r.Status == ReservationStatus.Hold)
-                .Select(r => new ClientHoldReservationDto(
-                    r.DocumentNumber,
-                    new LocalizedTextDto("มาตรฐาน 24 ตร.ม.", "Standard 24 sqm"),
-                    r.StayMode.ToString(),
-                    r.HoldExpiresAt,
-                    r.DepositAmount))
+                .Where(r => r.CustomerId == customerId && r.Status == ReservationStatus.Hold && !r.IsHoldExpired(clockUtc))
+                .OrderByDescending(r => r.HoldExpiresAt)
+                .Select(r =>
+                {
+                    var utName = _unitTypes.TryGetValue(r.UnitTypeId, out var ut)
+                        ? LocalizedTextDto.FromDomain(ut.Name)
+                        : new LocalizedTextDto("มาตรฐาน 24 ตร.ม.", "Standard 24 sqm");
+                    return new ClientHoldReservationDto(
+                        r.DocumentNumber,
+                        utName,
+                        r.StayMode.ToString(),
+                        r.HoldExpiresAt,
+                        r.DepositAmount);
+                })
                 .FirstOrDefault();
 
             var lease = _leases
@@ -1803,5 +2515,45 @@ public sealed class InMemoryOperationalService
         _taxProfiles[monthlyRentTax.Id] = monthlyRentTax;
         _taxProfiles[shortStayTax.Id] = shortStayTax;
         _taxProfiles[furnitureTax.Id] = furnitureTax;
+
+        var seedNowUtc = DateTimeOffset.UtcNow;
+        var sampleHoldDocNo = NextDocumentNumberAsync(
+            bkk.Id,
+            bkk.Code,
+            DocumentTypeCode.RES,
+            seedNowUtc).GetAwaiter().GetResult();
+        var sampleHold = Reservation.CreateOnlineHold(
+            propertyId: bkk.Id,
+            documentNumber: sampleHoldDocNo,
+            customerId: customer1.Id,
+            unitTypeId: standardType.Id,
+            stayMode: StayMode.Daily,
+            slotStartAt: seedNowUtc.AddDays(14),
+            slotEndAt: seedNowUtc.AddDays(16),
+            depositAmount: 1200.00m,
+            nowUtc: seedNowUtc,
+            holdTtlMinutes: 15,
+            id: PmsSeedConstants.SampleHoldReservationId);
+
+        var sampleConfirmedDocNo = NextDocumentNumberAsync(
+            bkk.Id,
+            bkk.Code,
+            DocumentTypeCode.RES,
+            seedNowUtc).GetAwaiter().GetResult();
+        var sampleConfirmed = Reservation.CreateByAdmin(
+            propertyId: bkk.Id,
+            documentNumber: sampleConfirmedDocNo,
+            customerId: customer2.Id,
+            unitTypeId: standardType.Id,
+            stayMode: StayMode.Hourly,
+            slotStartAt: seedNowUtc.AddDays(20),
+            slotEndAt: seedNowUtc.AddDays(20).AddHours(3),
+            depositAmount: 250.00m,
+            nowUtc: seedNowUtc,
+            confirmImmediately: true,
+            unitId: unitA101.Id,
+            id: PmsSeedConstants.SampleConfirmedReservationId);
+
+        _reservations.AddRange([sampleHold, sampleConfirmed]);
     }
 }

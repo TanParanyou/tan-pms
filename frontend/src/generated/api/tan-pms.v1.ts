@@ -164,6 +164,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/properties/{propertyId}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminReservations"];
+        put?: never;
+        post: operations["createAdminReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}/assign-unit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["assignAdminReservationUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmAdminReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelAdminReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getClientAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getClientReservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/reservations/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createClientHoldReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/reservations/{reservationId}/slip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitClientReservationSlip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stays/check-in": {
         parameters: {
             query?: never;
@@ -740,6 +884,104 @@ export interface components {
             electricQuote: components["schemas"]["UtilitySimulationQuoteDto"];
             taxQuote: components["schemas"]["TaxSimulationQuoteDto"];
         };
+        AssignableUnitOptionDto: {
+            /** Format: uuid */
+            id: string;
+            unitNumber: string;
+            buildingName: components["schemas"]["LocalizedTextDto"];
+            floorNumber: number;
+            /** @enum {string} */
+            conditionStatus: "Clean" | "Dirty" | "Cleaning" | "Inspecting" | "OutOfOrder";
+        };
+        UnitTypeAvailabilityDto: {
+            unitType: components["schemas"]["UnitTypeRefDto"];
+            supportedStayModes: ("Hourly" | "Daily" | "Monthly")[];
+            totalPhysicalUnits: number;
+            unassignedQuotaHeld: number;
+            netAvailableQuota: number;
+            turnaroundBufferMinutes: number;
+            estimatedRoomRate: number;
+            estimatedDepositAmount: number;
+            availableUnits: components["schemas"]["AssignableUnitOptionDto"][];
+        };
+        AvailabilitySearchResponse: {
+            property: components["schemas"]["PropertyRefDto"];
+            /** @enum {string} */
+            stayMode: "Hourly" | "Daily" | "Monthly";
+            /** Format: date-time */
+            slotStartAt: string;
+            /** Format: date-time */
+            slotEndAt: string;
+            items: components["schemas"]["UnitTypeAvailabilityDto"][];
+        };
+        ReservationItemDto: {
+            /** Format: uuid */
+            id: string;
+            documentNumber: string;
+            property: components["schemas"]["PropertyRefDto"];
+            customer: components["schemas"]["CustomerRefDto"];
+            unitType: components["schemas"]["UnitTypeRefDto"];
+            assignedUnit?: components["schemas"]["UnitRefDto"];
+            /** @enum {string} */
+            stayMode: "Hourly" | "Daily" | "Monthly";
+            /** Format: date-time */
+            slotStartAt: string;
+            /** Format: date-time */
+            slotEndAt: string;
+            /** Format: date-time */
+            effectiveBlockedEndAt: string;
+            /** Format: date-time */
+            holdExpiresAt: string;
+            depositAmount: number;
+            paymentSlipFileKey?: string | null;
+            cancellationReason?: string | null;
+            /** @enum {string} */
+            status: "Hold" | "PendingVerification" | "Confirmed" | "CheckedIn" | "Expired" | "Cancelled" | "NoShow";
+        };
+        ReservationListResponse: {
+            items: components["schemas"]["ReservationItemDto"][];
+        };
+        CreateAdminReservationRequest: {
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            unitTypeId: string;
+            /** Format: uuid */
+            unitId?: string | null;
+            /** @enum {string} */
+            stayMode: "Hourly" | "Daily" | "Monthly";
+            /** Format: date-time */
+            slotStartAt: string;
+            /** Format: date-time */
+            slotEndAt: string;
+            depositAmount: number;
+            confirmImmediately: boolean;
+        };
+        AssignReservationUnitRequest: {
+            /** Format: uuid */
+            unitId: string;
+        };
+        CancelReservationRequest: {
+            reason: string;
+            markNoShow: boolean;
+        };
+        CreateClientHoldReservationRequest: {
+            /** Format: uuid */
+            propertyId: string;
+            /** Format: uuid */
+            unitTypeId: string;
+            /** Format: uuid */
+            unitId?: string | null;
+            /** @enum {string} */
+            stayMode: "Hourly" | "Daily" | "Monthly";
+            /** Format: date-time */
+            slotStartAt: string;
+            /** Format: date-time */
+            slotEndAt: string;
+        };
+        SubmitReservationSlipRequest: {
+            paymentSlipFileKey: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1080,6 +1322,363 @@ export interface operations {
             };
             /** @description Property scope or permission denied */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminAvailability: {
+        parameters: {
+            query: {
+                stayMode: "Hourly" | "Daily" | "Monthly";
+                slotStartAt: string;
+                slotEndAt: string;
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unified availability across Hourly, Daily, and Monthly modes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilitySearchResponse"];
+                };
+            };
+            /** @description Invalid time window or stay mode */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminReservations: {
+        parameters: {
+            query?: {
+                status?: "Hold" | "PendingVerification" | "Confirmed" | "CheckedIn" | "Expired" | "Cancelled" | "NoShow";
+                stayMode?: "Hourly" | "Daily" | "Monthly";
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Property reservations with structured projections */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationListResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    createAdminReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAdminReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Reservation created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Slot overlap or UnitType quota exhausted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    assignAdminReservationUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignReservationUnitRequest"];
+            };
+        };
+        responses: {
+            /** @description Specific Unit assigned to reservation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Unit overlaps with existing Stay, Lease, or Reservation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    confirmAdminReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reservation confirmed by admin */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Permission or property scope denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    cancelAdminReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Reservation cancelled or marked NoShow */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Missing audit reason or invalid state transition */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getClientAvailability: {
+        parameters: {
+            query: {
+                propertyId: string;
+                stayMode: "Hourly" | "Daily" | "Monthly";
+                slotStartAt: string;
+                slotEndAt: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available UnitType quotas and options for online booking */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilitySearchResponse"];
+                };
+            };
+        };
+    };
+    getClientReservations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authenticated client reservations isolated by CustomerId */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationListResponse"];
+                };
+            };
+            /** @description Requires ClientScope */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    createClientHoldReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientHoldReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Online reservation Hold created with 15-minute TTL */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Quota exhausted or unit slot overlap */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    submitClientReservationSlip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitReservationSlipRequest"];
+            };
+        };
+        responses: {
+            /** @description Payment slip attached; status transitioned to PendingVerification */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Hold TTL expired before slip submission (reservation.hold_expired) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

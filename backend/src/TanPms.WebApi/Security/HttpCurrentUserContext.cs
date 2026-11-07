@@ -95,7 +95,9 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                     PermissionKeys.AdminUsersManage,
                     PermissionKeys.AdminPropertiesRead,
                     PermissionKeys.AdminPropertiesManage,
-                    PermissionKeys.AdminRatesManage
+                    PermissionKeys.AdminRatesManage,
+                    PermissionKeys.AdminReservationsRead,
+                    PermissionKeys.AdminReservationsManage
                 };
             }
 

@@ -356,6 +356,433 @@
         }
       }
     },
+    "/api/v1/admin/properties/{propertyId}/availability": {
+      "get": {
+        "operationId": "getAdminAvailability",
+        "tags": ["AdminReservation"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "stayMode",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          {
+            "name": "slotStartAt",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "slotEndAt",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unified availability across Hourly, Daily, and Monthly modes",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AvailabilitySearchResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid time window or stay mode",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/reservations": {
+      "get": {
+        "operationId": "getAdminReservations",
+        "tags": ["AdminReservation"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["Hold", "PendingVerification", "Confirmed", "CheckedIn", "Expired", "Cancelled", "NoShow"]
+            }
+          },
+          {
+            "name": "stayMode",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Property reservations with structured projections",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationListResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAdminReservation",
+        "tags": ["AdminReservation"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateAdminReservationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reservation created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationItemDto" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap or UnitType quota exhausted",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}/assign-unit": {
+      "post": {
+        "operationId": "assignAdminReservationUnit",
+        "tags": ["AdminReservation"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssignReservationUnitRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Specific Unit assigned to reservation",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationItemDto" }
+              }
+            }
+          },
+          "409": {
+            "description": "Unit overlaps with existing Stay, Lease, or Reservation",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}/confirm": {
+      "post": {
+        "operationId": "confirmAdminReservation",
+        "tags": ["AdminReservation"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservation confirmed by admin",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationItemDto" }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or property scope denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}/cancel": {
+      "post": {
+        "operationId": "cancelAdminReservation",
+        "tags": ["AdminReservation"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CancelReservationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reservation cancelled or marked NoShow",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationItemDto" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing audit reason or invalid state transition",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/availability": {
+      "get": {
+        "operationId": "getClientAvailability",
+        "tags": ["ClientReservation"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "stayMode",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          {
+            "name": "slotStartAt",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "slotEndAt",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available UnitType quotas and options for online booking",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AvailabilitySearchResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/reservations": {
+      "get": {
+        "operationId": "getClientReservations",
+        "tags": ["ClientReservation"],
+        "responses": {
+          "200": {
+            "description": "Authenticated client reservations isolated by CustomerId",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationListResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires ClientScope",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/reservations/hold": {
+      "post": {
+        "operationId": "createClientHoldReservation",
+        "tags": ["ClientReservation"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateClientHoldReservationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Online reservation Hold created with 15-minute TTL",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationItemDto" }
+              }
+            }
+          },
+          "409": {
+            "description": "Quota exhausted or unit slot overlap",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/reservations/{reservationId}/slip": {
+      "post": {
+        "operationId": "submitClientReservationSlip",
+        "tags": ["ClientReservation"],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SubmitReservationSlipRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment slip attached; status transitioned to PendingVerification",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReservationItemDto" }
+              }
+            }
+          },
+          "409": {
+            "description": "Hold TTL expired before slip submission (reservation.hold_expired)",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stays/check-in": {
       "post": {
         "operationId": "checkInStay",
@@ -1266,6 +1693,160 @@
           "waterQuote": { "$ref": "#/components/schemas/UtilitySimulationQuoteDto" },
           "electricQuote": { "$ref": "#/components/schemas/UtilitySimulationQuoteDto" },
           "taxQuote": { "$ref": "#/components/schemas/TaxSimulationQuoteDto" }
+        }
+      },
+      "AssignableUnitOptionDto": {
+        "type": "object",
+        "required": ["id", "unitNumber", "buildingName", "floorNumber", "conditionStatus"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "unitNumber": { "type": "string" },
+          "buildingName": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "floorNumber": { "type": "integer" },
+          "conditionStatus": {
+            "type": "string",
+            "enum": ["Clean", "Dirty", "Cleaning", "Inspecting", "OutOfOrder"]
+          }
+        }
+      },
+      "UnitTypeAvailabilityDto": {
+        "type": "object",
+        "required": [
+          "unitType",
+          "supportedStayModes",
+          "totalPhysicalUnits",
+          "unassignedQuotaHeld",
+          "netAvailableQuota",
+          "turnaroundBufferMinutes",
+          "estimatedRoomRate",
+          "estimatedDepositAmount",
+          "availableUnits"
+        ],
+        "properties": {
+          "unitType": { "$ref": "#/components/schemas/UnitTypeRefDto" },
+          "supportedStayModes": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] }
+          },
+          "totalPhysicalUnits": { "type": "integer" },
+          "unassignedQuotaHeld": { "type": "integer" },
+          "netAvailableQuota": { "type": "integer" },
+          "turnaroundBufferMinutes": { "type": "integer" },
+          "estimatedRoomRate": { "type": "number" },
+          "estimatedDepositAmount": { "type": "number" },
+          "availableUnits": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AssignableUnitOptionDto" }
+          }
+        }
+      },
+      "AvailabilitySearchResponse": {
+        "type": "object",
+        "required": ["property", "stayMode", "slotStartAt", "slotEndAt", "items"],
+        "properties": {
+          "property": { "$ref": "#/components/schemas/PropertyRefDto" },
+          "stayMode": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] },
+          "slotStartAt": { "type": "string", "format": "date-time" },
+          "slotEndAt": { "type": "string", "format": "date-time" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UnitTypeAvailabilityDto" }
+          }
+        }
+      },
+      "ReservationItemDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentNumber",
+          "property",
+          "customer",
+          "unitType",
+          "stayMode",
+          "slotStartAt",
+          "slotEndAt",
+          "effectiveBlockedEndAt",
+          "holdExpiresAt",
+          "depositAmount",
+          "status"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "documentNumber": { "type": "string" },
+          "property": { "$ref": "#/components/schemas/PropertyRefDto" },
+          "customer": { "$ref": "#/components/schemas/CustomerRefDto" },
+          "unitType": { "$ref": "#/components/schemas/UnitTypeRefDto" },
+          "assignedUnit": { "$ref": "#/components/schemas/UnitRefDto" },
+          "stayMode": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] },
+          "slotStartAt": { "type": "string", "format": "date-time" },
+          "slotEndAt": { "type": "string", "format": "date-time" },
+          "effectiveBlockedEndAt": { "type": "string", "format": "date-time" },
+          "holdExpiresAt": { "type": "string", "format": "date-time" },
+          "depositAmount": { "type": "number" },
+          "paymentSlipFileKey": { "type": "string", "nullable": true },
+          "cancellationReason": { "type": "string", "nullable": true },
+          "status": {
+            "type": "string",
+            "enum": ["Hold", "PendingVerification", "Confirmed", "CheckedIn", "Expired", "Cancelled", "NoShow"]
+          }
+        }
+      },
+      "ReservationListResponse": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ReservationItemDto" }
+          }
+        }
+      },
+      "CreateAdminReservationRequest": {
+        "type": "object",
+        "required": ["customerId", "unitTypeId", "stayMode", "slotStartAt", "slotEndAt", "depositAmount", "confirmImmediately"],
+        "properties": {
+          "customerId": { "type": "string", "format": "uuid" },
+          "unitTypeId": { "type": "string", "format": "uuid" },
+          "unitId": { "type": "string", "format": "uuid", "nullable": true },
+          "stayMode": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] },
+          "slotStartAt": { "type": "string", "format": "date-time" },
+          "slotEndAt": { "type": "string", "format": "date-time" },
+          "depositAmount": { "type": "number" },
+          "confirmImmediately": { "type": "boolean" }
+        }
+      },
+      "AssignReservationUnitRequest": {
+        "type": "object",
+        "required": ["unitId"],
+        "properties": {
+          "unitId": { "type": "string", "format": "uuid" }
+        }
+      },
+      "CancelReservationRequest": {
+        "type": "object",
+        "required": ["reason", "markNoShow"],
+        "properties": {
+          "reason": { "type": "string" },
+          "markNoShow": { "type": "boolean" }
+        }
+      },
+      "CreateClientHoldReservationRequest": {
+        "type": "object",
+        "required": ["propertyId", "unitTypeId", "stayMode", "slotStartAt", "slotEndAt"],
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid" },
+          "unitTypeId": { "type": "string", "format": "uuid" },
+          "unitId": { "type": "string", "format": "uuid", "nullable": true },
+          "stayMode": { "type": "string", "enum": ["Hourly", "Daily", "Monthly"] },
+          "slotStartAt": { "type": "string", "format": "date-time" },
+          "slotEndAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SubmitReservationSlipRequest": {
+        "type": "object",
+        "required": ["paymentSlipFileKey"],
+        "properties": {
+          "paymentSlipFileKey": { "type": "string" }
         }
       }
     }

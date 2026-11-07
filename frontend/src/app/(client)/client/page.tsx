@@ -7,6 +7,7 @@ import { HoldTtlInvertedCard } from "@/features/client-portal/components/HoldTtl
 import { ActiveLeaseAndBillingSection } from "@/features/client-portal/components/ActiveLeaseAndBillingSection";
 import { ClientOperationsSection } from "@/features/client-portal/components/ClientOperationsSection";
 import { ClientNotificationsSection } from "@/features/notifications/components/ClientNotificationsSection";
+import { ClientBookingSection } from "@/features/reservations/components/ClientBookingSection";
 import { useAppLocale } from "@/components/shared/locale-provider";
 import { useTranslations } from "next-intl";
 import { siteConfig } from "@/config/site";
@@ -15,6 +16,7 @@ export default function ClientPage() {
   const { locale, toggleLocale } = useAppLocale();
   const tCommon = useTranslations("common");
   const tClient = useTranslations("client");
+  const tBooking = useTranslations("client.booking");
 
   return (
     <div className="min-h-screen bg-canvas text-ink pb-20">
@@ -31,6 +33,15 @@ export default function ClientPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/client/book">
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-full text-xs font-medium h-8 px-3"
+              >
+                + {tBooking("navBookRoom")}
+              </Button>
+            </Link>
             <span className="text-xs font-mono text-body hidden sm:inline">
               {tClient("guestGreeting")}
             </span>
@@ -64,6 +75,9 @@ export default function ClientPage() {
 
         {/* Client Notification Center (PM-01) */}
         <ClientNotificationsSection />
+
+        {/* Online Room Booking & Hold (PM-04) */}
+        <ClientBookingSection />
       </main>
     </div>
   );

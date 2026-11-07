@@ -5,6 +5,7 @@ using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
+using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
 using TanPms.Infrastructure.Persistence;
 using TanPms.Infrastructure.Services;
@@ -38,6 +39,16 @@ builder.Services.AddScoped<UpsertAdminRatePlanHandler>();
 builder.Services.AddScoped<UpsertAdminUtilityTariffHandler>();
 builder.Services.AddScoped<UpsertAdminTaxProfileHandler>();
 builder.Services.AddScoped<SimulateAdminRateAndTaxHandler>();
+builder.Services.AddScoped<GetAdminAvailabilityHandler>();
+builder.Services.AddScoped<GetAdminReservationsHandler>();
+builder.Services.AddScoped<CreateAdminReservationHandler>();
+builder.Services.AddScoped<AssignAdminReservationUnitHandler>();
+builder.Services.AddScoped<ConfirmAdminReservationHandler>();
+builder.Services.AddScoped<CancelAdminReservationHandler>();
+builder.Services.AddScoped<GetClientAvailabilityHandler>();
+builder.Services.AddScoped<GetClientReservationsHandler>();
+builder.Services.AddScoped<CreateClientHoldReservationHandler>();
+builder.Services.AddScoped<SubmitClientReservationSlipHandler>();
 builder.Services.AddScoped<GetAdminRoomRackHandler>();
 builder.Services.AddScoped<CheckInStayHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
@@ -221,6 +232,87 @@ adminGroup.MapPost("/properties/{propertyId:guid}/rates/simulate", (
         : Results.Ok(result.Value);
 });
 
+adminGroup.MapGet("/properties/{propertyId:guid}/availability", (
+    Guid propertyId,
+    string stayMode,
+    DateTimeOffset slotStartAt,
+    DateTimeOffset slotEndAt,
+    GetAdminAvailabilityHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminAvailabilityQuery(
+        propertyId,
+        stayMode,
+        slotStartAt,
+        slotEndAt));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/reservations", (
+    Guid propertyId,
+    string? status,
+    string? stayMode,
+    GetAdminReservationsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminReservationsQuery(propertyId, status, stayMode));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/reservations", (
+    Guid propertyId,
+    CreateAdminReservationRequest request,
+    CreateAdminReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CreateAdminReservationCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/admin/properties/{propertyId}/reservations/{result.Value!.Id}", result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/reservations/{reservationId:guid}/assign-unit", (
+    Guid propertyId,
+    Guid reservationId,
+    AssignReservationUnitRequest request,
+    AssignAdminReservationUnitHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new AssignAdminReservationUnitCommand(propertyId, reservationId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/reservations/{reservationId:guid}/confirm", (
+    Guid propertyId,
+    Guid reservationId,
+    ConfirmAdminReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ConfirmAdminReservationCommand(propertyId, reservationId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/reservations/{reservationId:guid}/cancel", (
+    Guid propertyId,
+    Guid reservationId,
+    CancelReservationRequest request,
+    CancelAdminReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CancelAdminReservationCommand(propertyId, reservationId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
 adminGroup.MapGet("/properties/{propertyId:guid}/rack", (
     Guid propertyId,
     GetAdminRoomRackHandler handler,
@@ -269,6 +361,57 @@ clientGroup.MapGet("/notifications", (
     HttpContext httpContext) =>
 {
     var result = handler.Handle(new GetClientNotificationsQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/availability", (
+    Guid propertyId,
+    string stayMode,
+    DateTimeOffset slotStartAt,
+    DateTimeOffset slotEndAt,
+    GetClientAvailabilityHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientAvailabilityQuery(
+        propertyId,
+        stayMode,
+        slotStartAt,
+        slotEndAt));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/reservations", (
+    GetClientReservationsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientReservationsQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapPost("/reservations/hold", (
+    CreateClientHoldReservationRequest request,
+    CreateClientHoldReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CreateClientHoldReservationCommand(request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/client/reservations/{result.Value!.Id}", result.Value);
+});
+
+clientGroup.MapPost("/reservations/{reservationId:guid}/slip", (
+    Guid reservationId,
+    SubmitReservationSlipRequest request,
+    SubmitClientReservationSlipHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new SubmitClientReservationSlipCommand(reservationId, request));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

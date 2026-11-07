@@ -11,6 +11,7 @@ import { BulkMeterReadingSection } from "@/features/meters/components/BulkMeterR
 import { AdminRbacUsersSection } from "@/features/users/components/AdminRbacUsersSection";
 import { UnitMasterSection } from "@/features/properties/components/UnitMasterSection";
 import { RateTariffTaxSection } from "@/features/rates/components/RateTariffTaxSection";
+import { AdminReservationsSection } from "@/features/reservations/components/AdminReservationsSection";
 import { useAppLocale } from "@/components/shared/locale-provider";
 import { useTranslations } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
@@ -127,6 +128,9 @@ export default function AdminPage() {
 
         {/* Rate Plans, Hourly Packages, Utility Tariffs & Thai Tax Rules (PM-03) */}
         <RateTariffTaxSection />
+
+        {/* Unified Availability Engine, Quota Locks & Reservations (PM-04) */}
+        <AdminReservationsSection />
 
         {/* Quick Walk-In & Check-in Modal */}
         <QuickWalkInModal

@@ -27,4 +27,7 @@ public static class PmsSeedConstants
     public static readonly Guid MonthlyRentExemptTaxProfileId = Guid.Parse("77777777-7777-7777-7777-777777777701");
     public static readonly Guid ShortStayVatIncludedTaxProfileId = Guid.Parse("77777777-7777-7777-7777-777777777702");
     public static readonly Guid FurnitureVatExcludedTaxProfileId = Guid.Parse("77777777-7777-7777-7777-777777777703");
+
+    public static readonly Guid SampleHoldReservationId = Guid.Parse("88888888-8888-8888-8888-888888888801");
+    public static readonly Guid SampleConfirmedReservationId = Guid.Parse("88888888-8888-8888-8888-888888888802");
 }

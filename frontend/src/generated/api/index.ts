@@ -49,5 +49,15 @@ export type HourlySimulationQuoteDto = Schemas["HourlySimulationQuoteDto"];
 export type UtilitySimulationQuoteDto = Schemas["UtilitySimulationQuoteDto"];
 export type TaxSimulationQuoteDto = Schemas["TaxSimulationQuoteDto"];
 export type RateSimulationResponse = Schemas["RateSimulationResponse"];
+export type AssignableUnitOptionDto = Schemas["AssignableUnitOptionDto"];
+export type UnitTypeAvailabilityDto = Schemas["UnitTypeAvailabilityDto"];
+export type AvailabilitySearchResponse = Schemas["AvailabilitySearchResponse"];
+export type ReservationItemDto = Schemas["ReservationItemDto"];
+export type ReservationListResponse = Schemas["ReservationListResponse"];
+export type CreateAdminReservationRequest = Schemas["CreateAdminReservationRequest"];
+export type AssignReservationUnitRequest = Schemas["AssignReservationUnitRequest"];
+export type CancelReservationRequest = Schemas["CancelReservationRequest"];
+export type CreateClientHoldReservationRequest = Schemas["CreateClientHoldReservationRequest"];
+export type SubmitReservationSlipRequest = Schemas["SubmitReservationSlipRequest"];
 
 export type { paths };

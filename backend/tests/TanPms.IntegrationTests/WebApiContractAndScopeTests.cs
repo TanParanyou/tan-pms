@@ -9,6 +9,7 @@ using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
+using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
 using TanPms.Domain.Identity;
@@ -483,5 +484,102 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         Assert.Equal(70.00m, quote.TaxQuote.VatAmount);
         Assert.Equal(30.00m, quote.TaxQuote.WithholdingTaxAmount); // 3% of 1000
         Assert.Equal(1040.00m, quote.TaxQuote.NetPayable);
+    }
+
+    [Fact]
+    public async Task Availability_Hold_Slip_Confirm_Assign_And_Cancel_Workflow_Should_Enforce_DualScope_Isolation_And_Audit()
+    {
+        var slotStart = new DateTimeOffset(2026, 12, 28, 14, 0, 0, TimeSpan.Zero);
+        var slotEnd = new DateTimeOffset(2026, 12, 29, 12, 0, 0, TimeSpan.Zero);
+
+        using var customer1Client = _factory.CreateClient();
+        customer1Client.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer1Client.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.PrimaryCustomerId.ToString());
+
+        var availUrl = $"/api/v1/client/availability?propertyId={PmsSeedConstants.BkkPropertyId}&stayMode=Daily&slotStartAt={Uri.EscapeDataString(slotStart.ToString("O"))}&slotEndAt={Uri.EscapeDataString(slotEnd.ToString("O"))}";
+        var availRes = await customer1Client.GetAsync(availUrl);
+        Assert.Equal(HttpStatusCode.OK, availRes.StatusCode);
+        var avail = await availRes.Content.ReadFromJsonAsync<AvailabilitySearchResponse>();
+        Assert.NotNull(avail);
+        var stdAvail = Assert.Single(avail.Items, i => i.UnitType.Id == PmsSeedConstants.StandardUnitTypeId);
+        Assert.True(stdAvail.NetAvailableQuota >= 1);
+
+        var holdRes = await customer1Client.PostAsJsonAsync(
+            "/api/v1/client/reservations/hold",
+            new CreateClientHoldReservationRequest(
+                PropertyId: PmsSeedConstants.BkkPropertyId,
+                UnitTypeId: PmsSeedConstants.StandardUnitTypeId,
+                UnitId: null,
+                StayMode: "Daily",
+                SlotStartAt: slotStart,
+                SlotEndAt: slotEnd));
+        Assert.Equal(HttpStatusCode.Created, holdRes.StatusCode);
+        var createdHold = await holdRes.Content.ReadFromJsonAsync<ReservationItemDto>();
+        Assert.NotNull(createdHold);
+        Assert.StartsWith("BKK01-RES-", createdHold.DocumentNumber, StringComparison.Ordinal);
+        Assert.Equal("Hold", createdHold.Status);
+
+        // Cross-customer isolation: SecondaryCustomer cannot see or submit slip for PrimaryCustomer's reservation
+        using var customer2Client = _factory.CreateClient();
+        customer2Client.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer2Client.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.SecondaryCustomerId.ToString());
+
+        var customer2ListRes = await customer2Client.GetAsync("/api/v1/client/reservations");
+        var customer2List = await customer2ListRes.Content.ReadFromJsonAsync<ReservationListResponse>();
+        Assert.NotNull(customer2List);
+        Assert.DoesNotContain(customer2List.Items, r => r.Id == createdHold.Id);
+
+        var crossCustomerSlipRes = await customer2Client.PostAsJsonAsync(
+            $"/api/v1/client/reservations/{createdHold.Id}/slip",
+            new SubmitReservationSlipRequest("uploads/slips/spoofed.png"));
+        Assert.Equal(HttpStatusCode.Forbidden, crossCustomerSlipRes.StatusCode);
+
+        // PrimaryCustomer attaches slip -> PendingVerification
+        var validSlipRes = await customer1Client.PostAsJsonAsync(
+            $"/api/v1/client/reservations/{createdHold.Id}/slip",
+            new SubmitReservationSlipRequest("uploads/slips/scb-slip-001.png"));
+        Assert.Equal(HttpStatusCode.OK, validSlipRes.StatusCode);
+        var pendingVerification = await validSlipRes.Content.ReadFromJsonAsync<ReservationItemDto>();
+        Assert.NotNull(pendingVerification);
+        Assert.Equal("PendingVerification", pendingVerification.Status);
+        Assert.Equal("uploads/slips/scb-slip-001.png", pendingVerification.PaymentSlipFileKey);
+
+        // Admin assigns specific unit, confirms slip, and later marks NoShow with mandatory reason
+        using var adminClient = _factory.CreateClient();
+        adminClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        adminClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        adminClient.DefaultRequestHeaders.Add(
+            "X-TanPms-Permissions",
+            $"{PermissionKeys.AdminReservationsRead},{PermissionKeys.AdminReservationsManage}");
+
+        var assignRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/reservations/{createdHold.Id}/assign-unit",
+            new AssignReservationUnitRequest(PmsSeedConstants.CleanUnitA101Id));
+        Assert.Equal(HttpStatusCode.OK, assignRes.StatusCode);
+        var assigned = await assignRes.Content.ReadFromJsonAsync<ReservationItemDto>();
+        Assert.NotNull(assigned);
+        Assert.Equal("A-101", assigned.AssignedUnit?.UnitNumber);
+
+        var confirmRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/reservations/{createdHold.Id}/confirm",
+            new { });
+        Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
+        var confirmed = await confirmRes.Content.ReadFromJsonAsync<ReservationItemDto>();
+        Assert.NotNull(confirmed);
+        Assert.Equal("Confirmed", confirmed.Status);
+
+        var emptyReasonCancelRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/reservations/{createdHold.Id}/cancel",
+            new CancelReservationRequest("", MarkNoShow: true));
+        Assert.Equal(HttpStatusCode.BadRequest, emptyReasonCancelRes.StatusCode);
+
+        var noShowRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/reservations/{createdHold.Id}/cancel",
+            new CancelReservationRequest("Guest did not arrive within cut-off window", MarkNoShow: true));
+        Assert.Equal(HttpStatusCode.OK, noShowRes.StatusCode);
+        var noShow = await noShowRes.Content.ReadFromJsonAsync<ReservationItemDto>();
+        Assert.NotNull(noShow);
+        Assert.Equal("NoShow", noShow.Status);
+        Assert.Equal("Guest did not arrive within cut-off window", noShow.CancellationReason);
     }
 }
