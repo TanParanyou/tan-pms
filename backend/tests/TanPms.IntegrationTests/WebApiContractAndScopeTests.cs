@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using TanPms.Application.Billing;
+using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Customers;
@@ -11,6 +12,7 @@ using TanPms.Application.Identity;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
+using TanPms.Application.Payments;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
@@ -384,6 +386,73 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
 
         var deniedRes = await client.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/invoices");
         Assert.Equal(HttpStatusCode.Forbidden, deniedRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cashier_Shift_And_Slip_Queue_Should_Enforce_Scope_Ownership_And_Reasons()
+    {
+        var cnxUrl = $"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}";
+        using var cashier = _factory.CreateClient();
+        cashier.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        cashier.DefaultRequestHeaders.Add("X-TanPms-User-Id", "it-cashier-cnx");
+        cashier.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.CnxPropertyId.ToString());
+        cashier.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminCashierOperateShift);
+
+        var openRes = await cashier.PostAsJsonAsync($"{cnxUrl}/cashier/shifts/open", new OpenCashierShiftRequest(500m));
+        Assert.Equal(HttpStatusCode.Created, openRes.StatusCode);
+        var shift = await openRes.Content.ReadFromJsonAsync<CashierShiftDto>();
+        Assert.Equal(HttpStatusCode.BadRequest, (await cashier.PostAsJsonAsync($"{cnxUrl}/cashier/shifts/open", new OpenCashierShiftRequest(1m))).StatusCode);
+
+        var current = await cashier.GetFromJsonAsync<CurrentCashierShiftResponse>($"{cnxUrl}/cashier/shifts/current");
+        Assert.Equal(shift!.Id, current!.Shift!.Id);
+
+        var noRemarkRes = await cashier.PostAsJsonAsync($"{cnxUrl}/cashier/shifts/{shift.Id}/close", new CloseCashierShiftRequest(450m));
+        Assert.Equal(HttpStatusCode.BadRequest, noRemarkRes.StatusCode);
+        var closeRes = await cashier.PostAsJsonAsync($"{cnxUrl}/cashier/shifts/{shift.Id}/close", new CloseCashierShiftRequest(450m, "Short 50 THB"));
+        Assert.Equal(HttpStatusCode.OK, closeRes.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await cashier.PostAsJsonAsync(
+            $"{cnxUrl}/cashier/shifts/{shift.Id}/reconcile", new ReconcileCashierShiftRequest())).StatusCode);
+
+        // Slip queue: submit as client (customer2), other customer is denied, reject requires a reason.
+        using var admin = _factory.CreateClient();
+        admin.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        admin.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        admin.DefaultRequestHeaders.Add(
+            "X-TanPms-Permissions",
+            $"{PermissionKeys.AdminPaymentsVerifySlip},{PermissionKeys.AdminBillingIssueBatch},{PermissionKeys.AdminCashierOperateShift}");
+        var bkkUrl = $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}";
+        var invoices = await admin.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices");
+        var invoice2 = invoices!.Items.Single(i => i.DocumentNumber == "BKK01-INV-2611-0002");
+
+        using var customer1 = _factory.CreateClient();
+        customer1.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer1.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.PrimaryCustomerId.ToString());
+        Assert.Equal(HttpStatusCode.Forbidden, (await customer1.PostAsJsonAsync(
+            $"/api/v1/client/invoices/{invoice2.Id}/slips", new SubmitPaymentSlipRequest(100m, "slips/it.jpg"))).StatusCode);
+
+        using var customer2 = _factory.CreateClient();
+        customer2.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer2.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.SecondaryCustomerId.ToString());
+        var submitRes = await customer2.PostAsJsonAsync(
+            $"/api/v1/client/invoices/{invoice2.Id}/slips", new SubmitPaymentSlipRequest(100m, "slips/it.jpg", "SCB-777"));
+        Assert.Equal(HttpStatusCode.Created, submitRes.StatusCode);
+        var slip = await submitRes.Content.ReadFromJsonAsync<ClientPaymentSlipDto>();
+
+        var queue = await admin.GetFromJsonAsync<PaymentSlipQueueResponse>($"{bkkUrl}/payments/slips?status=Pending");
+        var queued = Assert.Single(queue!.Items, i => i.Id == slip!.Id);
+        Assert.Equal("3-xxxx-xxxxx-54-1", queued.Customer.MaskedNationalId);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(
+            $"{bkkUrl}/payments/slips/{slip!.Id}/reject", new RejectPaymentSlipRequest(""))).StatusCode);
+        var rejectRes = await admin.PostAsJsonAsync($"{bkkUrl}/payments/slips/{slip.Id}/reject", new RejectPaymentSlipRequest("Blurry slip"));
+        Assert.Equal(HttpStatusCode.OK, rejectRes.StatusCode);
+
+        var clientSlips = await customer2.GetFromJsonAsync<ClientPaymentSlipListResponse>($"/api/v1/client/invoices/{invoice2.Id}/slips");
+        Assert.Contains(clientSlips!.Items, s => s.Id == slip.Id && s.Status == "Rejected");
+
+        var ledgers = await admin.GetFromJsonAsync<DepositLedgerListResponse>($"{bkkUrl}/deposit-ledgers");
+        Assert.NotNull(ledgers);
+        Assert.Equal(HttpStatusCode.Forbidden, (await admin.GetAsync($"{cnxUrl}/deposit-ledgers")).StatusCode);
     }
 
     [Fact]

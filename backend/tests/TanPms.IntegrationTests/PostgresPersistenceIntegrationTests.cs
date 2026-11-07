@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using TanPms.Application.Billing;
+using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
@@ -13,6 +14,7 @@ using TanPms.Application.Customers;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
+using TanPms.Application.Payments;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
@@ -317,6 +319,76 @@ public sealed class PostgresPersistenceIntegrationTests
 
             var feed = await clientApp.GetFromJsonAsync<NotificationListResponse>("/api/v1/client/notifications");
             Assert.Contains(feed!.Items, n => n.TemplateKey == InvoiceIssuedNotification.TemplateKey);
+
+            // 7. PM-08 cashier shift, slip verification and deposit register through EfCorePmsStore + PostgreSQL
+            using var cashierClient = factory.CreateClient();
+            cashierClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            cashierClient.DefaultRequestHeaders.Add("X-TanPms-User-Id", "pg-cashier");
+            cashierClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+            cashierClient.DefaultRequestHeaders.Add(
+                "X-TanPms-Permissions",
+                string.Join(",", PermissionKeys.AdminCashierOperateShift, PermissionKeys.AdminPaymentsVerifySlip));
+
+            // No X-TanPms-Open-Shift header: HasOpenCashierShift reflects real shifts, so check-in is blocked until a shift opens.
+            var blockedCheckIn = await cashierClient.PostAsJsonAsync("/api/v1/admin/stays/check-in", new CheckInStayRequest(
+                PropertyId: PmsSeedConstants.BkkPropertyId,
+                UnitId: PmsSeedConstants.CleanUnitA101Id,
+                CustomerId: PmsSeedConstants.PrimaryCustomerId,
+                StayMode: "Hourly",
+                KeyDepositAmount: 0m));
+            Assert.Equal(HttpStatusCode.Conflict, blockedCheckIn.StatusCode);
+
+            var shiftRes = await cashierClient.PostAsJsonAsync($"{bkkUrl}/cashier/shifts/open", new OpenCashierShiftRequest(1000m));
+            Assert.Equal(HttpStatusCode.Created, shiftRes.StatusCode);
+            var shift = await shiftRes.Content.ReadFromJsonAsync<CashierShiftDto>();
+            Assert.Equal(HttpStatusCode.BadRequest, (await cashierClient.PostAsJsonAsync($"{bkkUrl}/cashier/shifts/open", new OpenCashierShiftRequest(1m))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await cashierClient.PostAsJsonAsync(
+                $"{bkkUrl}/cashier/shifts/{shift!.Id}/close", new CloseCashierShiftRequest(990m))).StatusCode);
+            var closedShift = await (await cashierClient.PostAsJsonAsync(
+                $"{bkkUrl}/cashier/shifts/{shift.Id}/close", new CloseCashierShiftRequest(990m, "Short 10")))
+                .Content.ReadFromJsonAsync<CashierShiftDto>();
+            Assert.Equal(-10m, closedShift!.CashVariance);
+            Assert.Equal(HttpStatusCode.Forbidden, (await cashierClient.PostAsJsonAsync(
+                $"{bkkUrl}/cashier/shifts/{shift.Id}/reconcile", new ReconcileCashierShiftRequest())).StatusCode);
+
+            using var supervisorClient = factory.CreateClient();
+            supervisorClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            supervisorClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+            supervisorClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminCashierReconcileShift);
+            var reconciledShift = await (await supervisorClient.PostAsJsonAsync(
+                $"{bkkUrl}/cashier/shifts/{shift.Id}/reconcile", new ReconcileCashierShiftRequest("Checked")))
+                .Content.ReadFromJsonAsync<CashierShiftDto>();
+            Assert.Equal("Reconciled", reconciledShift!.Status);
+
+            var pgInvoices = await billingClient.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices");
+            var pgInvoice2 = pgInvoices!.Items.Single(i => i.DocumentNumber == "BKK01-INV-2611-0002");
+            using var pgCustomer2 = factory.CreateClient();
+            pgCustomer2.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+            pgCustomer2.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.SecondaryCustomerId.ToString());
+            Assert.Equal(HttpStatusCode.Forbidden, (await clientApp.PostAsJsonAsync(
+                $"/api/v1/client/invoices/{pgInvoice2.Id}/slips", new SubmitPaymentSlipRequest(10m, "slips/pg.jpg"))).StatusCode);
+            var pgSlip = await (await pgCustomer2.PostAsJsonAsync(
+                $"/api/v1/client/invoices/{pgInvoice2.Id}/slips", new SubmitPaymentSlipRequest(1200m, "slips/pg.jpg", "BBL-1")))
+                .Content.ReadFromJsonAsync<ClientPaymentSlipDto>();
+
+            var approveRes = await cashierClient.PostAsync($"{bkkUrl}/payments/slips/{pgSlip!.Id}/approve", null);
+            Assert.Equal(HttpStatusCode.OK, approveRes.StatusCode);
+            var approvedSlip = await approveRes.Content.ReadFromJsonAsync<AdminPaymentSlipDto>();
+            Assert.Equal("Paid", approvedSlip!.InvoiceStatus);
+            Assert.StartsWith("BKK01-RCT-", approvedSlip.ReceiptDocumentNumber, StringComparison.Ordinal);
+            Assert.Equal(HttpStatusCode.BadRequest, (await cashierClient.PostAsync($"{bkkUrl}/payments/slips/{pgSlip.Id}/approve", null)).StatusCode);
+
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<TanPmsDbContext>();
+                Assert.Equal(1, await db.Receipts.CountAsync(r => r.PaymentSlipId == pgSlip.Id));
+            }
+
+            var pgLedgers = await cashierClient.GetFromJsonAsync<DepositLedgerListResponse>($"{bkkUrl}/deposit-ledgers?type=LeaseSecurityDeposit");
+            var settledLedger = Assert.Single(pgLedgers!.Items);
+            Assert.Equal(createdLease.DocumentNumber, settledLedger.OwnerDocumentNumber);
+            Assert.Equal(0m, settledLedger.CurrentBalance);
+            Assert.Equal(3, settledLedger.Transactions.Count);
         }
         finally
         {

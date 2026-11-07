@@ -16,6 +16,8 @@ import {
   Percent,
   FileText,
   Receipt,
+  BadgeCheck,
+  PiggyBank,
   ReceiptText,
   Users,
   Wallet,
@@ -27,6 +29,8 @@ export type AdminModuleKey =
   | "stays"
   | "leases"
   | "billing"
+  | "payments"
+  | "deposits"
   | "reservations"
   | "meters"
   | "properties"
@@ -78,6 +82,8 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     groupKey: "groupFinance",
     items: [
       { key: "billing", href: "/admin/billing", icon: ReceiptText, labelKey: "billing" },
+      { key: "payments", href: "/admin/payments", icon: BadgeCheck, labelKey: "payments" },
+      { key: "deposits", href: "/admin/deposits", icon: PiggyBank, labelKey: "deposits" },
       { key: "cashier", href: "/admin/cashier", icon: Wallet, labelKey: "cashier" },
     ],
   },

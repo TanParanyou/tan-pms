@@ -1,4 +1,5 @@
 using TanPms.Application.Billing;
+using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Customers;
@@ -6,6 +7,7 @@ using TanPms.Application.Identity;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
+using TanPms.Application.Payments;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
@@ -78,6 +80,17 @@ builder.Services.AddScoped<GetAdminInvoicesHandler>();
 builder.Services.AddScoped<IssueAdminInvoicesForPeriodHandler>();
 builder.Services.AddScoped<IssueAdminInvoiceHandler>();
 builder.Services.AddScoped<DeleteAdminInvoiceHandler>();
+builder.Services.AddScoped<OpenAdminCashierShiftHandler>();
+builder.Services.AddScoped<GetCurrentAdminCashierShiftHandler>();
+builder.Services.AddScoped<GetAdminCashierShiftsHandler>();
+builder.Services.AddScoped<CloseAdminCashierShiftHandler>();
+builder.Services.AddScoped<ReconcileAdminCashierShiftHandler>();
+builder.Services.AddScoped<GetAdminDepositLedgersHandler>();
+builder.Services.AddScoped<SubmitClientPaymentSlipHandler>();
+builder.Services.AddScoped<GetClientInvoiceSlipsHandler>();
+builder.Services.AddScoped<GetAdminPaymentSlipsHandler>();
+builder.Services.AddScoped<ApproveAdminPaymentSlipHandler>();
+builder.Services.AddScoped<RejectAdminPaymentSlipHandler>();
 builder.Services.AddScoped<CreateAdminLeaseHandler>();
 builder.Services.AddScoped<AddAdminLeaseOccupantHandler>();
 builder.Services.AddScoped<AddAdminLeaseVehicleHandler>();
@@ -662,7 +675,140 @@ adminGroup.MapDelete("/properties/{propertyId:guid}/invoices/{invoiceId:guid}", 
         : Results.Ok(result.Value);
 });
 
+adminGroup.MapPost("/properties/{propertyId:guid}/cashier/shifts/open", (
+    Guid propertyId,
+    OpenCashierShiftRequest request,
+    OpenAdminCashierShiftHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new OpenAdminCashierShiftCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/admin/properties/{propertyId}/cashier/shifts/{result.Value!.Id}", result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/cashier/shifts/current", (
+    Guid propertyId,
+    GetCurrentAdminCashierShiftHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetCurrentAdminCashierShiftQuery(propertyId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/cashier/shifts", (
+    Guid propertyId,
+    string? status,
+    GetAdminCashierShiftsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminCashierShiftsQuery(propertyId, status));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/cashier/shifts/{shiftId:guid}/close", (
+    Guid propertyId,
+    Guid shiftId,
+    CloseCashierShiftRequest request,
+    CloseAdminCashierShiftHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CloseAdminCashierShiftCommand(propertyId, shiftId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/cashier/shifts/{shiftId:guid}/reconcile", (
+    Guid propertyId,
+    Guid shiftId,
+    ReconcileCashierShiftRequest request,
+    ReconcileAdminCashierShiftHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ReconcileAdminCashierShiftCommand(propertyId, shiftId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/deposit-ledgers", (
+    Guid propertyId,
+    string? type,
+    GetAdminDepositLedgersHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminDepositLedgersQuery(propertyId, type));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/payments/slips", (
+    Guid propertyId,
+    string? status,
+    GetAdminPaymentSlipsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminPaymentSlipsQuery(propertyId, status));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/payments/slips/{slipId:guid}/approve", (
+    Guid propertyId,
+    Guid slipId,
+    ApproveAdminPaymentSlipHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ApproveAdminPaymentSlipCommand(propertyId, slipId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/payments/slips/{slipId:guid}/reject", (
+    Guid propertyId,
+    Guid slipId,
+    RejectPaymentSlipRequest request,
+    RejectAdminPaymentSlipHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new RejectAdminPaymentSlipCommand(propertyId, slipId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
 var clientGroup = app.MapGroup("/api/v1/client");
+
+clientGroup.MapPost("/invoices/{invoiceId:guid}/slips", (
+    Guid invoiceId,
+    SubmitPaymentSlipRequest request,
+    SubmitClientPaymentSlipHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new SubmitClientPaymentSlipCommand(invoiceId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/client/invoices/{invoiceId}/slips/{result.Value!.Id}", result.Value);
+});
+
+clientGroup.MapGet("/invoices/{invoiceId:guid}/slips", (
+    Guid invoiceId,
+    GetClientInvoiceSlipsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientInvoiceSlipsQuery(invoiceId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
 
 clientGroup.MapGet("/dashboard", (
     GetClientDashboardHandler handler,

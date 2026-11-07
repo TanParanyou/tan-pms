@@ -339,7 +339,7 @@ public static class PmsDatabaseInitializer
         var lease1 = new Lease
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-LSE-2611-0001",
+            DocumentNumber = await documentNumberService.NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.LSE, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), cancellationToken),
             UnitId = unitA201.Id,
             CustomerId = customer1.Id,
             StartDate = new DateOnly(2026, 1, 1),
@@ -353,7 +353,7 @@ public static class PmsDatabaseInitializer
         var invoice1 = new Invoice
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-INV-2611-0001",
+            DocumentNumber = await documentNumberService.NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.INV, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), cancellationToken),
             CustomerId = customer1.Id,
             LeaseId = lease1.Id,
             BillingPeriodYearMonth = "2026-11"
@@ -365,7 +365,7 @@ public static class PmsDatabaseInitializer
         var invoice2 = new Invoice
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-INV-2611-0002",
+            DocumentNumber = await documentNumberService.NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.INV, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), cancellationToken),
             CustomerId = customer2.Id
         };
         invoice2.AddLine("ยอดค้างค่าห้องรายวัน", 1200.00m, TaxMode.VatIncluded, "Daily Stay Balance");
@@ -378,7 +378,7 @@ public static class PmsDatabaseInitializer
         dbContext.Parcels.Add(new Parcel
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-PCL-2611-0001",
+            DocumentNumber = await documentNumberService.NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.PCL, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero), cancellationToken),
             UnitId = unitA201.Id,
             CustomerId = customer1.Id,
             CarrierName = "Kerry Express",
@@ -586,7 +586,7 @@ public static class PmsDatabaseInitializer
         var octStay = new Stay
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-STY-2610-0001",
+            DocumentNumber = await documentNumberService.NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.STY, new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero), cancellationToken),
             UnitId = unitA102.Id,
             CustomerId = foreignCustomer.Id,
             StayMode = StayMode.Daily,

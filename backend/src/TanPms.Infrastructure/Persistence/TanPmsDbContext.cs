@@ -46,6 +46,7 @@ public sealed class TanPmsDbContext : DbContext
     public DbSet<MeterReading> MeterReadings => Set<MeterReading>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Receipt> Receipts => Set<Receipt>();
+    public DbSet<PaymentSlip> PaymentSlips => Set<PaymentSlip>();
     public DbSet<CashierShift> CashierShifts => Set<CashierShift>();
     public DbSet<DepositLedger> DepositLedgers => Set<DepositLedger>();
     public DbSet<DepositTransaction> DepositTransactions => Set<DepositTransaction>();
@@ -173,6 +174,31 @@ public sealed class TanPmsDbContext : DbContext
             b.HasIndex(x => new { x.LeaseId, x.BillingPeriodYearMonth })
                 .IsUnique()
                 .HasFilter("\"IsDeleted\" = false AND \"Status\" <> 6 AND \"LeaseId\" IS NOT NULL AND \"BillingPeriodYearMonth\" IS NOT NULL");
+        });
+
+        modelBuilder.Entity<CashierShift>(b =>
+        {
+            // At most one Open shift per cashier per property.
+            b.HasIndex(x => new { x.PropertyId, x.CashierUserId })
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false AND \"Status\" = 1");
+        });
+
+        modelBuilder.Entity<Receipt>(b =>
+        {
+            // One receipt per approved payment slip (race-safe approval).
+            b.HasIndex(x => x.PaymentSlipId)
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false AND \"PaymentSlipId\" IS NOT NULL");
+            b.HasIndex(x => x.InvoiceId);
+        });
+
+        modelBuilder.Entity<PaymentSlip>(b =>
+        {
+            b.Property(x => x.SlipFileKey).HasMaxLength(512);
+            b.Property(x => x.TransferReference).HasMaxLength(128);
+            b.HasIndex(x => new { x.PropertyId, x.Status });
+            b.HasIndex(x => x.InvoiceId);
         });
 
         modelBuilder.Entity<MeterReading>(b =>

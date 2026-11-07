@@ -9,6 +9,7 @@ public sealed class Receipt : AuditableEntity
     public required Guid InvoiceId { get; set; }
     public required Guid CustomerId { get; set; }
     public Guid? CashierShiftId { get; set; }
+    public Guid? PaymentSlipId { get; set; }
     public required decimal InvoiceTotalAmount { get; set; }
     public decimal WithholdingTaxAmount { get; set; }
     public string? WhtCertificateNumber { get; set; }

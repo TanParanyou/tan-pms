@@ -3029,7 +3029,7 @@ public sealed partial class InMemoryOperationalService
         var lease1 = new Lease
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-LSE-2611-0001",
+            DocumentNumber = NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.LSE, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero)).GetAwaiter().GetResult(),
             UnitId = unitA201.Id,
             CustomerId = customer1.Id,
             StartDate = new DateOnly(2026, 1, 1),
@@ -3043,7 +3043,7 @@ public sealed partial class InMemoryOperationalService
         var invoice1 = new Invoice
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-INV-2611-0001",
+            DocumentNumber = NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.INV, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero)).GetAwaiter().GetResult(),
             CustomerId = customer1.Id,
             LeaseId = lease1.Id,
             BillingPeriodYearMonth = "2026-11"
@@ -3056,7 +3056,7 @@ public sealed partial class InMemoryOperationalService
         var invoice2 = new Invoice
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-INV-2611-0002",
+            DocumentNumber = NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.INV, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero)).GetAwaiter().GetResult(),
             CustomerId = customer2.Id
         };
         invoice2.AddLine("ยอดค้างค่าห้องรายวัน", 1200.00m, TaxMode.VatIncluded, "Daily Stay Balance");
@@ -3066,7 +3066,7 @@ public sealed partial class InMemoryOperationalService
         _parcels.Add(new Parcel
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-PCL-2611-0001",
+            DocumentNumber = NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.PCL, new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero)).GetAwaiter().GetResult(),
             UnitId = unitA201.Id,
             CustomerId = customer1.Id,
             CarrierName = "Kerry Express",
@@ -3297,7 +3297,7 @@ public sealed partial class InMemoryOperationalService
         var octStay = new Stay
         {
             PropertyId = bkk.Id,
-            DocumentNumber = "BKK01-STY-2610-0001",
+            DocumentNumber = NextDocumentNumberAsync(bkk.Id, bkk.Code, DocumentTypeCode.STY, new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero)).GetAwaiter().GetResult(),
             UnitId = unitA102.Id,
             CustomerId = foreignCustomer.Id,
             StayMode = StayMode.Daily,

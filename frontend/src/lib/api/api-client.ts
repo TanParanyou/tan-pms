@@ -64,6 +64,20 @@ import type {
   InvoiceItemDto,
   IssueInvoicesRequest,
 } from "@/features/billing/types";
+import type {
+  CashierShiftDto,
+  CashierShiftListResponse,
+  CurrentCashierShiftResponse,
+  OpenCashierShiftRequest,
+  CloseCashierShiftRequest,
+  ReconcileCashierShiftRequest,
+} from "@/features/cashier/types";
+import type { DepositLedgerListResponse } from "@/features/deposits/types";
+import type {
+  PaymentSlipQueueResponse,
+  AdminPaymentSlipDto,
+  RejectPaymentSlipRequest,
+} from "@/features/payments/types";
 import { ApiError } from "./api-error";
 
 export interface ApiClientConfig {
@@ -578,6 +592,89 @@ export class ApiClient {
     return this.request<InvoiceItemDto>(`/api/v1/admin/properties/${propertyId}/invoices/${invoiceId}`, {
       method: "DELETE",
       headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  // --- 6d. Cashier Shifts, Payment Slips & Deposit Ledger APIs (PM-08) ---
+  async openAdminCashierShift(propertyId: string, req: OpenCashierShiftRequest): Promise<CashierShiftDto> {
+    return this.request<CashierShiftDto>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/open`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async getAdminCurrentCashierShift(propertyId: string): Promise<CurrentCashierShiftResponse> {
+    return this.request<CurrentCashierShiftResponse>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/current`, {
+      method: "GET",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async getAdminCashierShifts(propertyId: string, params: { status?: string } = {}): Promise<CashierShiftListResponse> {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.request<CashierShiftListResponse>(`/api/v1/admin/properties/${propertyId}/cashier/shifts${query}`, {
+      method: "GET",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async closeAdminCashierShift(
+    propertyId: string,
+    shiftId: string,
+    req: CloseCashierShiftRequest
+  ): Promise<CashierShiftDto> {
+    return this.request<CashierShiftDto>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/${shiftId}/close`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async reconcileAdminCashierShift(
+    propertyId: string,
+    shiftId: string,
+    req: ReconcileCashierShiftRequest
+  ): Promise<CashierShiftDto> {
+    return this.request<CashierShiftDto>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/${shiftId}/reconcile`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async getAdminDepositLedgers(propertyId: string, params: { type?: string } = {}): Promise<DepositLedgerListResponse> {
+    const query = params.type ? `?type=${encodeURIComponent(params.type)}` : "";
+    return this.request<DepositLedgerListResponse>(`/api/v1/admin/properties/${propertyId}/deposit-ledgers${query}`, {
+      method: "GET",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async getAdminPaymentSlips(propertyId: string, params: { status?: string } = {}): Promise<PaymentSlipQueueResponse> {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.request<PaymentSlipQueueResponse>(`/api/v1/admin/properties/${propertyId}/payments/slips${query}`, {
+      method: "GET",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async approveAdminPaymentSlip(propertyId: string, slipId: string): Promise<AdminPaymentSlipDto> {
+    return this.request<AdminPaymentSlipDto>(`/api/v1/admin/properties/${propertyId}/payments/slips/${slipId}/approve`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async rejectAdminPaymentSlip(
+    propertyId: string,
+    slipId: string,
+    req: RejectPaymentSlipRequest
+  ): Promise<AdminPaymentSlipDto> {
+    return this.request<AdminPaymentSlipDto>(`/api/v1/admin/properties/${propertyId}/payments/slips/${slipId}/reject`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
     });
   }
 

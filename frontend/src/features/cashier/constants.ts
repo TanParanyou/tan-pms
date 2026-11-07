@@ -1,9 +1,13 @@
-export const ACTIVE_CASHIER_SHIFT_DEMO = {
-  shiftNumber: "BKK01-SHF-2611-0004",
-  formattedBalance: "12,450.00",
-} as const;
+import type { BadgeProps } from "@/components/ui/badge";
+import type { CashierShiftStatusType } from "./types";
 
-export const SAMPLE_SLIP_QUEUE_ITEM = {
-  documentNumber: "BKK01-RES-2611-0108",
-  formattedAmount: "1,500.00",
-} as const;
+export const PERMISSION_CASHIER_OPERATE = "admin.cashier.operate_shift";
+export const PERMISSION_CASHIER_RECONCILE = "admin.cashier.reconcile_shift";
+
+export const SHIFT_STATUS_OPTIONS: readonly CashierShiftStatusType[] = ["Open", "Closed", "Reconciled"];
+
+export const SHIFT_STATUS_BADGE_VARIANT: Record<CashierShiftStatusType, NonNullable<BadgeProps["variant"]>> = {
+  Open: "success",
+  Closed: "warning",
+  Reconciled: "outline",
+};

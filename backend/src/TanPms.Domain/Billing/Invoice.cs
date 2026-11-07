@@ -44,6 +44,22 @@ public sealed class Invoice : AuditableEntity
         Status = InvoiceStatus.Issued;
     }
 
+    public bool AcceptsPayment =>
+        Status is InvoiceStatus.Issued or InvoiceStatus.Overdue or InvoiceStatus.PartiallyPaid;
+
+    // totalPaidToDate = sum of all receipts applied to this invoice, including the new one.
+    public void ApplyPayment(decimal totalPaidToDate)
+    {
+        if (!AcceptsPayment)
+        {
+            throw new DomainRuleException(
+                DomainErrorCodes.InvoiceImmutableStatus,
+                $"Invoice {DocumentNumber} in status {Status} cannot accept payments.");
+        }
+
+        Status = totalPaidToDate >= TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
+    }
+
     public void MarkPaid()
     {
         if (Status == InvoiceStatus.Voided)

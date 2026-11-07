@@ -1,3 +1,4 @@
+using TanPms.Application.Cashier;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
@@ -137,7 +138,12 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                 return parsed;
             }
 
-            return true;
+            // Without the dev/test override header, reflect real Open CashierShifts (resolved lazily to avoid a DI cycle
+            // through the DbContext audit interceptor, which depends on this context).
+            var services = _httpContextAccessor.HttpContext?.RequestServices;
+            return IsAdminScope
+                && services?.GetService(typeof(ICashierShiftStore)) is ICashierShiftStore shiftStore
+                && shiftStore.HasOpenCashierShift(UserId, AllowedPropertyIds);
         }
     }
 

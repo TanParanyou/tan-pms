@@ -1,142 +1,121 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { InvertedCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CommandTag } from "@/components/ui/command-tag";
-import { ConfirmationModal } from "@/components/ui/confirmation-modal";
-import { useTranslations } from "next-intl";
-import { ACTIVE_CASHIER_SHIFT_DEMO } from "../constants";
-import { Check, Receipt, X } from "lucide-react";
+import { MonoSpinner } from "@/components/ui/mono-spinner";
+import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
+import { formatCurrencyThb } from "@/lib/formatters";
+import { useCurrentCashierShift } from "../api/use-cashier";
 
 export interface CashierShiftInvertedCardProps {
-  shiftNumber?: string;
-  onOpenQuickWalkIn: () => void;
+  onOpenQuickWalkIn?: () => void;
+  /** Shift actions (open / close) injected by the cashier page. */
+  actions?: React.ReactNode;
 }
 
-export function CashierShiftInvertedCard({
-  shiftNumber = ACTIVE_CASHIER_SHIFT_DEMO.shiftNumber,
-  onOpenQuickWalkIn,
-}: CashierShiftInvertedCardProps) {
+interface MetricProps {
+  label: string;
+  value: React.ReactNode;
+  testId?: string;
+}
+
+function Metric({ label, value, testId }: MetricProps) {
+  return (
+    <div className="space-y-1">
+      <span className="block text-[11px] text-mute">{label}</span>
+      <span data-testid={testId} className="block font-mono text-sm font-semibold tabular-nums text-canvas">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+export function CashierShiftInvertedCard({ onOpenQuickWalkIn, actions }: CashierShiftInvertedCardProps) {
   const t = useTranslations("admin.cashier");
   const tCommon = useTranslations("common");
-  const [slipVerified, setSlipVerified] = useState<"pending" | "approved" | "rejected">("pending");
-  const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
-  const [isClosingShift, setIsClosingShift] = useState(false);
-
-  const handleConfirmCloseShift = async () => {
-    setIsClosingShift(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    setIsClosingShift(false);
-    setShowCloseShiftModal(false);
-  };
+  const { activeProperty } = useAdminWorkspace();
+  const { data, isLoading, isError, refetch } = useCurrentCashierShift(activeProperty.id);
+  const shift = data?.shift ?? null;
 
   return (
-    <>
-      <InvertedCard className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800 pb-4 mb-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-terminal-green inline-block animate-pulse" />
-              <span className="text-xs uppercase tracking-wider text-mute font-mono">
-                {t("activeShift")}
-              </span>
-              <CommandTag prefixCode="SHF" className="bg-neutral-800 border-neutral-700 text-canvas">
-                {shiftNumber}
+    <InvertedCard className="p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800 pb-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${shift ? "bg-terminal-green animate-pulse" : "bg-neutral-600"}`}
+            />
+            <span className="font-mono text-xs uppercase tracking-wider text-mute">
+              {shift ? t("activeShift") : t("noActiveShift")}
+            </span>
+            {shift && (
+              <CommandTag prefixCode="SHF" className="border-neutral-700 bg-neutral-800 text-canvas">
+                {shift.documentNumber}
               </CommandTag>
-            </div>
-            <h2 className="text-xl font-rounded font-semibold text-canvas" data-inverted-heading>
-              {t("title")}
-            </h2>
+            )}
+            {shift && <Badge variant="success">{t(`shiftStatus.${shift.status}`)}</Badge>}
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <span className="text-[11px] text-mute block">{t("currentBalance")}</span>
-              <span className="font-mono text-xl font-semibold text-canvas tabular-nums">
-                {t("drawerBalance")}
-              </span>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCloseShiftModal(true)}
-              className="rounded-full bg-transparent text-canvas border-neutral-700 hover:bg-neutral-800 text-xs h-9"
-            >
-              {t("closeDrawer")}
-            </Button>
-            <Button
-              type="button"
-              variant="onDark"
-              size="sm"
-              onClick={onOpenQuickWalkIn}
-              className="rounded-full font-medium h-9 text-xs"
-            >
+          <h2 className="font-rounded text-xl font-semibold text-canvas" data-inverted-heading>
+            {t("title")}
+          </h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {actions}
+          {onOpenQuickWalkIn && (
+            <Button type="button" variant="onDark" size="sm" onClick={onOpenQuickWalkIn} className="h-9 rounded-full text-xs font-medium">
               + {t("quickWalkIn")}
             </Button>
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* Slip Verification Queue */}
-        <div className="rounded-[8px] bg-neutral-900 border border-neutral-800 p-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Receipt className="h-5 w-5 text-canvas shrink-0" aria-hidden="true" />
-            <div>
-              <span className="text-xs font-mono text-canvas block">
-                {t("queueSampleTitle")}
-              </span>
-              <span className="text-[11px] text-mute">
-                {t("queueSampleDetail")}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {slipVerified === "pending" ? (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => setSlipVerified("approved")}
-                  className="rounded-full bg-terminal-green text-canvas hover:bg-terminal-green/90 h-8 text-xs font-medium gap-1.5"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  <span>{t("verifyApprove")}</span>
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSlipVerified("rejected")}
-                  className="rounded-full bg-transparent text-canvas border-neutral-700 hover:bg-neutral-800 h-8 text-xs font-medium gap-1.5"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  <span>{t("verifyReject")}</span>
-                </Button>
-              </>
-            ) : (
-              <Badge variant={slipVerified === "approved" ? "success" : "destructive"}>
-                {slipVerified === "approved" ? t("statusApproved") : t("statusRejected")}
-              </Badge>
-            )}
-          </div>
+      {isLoading && (
+        <div className="flex items-center gap-2 text-xs text-mute" role="status">
+          <MonoSpinner />
+          <span>{tCommon("loading")}</span>
         </div>
-      </InvertedCard>
+      )}
 
-      {/* Safety Confirmation Modal for Closing Shift */}
-      <ConfirmationModal
-        isOpen={showCloseShiftModal}
-        onClose={() => setShowCloseShiftModal(false)}
-        onConfirm={handleConfirmCloseShift}
-        title={tCommon("dialog.confirmCloseShiftTitle")}
-        message={tCommon("dialog.confirmCloseShiftMessage")}
-        confirmText={tCommon("confirm")}
-        cancelText={tCommon("cancel")}
-        variant="warning"
-        isLoading={isClosingShift}
-      />
-    </>
+      {isError && (
+        <div className="flex items-center justify-between gap-3 text-xs text-canvas">
+          <span>{t("loadError")}</span>
+          <Button type="button" variant="onDark" size="sm" onClick={() => void refetch()} className="h-8 rounded-full text-xs">
+            {tCommon("retry")}
+          </Button>
+        </div>
+      )}
+
+      {!isLoading && !isError && !shift && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-mute">{t("openPrompt")}</p>
+          {!actions && (
+            <Link href="/admin/cashier">
+              <Button type="button" variant="onDark" size="sm" className="h-8 rounded-full text-xs">
+                {t("goToCashier")}
+              </Button>
+            </Link>
+          )}
+        </div>
+      )}
+
+      {shift && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <Metric
+            label={t("expectedDrawerCash")}
+            testId="shift-expected-cash"
+            value={shift.expectedDrawerCash == null ? "-" : formatCurrencyThb(shift.expectedDrawerCash)}
+          />
+          <Metric label={t("openingFloat")} value={formatCurrencyThb(shift.openingFloatCash)} />
+          <Metric label={t("cashReceipts")} value={formatCurrencyThb(shift.cashReceiptsInShift)} />
+          <Metric label={t("depositsIn")} value={formatCurrencyThb(shift.cashDepositsReceivedInShift)} />
+          <Metric label={t("depositsOut")} value={formatCurrencyThb(shift.cashDepositsRefundedInShift)} />
+        </div>
+      )}
+    </InvertedCard>
   );
 }

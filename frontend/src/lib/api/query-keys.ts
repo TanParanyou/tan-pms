@@ -78,6 +78,22 @@ export const queryKeys = {
     invoices: (propertyId: string, period?: string, status?: string) =>
       [...queryKeys.billing.all, "invoices", propertyId, period ?? "", status ?? ""] as const,
   },
+  cashier: {
+    all: ["admin-cashier"] as const,
+    current: (propertyId: string) => [...queryKeys.cashier.all, "current", propertyId] as const,
+    shifts: (propertyId: string, status?: string) =>
+      [...queryKeys.cashier.all, "shifts", propertyId, status ?? ""] as const,
+  },
+  payments: {
+    all: ["admin-payments"] as const,
+    slips: (propertyId: string, status?: string) =>
+      [...queryKeys.payments.all, "slips", propertyId, status ?? ""] as const,
+  },
+  depositLedgers: {
+    all: ["admin-deposit-ledgers"] as const,
+    list: (propertyId: string, type?: string) =>
+      [...queryKeys.depositLedgers.all, propertyId, type ?? ""] as const,
+  },
   customers: {
     all: ["admin-customers"] as const,
     search: (propertyId: string, search: string) =>

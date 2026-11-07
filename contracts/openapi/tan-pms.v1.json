@@ -2349,6 +2349,675 @@
           }
         }
       }
+    },
+    "/api/v1/admin/properties/{propertyId}/cashier/shifts/open": {
+      "post": {
+        "operationId": "openAdminCashierShift",
+        "tags": [
+          "AdminCashier"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenCashierShiftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Shift opened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashierShiftDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/cashier/shifts/current": {
+      "get": {
+        "operationId": "getAdminCurrentCashierShift",
+        "tags": [
+          "AdminCashier"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current open shift of the caller, null when none",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentCashierShiftResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/cashier/shifts": {
+      "get": {
+        "operationId": "getAdminCashierShifts",
+        "tags": [
+          "AdminCashier"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cashier shifts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashierShiftListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/cashier/shifts/{shiftId}/close": {
+      "post": {
+        "operationId": "closeAdminCashierShift",
+        "tags": [
+          "AdminCashier"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shiftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseCashierShiftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shift closed with variance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashierShiftDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/cashier/shifts/{shiftId}/reconcile": {
+      "post": {
+        "operationId": "reconcileAdminCashierShift",
+        "tags": [
+          "AdminCashier"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shiftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileCashierShiftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shift reconciled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashierShiftDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/deposit-ledgers": {
+      "get": {
+        "operationId": "getAdminDepositLedgers",
+        "tags": [
+          "AdminCashier"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deposit ledger register, never mixed with revenue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositLedgerListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/payments/slips": {
+      "get": {
+        "operationId": "getAdminPaymentSlips",
+        "tags": [
+          "AdminPayments"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment slip verification queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSlipQueueResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/payments/slips/{slipId}/approve": {
+      "post": {
+        "operationId": "approveAdminPaymentSlip",
+        "tags": [
+          "AdminPayments"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slip approved, receipt issued, invoice updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPaymentSlipDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/payments/slips/{slipId}/reject": {
+      "post": {
+        "operationId": "rejectAdminPaymentSlip",
+        "tags": [
+          "AdminPayments"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectPaymentSlipRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Slip rejected with reason",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPaymentSlipDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/invoices/{invoiceId}/slips": {
+      "post": {
+        "operationId": "submitClientPaymentSlip",
+        "tags": [
+          "ClientPayments"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPaymentSlipRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Slip submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientPaymentSlipDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invoice does not belong to the customer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getClientPaymentSlips",
+        "tags": [
+          "ClientPayments"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slips of the customer's invoice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientPaymentSlipListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invoice does not belong to the customer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4186,6 +4855,449 @@
             "items": {
               "$ref": "#/components/schemas/BatchInvoiceSkipDto"
             }
+          }
+        }
+      },
+      "DepositTransactionDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentNumber",
+          "transactionType",
+          "amount",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentNumber": {
+            "type": "string"
+          },
+          "transactionType": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DepositLedgerItemDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "depositType",
+          "customer",
+          "currentBalance",
+          "transactions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "depositType": {
+            "type": "string"
+          },
+          "ownerDocumentNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "unit": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnitRefDto"
+              }
+            ],
+            "nullable": true
+          },
+          "currentBalance": {
+            "type": "number",
+            "format": "double"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepositTransactionDto"
+            }
+          }
+        }
+      },
+      "ReconcileCashierShiftRequest": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "remark": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CashierShiftListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CashierShiftDto"
+            }
+          }
+        }
+      },
+      "CashierShiftDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentNumber",
+          "cashierUserId",
+          "status",
+          "openingFloatCash",
+          "cashReceiptsInShift",
+          "cashDepositsReceivedInShift",
+          "cashDepositsRefundedInShift",
+          "openedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentNumber": {
+            "type": "string"
+          },
+          "cashierUserId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "openingFloatCash": {
+            "type": "number",
+            "format": "double"
+          },
+          "cashReceiptsInShift": {
+            "type": "number",
+            "format": "double"
+          },
+          "cashDepositsReceivedInShift": {
+            "type": "number",
+            "format": "double"
+          },
+          "cashDepositsRefundedInShift": {
+            "type": "number",
+            "format": "double"
+          },
+          "expectedDrawerCash": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "actualCashCounted": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "cashVariance": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "varianceRemark": {
+            "type": "string",
+            "nullable": true
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DepositLedgerListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "totalHeldBalance"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepositLedgerItemDto"
+            }
+          },
+          "totalHeldBalance": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "CurrentCashierShiftResponse": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "shift": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CashierShiftDto"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "OpenCashierShiftRequest": {
+        "type": "object",
+        "required": [
+          "openingFloatCash"
+        ],
+        "properties": {
+          "openingFloatCash": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "CloseCashierShiftRequest": {
+        "type": "object",
+        "required": [
+          "actualCashCounted"
+        ],
+        "properties": {
+          "actualCashCounted": {
+            "type": "number",
+            "format": "double"
+          },
+          "varianceRemark": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AdminPaymentSlipDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "invoiceId",
+          "invoiceDocumentNumber",
+          "invoiceStatus",
+          "invoiceTotalAmount",
+          "invoiceOutstandingAmount",
+          "customer",
+          "amount",
+          "slipFileKey",
+          "status",
+          "submittedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoiceDocumentNumber": {
+            "type": "string"
+          },
+          "invoiceStatus": {
+            "type": "string"
+          },
+          "invoiceTotalAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "invoiceOutstandingAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "unit": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnitRefDto"
+              }
+            ],
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "transferReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "slipFileKey": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewedByUserId": {
+            "type": "string",
+            "nullable": true
+          },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "rejectReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "receiptDocumentNumber": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "RejectPaymentSlipRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "ClientPaymentSlipDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "propertyId",
+          "invoiceId",
+          "invoiceDocumentNumber",
+          "amount",
+          "slipFileKey",
+          "status",
+          "submittedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoiceDocumentNumber": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "transferReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "slipFileKey": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rejectReason": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PaymentSlipQueueResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminPaymentSlipDto"
+            }
+          }
+        }
+      },
+      "ClientPaymentSlipListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientPaymentSlipDto"
+            }
+          }
+        }
+      },
+      "SubmitPaymentSlipRequest": {
+        "type": "object",
+        "required": [
+          "amount",
+          "slipFileKey"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "slipFileKey": {
+            "type": "string"
+          },
+          "transferReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         }
       }

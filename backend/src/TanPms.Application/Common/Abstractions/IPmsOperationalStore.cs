@@ -1,10 +1,12 @@
 using TanPms.Application.Billing;
+using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Customers;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
+using TanPms.Application.Payments;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
@@ -24,5 +26,8 @@ public interface IPmsOperationalStore
       ICustomerStore,
       IMeterReadingStore,
       IBillingStore,
+      ICashierShiftStore,
+      IDepositLedgerStore,
+      IPaymentSlipStore,
       IRoomRackStore,
       IClientDashboardStore;
