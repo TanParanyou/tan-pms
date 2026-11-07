@@ -391,7 +391,8 @@
       "statusReserved": "Reserved",
       "statusBlocked": "Blocked",
       "confirmSaveTitle": "Confirm Unit Save",
-      "confirmSaveMessage": "Are you sure you want to save this unit configuration?"
+      "confirmSaveMessage": "Are you sure you want to save this unit configuration?",
+      "loadHierarchyError": "Unable to load units."
     },
     "rates": {
       "title": "Rate Plans, Utility Tariffs & Thai Tax Rules",
@@ -830,7 +831,8 @@
       "errorDeductionExceedsBalance": "Total deductions exceed the deposit balance.",
       "confirmSettleTitle": "Confirm Move-out Settlement",
       "confirmSettleMessage": "This finalizes the move-out, releases the unit and refunds the deposit. This cannot be undone.",
-      "customerSearchError": "Unable to search customers."
+      "customerSearchError": "Unable to search customers.",
+      "unitsLoadError": "Unable to load units."
     }
   },
   "client": {

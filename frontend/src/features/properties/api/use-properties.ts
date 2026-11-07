@@ -4,10 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import {
-  INITIAL_BUILDINGS,
-  INITIAL_UNIT_TYPES,
   INITIAL_UNIT_MASTER_ITEMS,
-  DEFAULT_PROPERTY_NAME,
 } from "../constants";
 import type {
   PropertyHierarchyResponse,
@@ -16,28 +13,9 @@ import type {
 } from "@/generated/api";
 
 export function usePropertyHierarchy(propertyId: string) {
-  const fallbackData: PropertyHierarchyResponse = {
-    property: {
-      id: propertyId,
-      code: "BKK01",
-      taxBranchCode: "00000",
-      name: DEFAULT_PROPERTY_NAME,
-    },
-    buildings: INITIAL_BUILDINGS,
-    unitTypes: INITIAL_UNIT_TYPES,
-    units: INITIAL_UNIT_MASTER_ITEMS,
-  };
-
   return useQuery<PropertyHierarchyResponse>({
     queryKey: queryKeys.properties.hierarchy(propertyId),
-    queryFn: async () => {
-      try {
-        return await apiClient.getAdminPropertyHierarchy(propertyId);
-      } catch {
-        return fallbackData;
-      }
-    },
-    placeholderData: fallbackData,
+    queryFn: () => apiClient.getAdminPropertyHierarchy(propertyId),
   });
 }
 

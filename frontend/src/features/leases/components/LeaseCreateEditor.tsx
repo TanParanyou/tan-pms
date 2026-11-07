@@ -68,20 +68,24 @@ export function LeaseCreateEditor() {
     errors,
   });
 
-  const { data: hierarchy, isPlaceholderData: isUnitsPlaceholder } = usePropertyHierarchy(activeProperty.id);
+  const {
+    data: hierarchy,
+    isLoading: isUnitsLoading,
+    isError: isUnitsError,
+    refetch: refetchUnits,
+  } = usePropertyHierarchy(activeProperty.id);
+  const isUnitsUnavailable = isUnitsLoading || isUnitsError;
   const unitOptions = useMemo(
     () =>
-      isUnitsPlaceholder
-        ? []
-        : (hierarchy?.units ?? [])
-            .filter((u) => u.supportedStayModes.includes("Monthly"))
-            .map((u) => ({
-              value: u.id,
-              label: `${resolveLocalizedText(u.unitType.name, locale)} (${u.unitNumber})`,
-              sublabel: resolveLocalizedText(u.building.name, locale),
-              disabled: u.occupancyStatus !== "Vacant",
-            })),
-    [hierarchy, isUnitsPlaceholder, locale]
+      (hierarchy?.units ?? [])
+        .filter((u) => u.supportedStayModes.includes("Monthly"))
+        .map((u) => ({
+          value: u.id,
+          label: `${resolveLocalizedText(u.unitType.name, locale)} (${u.unitNumber})`,
+          sublabel: resolveLocalizedText(u.building.name, locale),
+          disabled: u.occupancyStatus !== "Vacant",
+        })),
+    [hierarchy, locale]
   );
 
   const [customerSearch, setCustomerSearch] = useState("");
@@ -146,7 +150,25 @@ export function LeaseCreateEditor() {
       content: (
         <div className="space-y-4 pt-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField id="lease-unit" label={t("fieldUnit")} required error={errors.unitId?.message}>
+            <FormField
+              id="lease-unit"
+              label={t("fieldUnit")}
+              required
+              error={isUnitsError ? t("unitsLoadError") : errors.unitId?.message}
+              topRightAction={
+                isUnitsError ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void refetchUnits()}
+                    className="h-6 rounded-full px-2 text-[11px]"
+                  >
+                    {t("btnRetry")}
+                  </Button>
+                ) : undefined
+              }
+            >
               <Controller
                 name="unitId"
                 control={control}
@@ -156,7 +178,8 @@ export function LeaseCreateEditor() {
                     options={unitOptions}
                     value={field.value}
                     onValueChange={field.onChange}
-                    isLoading={isUnitsPlaceholder}
+                    isLoading={isUnitsLoading}
+                    disabled={isUnitsUnavailable}
                     placeholder={t("placeholderUnit")}
                     searchPlaceholder={t("placeholderUnit")}
                     hasError={Boolean(errors.unitId)}
@@ -471,7 +494,7 @@ export function LeaseCreateEditor() {
               type="button"
               size="sm"
               onClick={handleSubmit(onValid, onInvalid)}
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || isUnitsUnavailable}
               className="h-9 rounded-full px-5 gap-1.5 text-xs"
             >
               <Save className="h-4 w-4" />

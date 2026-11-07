@@ -81,6 +81,14 @@ const hierarchy = {
   ],
 } as unknown as PropertyHierarchyResponse;
 
+async function renderCreateReady() {
+  const result = renderWith(<LeaseCreateEditor />);
+  await waitFor(() =>
+    expect(screen.getByText(thMessages.admin.leases.btnSaveLease).closest("button")).not.toBeDisabled()
+  );
+  return result;
+}
+
 function fillOccupant() {
   const l = thMessages.admin.leases;
   fireEvent.change(screen.getByPlaceholderText(thMessages.common.placeholders.guestName), {
@@ -156,7 +164,7 @@ describe("PM-06: Monthly leases UI", () => {
 
   it("create form validation does not call the API when required fields are empty", async () => {
     const create = vi.spyOn(apiClient, "createAdminLease");
-    renderWith(<LeaseCreateEditor />);
+    await renderCreateReady();
     fireEvent.click(screen.getByText(thMessages.admin.leases.btnSaveLease));
     await waitFor(() => expect(screen.getByTestId("tab-error-dot-tab-lease-terms")).toBeInTheDocument());
     expect(create).not.toHaveBeenCalled();
@@ -208,7 +216,7 @@ describe("PM-06: Monthly leases UI", () => {
 
   it("keeps user input and does not navigate when create fails", async () => {
     const create = vi.spyOn(apiClient, "createAdminLease").mockRejectedValue(new Error("unit not vacant"));
-    renderWith(<LeaseCreateEditor />);
+    await renderCreateReady();
     const l = thMessages.admin.leases;
     fireEvent.click(screen.getByLabelText(l.fieldUnit, { exact: false }));
     fireEvent.click(await screen.findByText(/สตูดิโอ \(B-201\)/));
@@ -224,5 +232,26 @@ describe("PM-06: Monthly leases UI", () => {
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     expect(screen.getByLabelText(l.fieldEndDate, { exact: false })).toHaveValue("2026-12-31");
     expect(screen.getByLabelText(l.fieldStartDate, { exact: false })).toHaveValue("2026-01-01");
+  });
+
+  it("shows an error state with retry and blocks save when the unit hierarchy fails", async () => {
+    const h = vi.mocked(apiClient.getAdminPropertyHierarchy);
+    h.mockRejectedValue(new Error("down"));
+    renderWith(<LeaseCreateEditor />);
+    expect(await screen.findByText(thMessages.admin.leases.unitsLoadError)).toBeInTheDocument();
+    expect(screen.getByText(thMessages.admin.leases.btnSaveLease).closest("button")).toBeDisabled();
+    h.mockResolvedValue(hierarchy);
+    const retryButtons = screen.getAllByText(thMessages.admin.leases.btnRetry);
+    fireEvent.click(retryButtons[0]);
+    await waitFor(() =>
+      expect(screen.getByText(thMessages.admin.leases.btnSaveLease).closest("button")).not.toBeDisabled()
+    );
+  });
+
+  it("offers only real API unit ids (no sample data)", async () => {
+    await renderCreateReady();
+    fireEvent.click(screen.getByLabelText(thMessages.admin.leases.fieldUnit, { exact: false }));
+    expect(await screen.findByText(/สตูดิโอ \(B-201\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/A-101/)).not.toBeInTheDocument();
   });
 });

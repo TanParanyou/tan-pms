@@ -12,7 +12,9 @@ import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
 import { FormField } from "@/components/forms/form-field";
 import { FormSection } from "@/components/forms/form-section";
 import { PageHeader } from "@/components/layout/page-header";
+import type { PropertyHierarchyResponse, UnitMasterItemDto } from "@/generated/api";
 import { PageLoading } from "@/components/ui/mono-spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { useFormTabErrors } from "@/hooks/use-form-tab-errors";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
@@ -38,6 +40,44 @@ export interface UnitMasterEditorProps {
 }
 
 export function UnitMasterEditor({ unitId }: UnitMasterEditorProps) {
+  const { activeProperty } = useAdminWorkspace();
+  const tProps = useTranslations("admin.properties");
+  const tCommon = useTranslations("common");
+  const isCreate = unitId === "create";
+
+  const hierarchyQuery = usePropertyHierarchy(activeProperty.id);
+  const unitQuery = useUnitMasterDetail(activeProperty.id, unitId);
+
+  if (hierarchyQuery.isError) {
+    return (
+      <EmptyState
+        title={tProps("loadHierarchyError")}
+        actionLabel={tCommon("retry")}
+        onAction={() => void hierarchyQuery.refetch()}
+      />
+    );
+  }
+  if (!hierarchyQuery.data || (!isCreate && unitQuery.isLoading)) {
+    return <PageLoading message={tCommon("loading")} />;
+  }
+
+  // Form defaults are captured on first render, so mount it only once data is ready.
+  return (
+    <UnitMasterEditorForm
+      unitId={unitId}
+      hierarchy={hierarchyQuery.data}
+      unitDetail={unitQuery.data ?? undefined}
+    />
+  );
+}
+
+interface UnitMasterEditorFormProps {
+  unitId: string;
+  hierarchy: PropertyHierarchyResponse;
+  unitDetail?: UnitMasterItemDto;
+}
+
+function UnitMasterEditorForm({ unitId, hierarchy, unitDetail }: UnitMasterEditorFormProps) {
   const router = useRouter();
   const locale = useLocale() as "th" | "en";
   const { activeProperty } = useAdminWorkspace();
@@ -45,16 +85,13 @@ export function UnitMasterEditor({ unitId }: UnitMasterEditorProps) {
   const tCommon = useTranslations("common");
 
   const isCreate = unitId === "create";
-
-  const { data: hierarchy, isLoading: isHierarchyLoading } = usePropertyHierarchy(activeProperty.id);
-  const { data: unitDetail, isLoading: isUnitLoading } = useUnitMasterDetail(activeProperty.id, unitId);
   const upsertMutation = useUpsertUnitMasterMutation(activeProperty.id);
 
   const [activeTab, setActiveTab] = useState("tab-location");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const buildings = hierarchy?.buildings ?? [];
-  const unitTypes = hierarchy?.unitTypes ?? [];
+  const buildings = hierarchy.buildings;
+  const unitTypes = hierarchy.unitTypes;
 
   const form = useForm<UpsertUnitMasterFormValues>({
     resolver: zodResolver(upsertUnitMasterSchema),
@@ -92,10 +129,6 @@ export function UnitMasterEditor({ unitId }: UnitMasterEditorProps) {
     fieldToTabMap,
     errors: form.formState.errors,
   });
-
-  if (!isCreate && (isHierarchyLoading || isUnitLoading)) {
-    return <PageLoading message={tCommon("loading")} />;
-  }
 
   const handleValidSubmit = () => {
     setShowConfirmModal(true);

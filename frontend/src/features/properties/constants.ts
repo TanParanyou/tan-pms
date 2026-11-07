@@ -5,11 +5,6 @@ import type {
   UnitAssetDto,
 } from "./types";
 
-export const DEFAULT_PROPERTY_NAME = {
-  th: "แทน เรสซิเดนซ์ พระราม 9",
-  en: "Tan Residence Rama 9",
-};
-
 export const INITIAL_BUILDINGS: BuildingDetailDto[] = [
   {
     id: "bld-01",
