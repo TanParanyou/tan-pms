@@ -1,8 +1,10 @@
+using TanPms.Application.Billing;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Customers;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
+using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
@@ -69,6 +71,13 @@ builder.Services.AddScoped<GetAdminRegulatoryExportHandler>();
 builder.Services.AddScoped<GetAdminLeasesHandler>();
 builder.Services.AddScoped<GetAdminLeaseHandler>();
 builder.Services.AddScoped<SearchAdminCustomersHandler>();
+builder.Services.AddScoped<GetAdminMeterReadingSheetHandler>();
+builder.Services.AddScoped<SaveAdminMeterReadingsHandler>();
+builder.Services.AddScoped<RunAdminBatchInvoicesHandler>();
+builder.Services.AddScoped<GetAdminInvoicesHandler>();
+builder.Services.AddScoped<IssueAdminInvoicesForPeriodHandler>();
+builder.Services.AddScoped<IssueAdminInvoiceHandler>();
+builder.Services.AddScoped<DeleteAdminInvoiceHandler>();
 builder.Services.AddScoped<CreateAdminLeaseHandler>();
 builder.Services.AddScoped<AddAdminLeaseOccupantHandler>();
 builder.Services.AddScoped<AddAdminLeaseVehicleHandler>();
@@ -562,6 +571,92 @@ adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/settle-m
     HttpContext httpContext) =>
 {
     var result = handler.Handle(new SettleAdminLeaseMoveOutCommand(propertyId, leaseId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/meter-readings", (
+    Guid propertyId,
+    string period,
+    Guid? buildingId,
+    GetAdminMeterReadingSheetHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminMeterReadingSheetQuery(propertyId, period, buildingId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/meter-readings", (
+    Guid propertyId,
+    SaveMeterReadingsRequest request,
+    SaveAdminMeterReadingsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new SaveAdminMeterReadingsCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/billing/batch-invoice-runs", (
+    Guid propertyId,
+    BatchInvoiceRunRequest request,
+    RunAdminBatchInvoicesHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new RunAdminBatchInvoicesCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/billing/batch-invoice-runs/issue", (
+    Guid propertyId,
+    IssueInvoicesRequest request,
+    IssueAdminInvoicesForPeriodHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new IssueAdminInvoicesForPeriodCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/invoices", (
+    Guid propertyId,
+    string? period,
+    string? status,
+    GetAdminInvoicesHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminInvoicesQuery(propertyId, period, status));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/invoices/{invoiceId:guid}/issue", (
+    Guid propertyId,
+    Guid invoiceId,
+    IssueAdminInvoiceHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new IssueAdminInvoiceCommand(propertyId, invoiceId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/invoices/{invoiceId:guid}", (
+    Guid propertyId,
+    Guid invoiceId,
+    DeleteAdminInvoiceHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminInvoiceCommand(propertyId, invoiceId));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

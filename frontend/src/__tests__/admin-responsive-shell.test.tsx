@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AdminWorkspaceProvider } from "@/components/shared/admin-workspace-provider";
 import { LocaleProvider } from "@/components/shared/locale-provider";
 import { AdminNavbar } from "@/components/layout/admin-navbar";
 import { AdminSidebar, type AdminModuleKey } from "@/components/layout/admin-sidebar";
@@ -13,7 +15,11 @@ import thMessages from "@/messages/th.json";
 function renderWithIntl(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="th" messages={thMessages}>
-      <LocaleProvider>{ui}</LocaleProvider>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AdminWorkspaceProvider>
+          <LocaleProvider>{ui}</LocaleProvider>
+        </AdminWorkspaceProvider>
+      </QueryClientProvider>
     </NextIntlClientProvider>
   );
 }

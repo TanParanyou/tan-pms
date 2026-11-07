@@ -10,6 +10,7 @@ public sealed class Invoice : AuditableEntity
     public required Guid CustomerId { get; set; }
     public Guid? StayId { get; set; }
     public Guid? LeaseId { get; set; }
+    public string? BillingPeriodYearMonth { get; set; }
     public List<InvoiceLine> Lines { get; init; } = [];
     public InvoiceStatus Status { get; private set; } = InvoiceStatus.Draft;
     public string? VoidReason { get; private set; }

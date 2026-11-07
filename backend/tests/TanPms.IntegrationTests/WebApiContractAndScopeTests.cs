@@ -3,11 +3,13 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using TanPms.Application.Billing;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Customers;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
+using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
@@ -336,6 +338,52 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         var settleProblem = await settleRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
         Assert.NotNull(settleProblem);
         Assert.Equal(DomainErrorCodes.PermissionDenied, settleProblem.ErrorCode);
+    }
+
+    [Fact]
+    public async Task Meter_Sheet_Bulk_Save_Errors_And_Invoice_List_Should_Respect_Scope_And_Mask_Pii()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        client.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        client.DefaultRequestHeaders.Add(
+            "X-TanPms-Permissions",
+            $"{PermissionKeys.AdminMetersRecord},{PermissionKeys.AdminBillingIssueBatch}");
+        var baseUrl = $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}";
+
+        var sheet = await client.GetFromJsonAsync<MeterReadingSheetResponse>($"{baseUrl}/meter-readings?period=2026-11");
+        Assert.NotNull(sheet);
+        var row = Assert.Single(sheet.Rows, r => r.Unit.Id == PmsSeedConstants.OccupiedMonthlyUnitA201Id);
+        Assert.True(row.IsLocked);
+        Assert.Equal("1-xxxx-xxxxx-12-3", row.Customer.MaskedNationalId);
+
+        // Locked period without override permission: 200 with row errors, nothing saved.
+        var saveRes = await client.PutAsJsonAsync(
+            $"{baseUrl}/meter-readings",
+            new SaveMeterReadingsRequest("2026-11", [new MeterReadingInputDto(PmsSeedConstants.OccupiedMonthlyUnitA201Id, 10m, 20m)]));
+        Assert.Equal(HttpStatusCode.OK, saveRes.StatusCode);
+        var save = await saveRes.Content.ReadFromJsonAsync<SaveMeterReadingsResponse>();
+        Assert.NotNull(save);
+        Assert.False(save.IsSaved);
+        Assert.Contains(save.Rows[0].Errors, e => e.Code == MeterReadingIssueCodes.PeriodLocked);
+
+        var badPeriodRes = await client.GetAsync($"{baseUrl}/meter-readings?period=2026-13");
+        Assert.Equal(HttpStatusCode.BadRequest, badPeriodRes.StatusCode);
+
+        var invoices = await client.GetFromJsonAsync<InvoiceListResponse>($"{baseUrl}/invoices?period=2026-11");
+        Assert.NotNull(invoices);
+        var seeded = Assert.Single(invoices.Items);
+        Assert.Equal("BKK01-INV-2611-0001", seeded.DocumentNumber);
+        Assert.Equal("A-201", seeded.Unit!.UnitNumber);
+        Assert.Equal("1-xxxx-xxxxx-12-3", seeded.Customer.MaskedNationalId);
+
+        var deleteIssuedRes = await client.DeleteAsync($"{baseUrl}/invoices/{seeded.Id}");
+        Assert.Equal(HttpStatusCode.Conflict, deleteIssuedRes.StatusCode);
+        var deleteProblem = await deleteIssuedRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.Equal(DomainErrorCodes.InvoiceImmutableStatus, deleteProblem!.ErrorCode);
+
+        var deniedRes = await client.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/invoices");
+        Assert.Equal(HttpStatusCode.Forbidden, deniedRes.StatusCode);
     }
 
     [Fact]

@@ -200,7 +200,8 @@
       "rates": "Rates & Tariffs",
       "reservations": "Reservations",
       "stays": "Front Desk & Stays",
-      "users": "Users & RBAC"
+      "users": "Users & RBAC",
+      "billing": "Batch Billing"
     },
     "rbac": {
       "title": "User Management & Multi-Property RBAC",
@@ -307,7 +308,42 @@
       "statusNormal": "Normal",
       "statusError": "Error",
       "savedSuccess": "All meter readings saved successfully",
-      "invoiceRunSuccess": "Batch invoice run completed successfully"
+      "invoiceRunSuccess": "Batch invoice run completed successfully",
+      "tenant": "Tenant",
+      "charge": "Charge",
+      "fieldPeriod": "Billing Period",
+      "fieldBuilding": "Building",
+      "allBuildings": "All buildings",
+      "placeholderReading": "Reading",
+      "discardChanges": "Discard changes",
+      "kpiRows": "Leased Units",
+      "kpiFilled": "Filled",
+      "kpiErrors": "Errors",
+      "kpiWarnings": "Warnings",
+      "fieldOverrideReason": "Override Reason (locked rows)",
+      "placeholderOverrideReason": "Enter reason for editing locked readings",
+      "errorOverrideReasonRequired": "An override reason is required to edit locked rows.",
+      "errorIncompleteRows": "Every changed row needs valid water and electric readings.",
+      "saveFailedTitle": "Readings not saved",
+      "saveFailedSummary": "{errors} error(s) and {warnings} warning(s). Nothing was saved; fix the flagged rows and try again.",
+      "savedWithWarnings": "Saved with {warnings} usage warning(s). Please review the flagged rows.",
+      "rowSaved": "Saved",
+      "lockedHint": "Locked period: override permission required",
+      "loadError": "Unable to load the meter reading sheet",
+      "emptyTitle": "No leased units for this period",
+      "emptyDescription": "Choose another period or building.",
+      "noPermission": "You do not have permission to record meter readings.",
+      "issues": {
+        "rolloverUnconfirmed": "Rollover not confirmed",
+        "negativeReading": "Negative reading",
+        "noActiveLease": "No active lease",
+        "duplicateUnit": "Duplicate unit",
+        "tariffMissing": "Utility tariff missing",
+        "periodLocked": "Period locked",
+        "overrideReasonRequired": "Override reason required",
+        "usageAnomaly": "Unusual usage",
+        "unknownIssue": "Unknown issue"
+      }
     },
     "checkInModal": {
       "title": "Quick Walk-in / New Lease",
@@ -833,6 +869,49 @@
       "confirmSettleMessage": "This finalizes the move-out, releases the unit and refunds the deposit. This cannot be undone.",
       "customerSearchError": "Unable to search customers.",
       "unitsLoadError": "Unable to load units."
+    },
+    "billing": {
+      "title": "Batch Monthly Billing",
+      "description": "Run batch invoices from meter readings, then issue or delete drafts (PM-07).",
+      "fieldPeriod": "Billing Period",
+      "btnRunBatch": "Run batch invoices",
+      "btnIssueAll": "Issue all drafts of period",
+      "btnIssue": "Issue",
+      "btnDelete": "Delete draft",
+      "runResultTitle": "Batch run: {created} created, {skipped} skipped",
+      "createdHeading": "Created invoices",
+      "skippedHeading": "Skipped leases",
+      "skipReasons": {
+        "invoiceExists": "Invoice already exists",
+        "missingMeterReadings": "Missing meter readings",
+        "unknown": "Unknown reason"
+      },
+      "colDocument": "Invoice No.",
+      "colTenant": "Tenant",
+      "colUnit": "Unit",
+      "colStatus": "Status",
+      "colTotal": "Total",
+      "allStatuses": "All statuses",
+      "status": {
+        "Draft": "Draft",
+        "Issued": "Issued",
+        "PartiallyPaid": "Partially Paid",
+        "Paid": "Paid",
+        "Overdue": "Overdue",
+        "Voided": "Voided"
+      },
+      "loadError": "Unable to load invoices",
+      "emptyTitle": "No invoices found",
+      "emptyDescription": "Run a batch for this period or change the filter.",
+      "noPermission": "You do not have permission to manage billing.",
+      "toastRunDone": "Batch invoice run completed",
+      "toastIssued": "Invoice issued",
+      "toastIssuedAll": "{count} invoice(s) issued",
+      "toastDeleted": "Draft invoice deleted",
+      "confirmIssueAllTitle": "Issue all drafts",
+      "confirmIssueAllMessage": "Issue {count} draft invoice(s) of period {period} and notify customers? Issued invoices cannot be deleted.",
+      "confirmDeleteTitle": "Delete draft invoice",
+      "confirmDeleteMessage": "Delete draft invoice {document}? This cannot be undone."
     }
   },
   "client": {

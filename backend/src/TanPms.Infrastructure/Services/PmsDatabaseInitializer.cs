@@ -355,7 +355,8 @@ public static class PmsDatabaseInitializer
             PropertyId = bkk.Id,
             DocumentNumber = "BKK01-INV-2611-0001",
             CustomerId = customer1.Id,
-            LeaseId = lease1.Id
+            LeaseId = lease1.Id,
+            BillingPeriodYearMonth = "2026-11"
         };
         invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)");
         invoice1.AddLine("ค่าเช่าเฟอร์นิเจอร์", 1000.00m, TaxMode.VatExcluded, "Furniture Rental");

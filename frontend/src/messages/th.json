@@ -200,7 +200,8 @@
       "properties": "ห้องพักและทรัพย์สิน",
       "rates": "แผนราคาและภาษี",
       "reservations": "การจองและห้องว่าง",
-      "stays": "งานต้อนรับและเช็คอิน"
+      "stays": "งานต้อนรับและเช็คอิน",
+      "billing": "วางบิลรายเดือน"
     },
     "rbac": {
       "title": "การจัดการผู้ใช้และสิทธิ์การเข้าถึง (Admin RBAC)",
@@ -307,7 +308,42 @@
       "statusNormal": "ปกติ",
       "statusError": "ผิดพลาด",
       "savedSuccess": "บันทึกเลขมิเตอร์ทั้งหมดเรียบร้อยแล้ว",
-      "invoiceRunSuccess": "ประมวลผลออกใบแจ้งหนี้ยกตึกเรียบร้อย"
+      "invoiceRunSuccess": "ประมวลผลออกใบแจ้งหนี้ยกตึกเรียบร้อย",
+      "tenant": "ผู้เช่า",
+      "charge": "ค่าใช้จ่าย",
+      "fieldPeriod": "รอบบิล",
+      "fieldBuilding": "อาคาร",
+      "allBuildings": "ทุกอาคาร",
+      "placeholderReading": "เลขมิเตอร์",
+      "discardChanges": "ยกเลิกการแก้ไข",
+      "kpiRows": "ห้องที่มีสัญญา",
+      "kpiFilled": "กรอกแล้ว",
+      "kpiErrors": "ข้อผิดพลาด",
+      "kpiWarnings": "คำเตือน",
+      "fieldOverrideReason": "เหตุผลการแก้ไข (แถวที่ล็อก)",
+      "placeholderOverrideReason": "ระบุเหตุผลในการแก้ไขเลขมิเตอร์ที่ล็อก",
+      "errorOverrideReasonRequired": "ต้องระบุเหตุผลเพื่อแก้ไขแถวที่ล็อก",
+      "errorIncompleteRows": "ทุกแถวที่แก้ไขต้องมีเลขมิเตอร์น้ำและไฟที่ถูกต้อง",
+      "saveFailedTitle": "ยังไม่ได้บันทึกเลขมิเตอร์",
+      "saveFailedSummary": "พบข้อผิดพลาด {errors} รายการ และคำเตือน {warnings} รายการ ยังไม่มีการบันทึก กรุณาแก้แถวที่ถูกระบุแล้วลองใหม่",
+      "savedWithWarnings": "บันทึกแล้วโดยมีคำเตือนการใช้งานผิดปกติ {warnings} รายการ กรุณาตรวจสอบแถวที่ถูกระบุ",
+      "rowSaved": "บันทึกแล้ว",
+      "lockedHint": "รอบบิลถูกล็อก ต้องมีสิทธิ์แก้ไขทับ",
+      "loadError": "ไม่สามารถโหลดใบจดมิเตอร์ได้",
+      "emptyTitle": "ไม่มีห้องที่มีสัญญาในรอบนี้",
+      "emptyDescription": "ลองเลือกรอบบิลหรืออาคารอื่น",
+      "noPermission": "คุณไม่มีสิทธิ์บันทึกเลขมิเตอร์",
+      "issues": {
+        "rolloverUnconfirmed": "ยังไม่ยืนยันมิเตอร์หมุนรอบ",
+        "negativeReading": "เลขมิเตอร์ติดลบ",
+        "noActiveLease": "ไม่มีสัญญาที่ใช้งานอยู่",
+        "duplicateUnit": "ห้องซ้ำ",
+        "tariffMissing": "ไม่พบอัตราค่าสาธารณูปโภค",
+        "periodLocked": "รอบบิลถูกล็อก",
+        "overrideReasonRequired": "ต้องระบุเหตุผลการแก้ไขทับ",
+        "usageAnomaly": "การใช้งานผิดปกติ",
+        "unknownIssue": "ปัญหาไม่ทราบสาเหตุ"
+      }
     },
     "checkInModal": {
       "title": "เปิดห้องพัก / ทำสัญญาเช่าใหม่",
@@ -833,6 +869,49 @@
       "confirmSettleMessage": "การดำเนินการนี้จะปิดสัญญา ปล่อยห้อง และคืนเงินประกัน และไม่สามารถย้อนกลับได้",
       "customerSearchError": "ไม่สามารถค้นหาลูกค้าได้",
       "unitsLoadError": "ไม่สามารถโหลดรายการห้องได้"
+    },
+    "billing": {
+      "title": "วางบิลรายเดือนแบบกลุ่ม",
+      "description": "สร้างใบแจ้งหนี้แบบกลุ่มจากเลขมิเตอร์ แล้วออกใบแจ้งหนี้หรือลบฉบับร่าง (PM-07)",
+      "fieldPeriod": "รอบบิล",
+      "btnRunBatch": "สร้างใบแจ้งหนี้แบบกลุ่ม",
+      "btnIssueAll": "ออกใบแจ้งหนี้ฉบับร่างทั้งรอบ",
+      "btnIssue": "ออกใบแจ้งหนี้",
+      "btnDelete": "ลบฉบับร่าง",
+      "runResultTitle": "ผลการสร้างแบบกลุ่ม: สร้างแล้ว {created} ข้าม {skipped}",
+      "createdHeading": "ใบแจ้งหนี้ที่สร้าง",
+      "skippedHeading": "สัญญาที่ถูกข้าม",
+      "skipReasons": {
+        "invoiceExists": "มีใบแจ้งหนี้อยู่แล้ว",
+        "missingMeterReadings": "ยังไม่มีเลขมิเตอร์",
+        "unknown": "ไม่ทราบสาเหตุ"
+      },
+      "colDocument": "เลขที่ใบแจ้งหนี้",
+      "colTenant": "ผู้เช่า",
+      "colUnit": "ห้อง",
+      "colStatus": "สถานะ",
+      "colTotal": "ยอดรวม",
+      "allStatuses": "ทุกสถานะ",
+      "status": {
+        "Draft": "ฉบับร่าง",
+        "Issued": "ออกแล้ว",
+        "PartiallyPaid": "ชำระบางส่วน",
+        "Paid": "ชำระแล้ว",
+        "Overdue": "เกินกำหนด",
+        "Voided": "ยกเลิก"
+      },
+      "loadError": "ไม่สามารถโหลดใบแจ้งหนี้ได้",
+      "emptyTitle": "ไม่พบใบแจ้งหนี้",
+      "emptyDescription": "สร้างแบบกลุ่มสำหรับรอบนี้หรือเปลี่ยนตัวกรอง",
+      "noPermission": "คุณไม่มีสิทธิ์จัดการการวางบิล",
+      "toastRunDone": "สร้างใบแจ้งหนี้แบบกลุ่มเสร็จแล้ว",
+      "toastIssued": "ออกใบแจ้งหนี้แล้ว",
+      "toastIssuedAll": "ออกใบแจ้งหนี้แล้ว {count} ฉบับ",
+      "toastDeleted": "ลบใบแจ้งหนี้ฉบับร่างแล้ว",
+      "confirmIssueAllTitle": "ออกใบแจ้งหนี้ฉบับร่างทั้งหมด",
+      "confirmIssueAllMessage": "ออกใบแจ้งหนี้ฉบับร่าง {count} ฉบับของรอบ {period} และแจ้งลูกค้าใช่หรือไม่ ใบแจ้งหนี้ที่ออกแล้วไม่สามารถลบได้",
+      "confirmDeleteTitle": "ลบใบแจ้งหนี้ฉบับร่าง",
+      "confirmDeleteMessage": "ลบใบแจ้งหนี้ฉบับร่าง {document} ใช่หรือไม่ การดำเนินการนี้ไม่สามารถย้อนกลับได้"
     }
   },
   "client": {

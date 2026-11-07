@@ -53,6 +53,17 @@ import type {
   LeaseStatusType,
   CustomerListResponse,
 } from "@/features/leases/types";
+import type {
+  MeterReadingSheetResponse,
+  SaveMeterReadingsRequest,
+  SaveMeterReadingsResponse,
+  BatchInvoiceRunRequest,
+  BatchInvoiceRunResponse,
+  InvoiceListResponse,
+  InvoiceIssueResponse,
+  InvoiceItemDto,
+  IssueInvoicesRequest,
+} from "@/features/billing/types";
 import { ApiError } from "./api-error";
 
 export interface ApiClientConfig {
@@ -501,6 +512,72 @@ export class ApiClient {
       method: "POST",
       headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
+    });
+  }
+
+  // --- 6c. Bulk Meter Readings & Batch Billing APIs (PM-07) ---
+  async getAdminMeterReadingSheet(
+    propertyId: string,
+    params: { period: string; buildingId?: string }
+  ): Promise<MeterReadingSheetResponse> {
+    const qs = new URLSearchParams({ period: params.period });
+    if (params.buildingId) qs.set("buildingId", params.buildingId);
+    return this.request<MeterReadingSheetResponse>(
+      `/api/v1/admin/properties/${propertyId}/meter-readings?${qs.toString()}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
+  }
+
+  async saveAdminMeterReadings(
+    propertyId: string,
+    req: SaveMeterReadingsRequest
+  ): Promise<SaveMeterReadingsResponse> {
+    return this.request<SaveMeterReadingsResponse>(`/api/v1/admin/properties/${propertyId}/meter-readings`, {
+      method: "PUT",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: JSON.stringify(req),
+    });
+  }
+
+  async runAdminBatchInvoices(propertyId: string, req: BatchInvoiceRunRequest): Promise<BatchInvoiceRunResponse> {
+    return this.request<BatchInvoiceRunResponse>(
+      `/api/v1/admin/properties/${propertyId}/billing/batch-invoice-runs`,
+      { method: "POST", headers: { "X-TanPms-Scope": "AdminScope" }, body: JSON.stringify(req) }
+    );
+  }
+
+  async issueAdminInvoicesForPeriod(propertyId: string, req: IssueInvoicesRequest): Promise<InvoiceIssueResponse> {
+    return this.request<InvoiceIssueResponse>(
+      `/api/v1/admin/properties/${propertyId}/billing/batch-invoice-runs/issue`,
+      { method: "POST", headers: { "X-TanPms-Scope": "AdminScope" }, body: JSON.stringify(req) }
+    );
+  }
+
+  async getAdminInvoices(
+    propertyId: string,
+    params: { period?: string; status?: string } = {}
+  ): Promise<InvoiceListResponse> {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.status) qs.set("status", params.status);
+    const query = qs.toString();
+    return this.request<InvoiceListResponse>(
+      `/api/v1/admin/properties/${propertyId}/invoices${query ? `?${query}` : ""}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
+  }
+
+  async issueAdminInvoice(propertyId: string, invoiceId: string): Promise<InvoiceItemDto> {
+    return this.request<InvoiceItemDto>(`/api/v1/admin/properties/${propertyId}/invoices/${invoiceId}/issue`, {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+    });
+  }
+
+  async deleteAdminInvoice(propertyId: string, invoiceId: string): Promise<InvoiceItemDto> {
+    return this.request<InvoiceItemDto>(`/api/v1/admin/properties/${propertyId}/invoices/${invoiceId}`, {
+      method: "DELETE",
+      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 

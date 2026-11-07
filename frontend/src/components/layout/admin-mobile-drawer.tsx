@@ -24,6 +24,7 @@ import {
   Percent,
   FileText,
   Receipt,
+  ReceiptText,
   Users,
   Wallet,
   Zap,
@@ -71,6 +72,7 @@ const DRAWER_GROUPS: DrawerMenuGroup[] = [
   {
     groupKey: "groupFinance",
     items: [
+      { key: "billing", href: "/admin/billing", icon: ReceiptText, labelKey: "billing" },
       { key: "cashier", href: "/admin/cashier", icon: Wallet, labelKey: "cashier" },
     ],
   },

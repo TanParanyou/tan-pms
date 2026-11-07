@@ -166,6 +166,22 @@ public sealed class TanPmsDbContext : DbContext
                 .WithOne()
                 .HasForeignKey("InvoiceId")
                 .OnDelete(DeleteBehavior.Cascade);
+
+            b.Property(x => x.BillingPeriodYearMonth).HasMaxLength(7);
+
+            // One live (non-deleted, non-voided) invoice per lease per billing period keeps batch runs idempotent.
+            b.HasIndex(x => new { x.LeaseId, x.BillingPeriodYearMonth })
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false AND \"Status\" <> 6 AND \"LeaseId\" IS NOT NULL AND \"BillingPeriodYearMonth\" IS NOT NULL");
+        });
+
+        modelBuilder.Entity<MeterReading>(b =>
+        {
+            b.Property(x => x.BillingPeriodYearMonth).HasMaxLength(7);
+
+            b.HasIndex(x => new { x.UnitId, x.UtilityType, x.BillingPeriodYearMonth })
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<InvoiceLine>(b =>

@@ -29,6 +29,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BillingPeriodYearMonth")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -74,6 +78,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LeaseId", "BillingPeriodYearMonth")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false AND \"Status\" <> 6 AND \"LeaseId\" IS NOT NULL AND \"BillingPeriodYearMonth\" IS NOT NULL");
 
                     b.ToTable("Invoices");
                 });
@@ -771,7 +779,8 @@ namespace TanPms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("BillingPeriodYearMonth")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
 
                     b.Property<decimal>("ChargeAmount")
                         .HasPrecision(18, 2)
@@ -827,6 +836,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UnitId", "UtilityType", "BillingPeriodYearMonth")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.ToTable("MeterReadings");
                 });

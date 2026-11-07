@@ -1903,6 +1903,452 @@
           }
         }
       }
+    },
+    "/api/v1/admin/properties/{propertyId}/meter-readings": {
+      "get": {
+        "operationId": "getAdminMeterReadingSheet",
+        "tags": [
+          "AdminMeter"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "buildingId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Meter reading sheet per leased unit with previous readings and lock state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeterReadingSheetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveAdminMeterReadings",
+        "tags": [
+          "AdminMeter"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveMeterReadingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Atomic bulk save result with per-row errors and warnings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveMeterReadingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/billing/batch-invoice-runs": {
+      "post": {
+        "operationId": "runAdminBatchInvoices",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchInvoiceRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Draft invoices created and skipped leases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchInvoiceRunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/billing/batch-invoice-runs/issue": {
+      "post": {
+        "operationId": "issueAdminInvoicesForPeriod",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueInvoicesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All draft invoices of the period issued and clients notified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceIssueResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/invoices": {
+      "get": {
+        "operationId": "getAdminInvoices",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoices filtered by period and status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/invoices/{invoiceId}/issue": {
+      "post": {
+        "operationId": "issueAdminInvoice",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice issued and client notified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/invoices/{invoiceId}": {
+      "delete": {
+        "operationId": "deleteAdminInvoice",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft invoice deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invoice is not a Draft",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3255,6 +3701,490 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CustomerRefDto"
+            }
+          }
+        }
+      },
+      "UtilityReadingResultDto": {
+        "type": "object",
+        "required": [
+          "previousReading",
+          "currentReading",
+          "usageUnits",
+          "chargeAmount",
+          "usedRollover"
+        ],
+        "properties": {
+          "previousReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "currentReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "usageUnits": {
+            "type": "number",
+            "format": "double"
+          },
+          "chargeAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "usedRollover": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MeterReadingIssueDto": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "utilityType": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "MeterReadingInputDto": {
+        "type": "object",
+        "required": [
+          "unitId",
+          "currentWaterReading",
+          "currentElectricReading"
+        ],
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currentWaterReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "currentElectricReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "waterRolloverConfirmed": {
+            "type": "boolean"
+          },
+          "electricRolloverConfirmed": {
+            "type": "boolean"
+          },
+          "waterPhotoFileKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "electricPhotoFileKey": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "MeterReadingRowResultDto": {
+        "type": "object",
+        "required": [
+          "unitId",
+          "isLockedOverride",
+          "errors",
+          "warnings"
+        ],
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "isLockedOverride": {
+            "type": "boolean"
+          },
+          "water": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtilityReadingResultDto"
+              }
+            ],
+            "nullable": true
+          },
+          "electric": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtilityReadingResultDto"
+              }
+            ],
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeterReadingIssueDto"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeterReadingIssueDto"
+            }
+          }
+        }
+      },
+      "SaveMeterReadingsRequest": {
+        "type": "object",
+        "required": [
+          "period",
+          "items"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeterReadingInputDto"
+            }
+          },
+          "overrideReason": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SaveMeterReadingsResponse": {
+        "type": "object",
+        "required": [
+          "period",
+          "isSaved",
+          "rows"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "isSaved": {
+            "type": "boolean"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeterReadingRowResultDto"
+            }
+          }
+        }
+      },
+      "MeterReadingSheetResponse": {
+        "type": "object",
+        "required": [
+          "period",
+          "rows"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeterReadingSheetRowDto"
+            }
+          }
+        }
+      },
+      "MeterReadingSheetRowDto": {
+        "type": "object",
+        "required": [
+          "unit",
+          "leaseId",
+          "leaseDocumentNumber",
+          "customer",
+          "occupantCount",
+          "isLocked",
+          "water",
+          "electric"
+        ],
+        "properties": {
+          "unit": {
+            "$ref": "#/components/schemas/UnitRefDto"
+          },
+          "leaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaseDocumentNumber": {
+            "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "occupantCount": {
+            "type": "integer"
+          },
+          "isLocked": {
+            "type": "boolean"
+          },
+          "water": {
+            "$ref": "#/components/schemas/UtilityReadingDto"
+          },
+          "electric": {
+            "$ref": "#/components/schemas/UtilityReadingDto"
+          }
+        }
+      },
+      "UtilityReadingDto": {
+        "type": "object",
+        "required": [
+          "previousReading",
+          "isRolloverConfirmed"
+        ],
+        "properties": {
+          "meterMaxDigits": {
+            "type": "integer",
+            "nullable": true
+          },
+          "previousReading": {
+            "type": "number",
+            "format": "double"
+          },
+          "previousUsageUnits": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "currentReading": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "usageUnits": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "chargeAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "isRolloverConfirmed": {
+            "type": "boolean"
+          },
+          "photoFileKey": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "InvoiceIssueResponse": {
+        "type": "object",
+        "required": [
+          "issued"
+        ],
+        "properties": {
+          "issued": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceItemDto"
+            }
+          }
+        }
+      },
+      "BatchInvoiceSkipDto": {
+        "type": "object",
+        "required": [
+          "leaseId",
+          "leaseDocumentNumber",
+          "unit",
+          "reasonCode"
+        ],
+        "properties": {
+          "leaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaseDocumentNumber": {
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/UnitRefDto"
+          },
+          "reasonCode": {
+            "type": "string"
+          }
+        }
+      },
+      "IssueInvoicesRequest": {
+        "type": "object",
+        "required": [
+          "period"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          }
+        }
+      },
+      "InvoiceLineDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "taxMode",
+          "lineAmount",
+          "subTotal",
+          "vatAmount",
+          "netAmount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "$ref": "#/components/schemas/LocalizedTextDto"
+          },
+          "taxMode": {
+            "type": "string"
+          },
+          "lineAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "subTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "vatAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "netAmount": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "InvoiceItemDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentNumber",
+          "status",
+          "customer",
+          "lines",
+          "subTotal",
+          "totalVatAmount",
+          "totalAmount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "billingPeriodYearMonth": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "unit": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnitRefDto"
+              }
+            ],
+            "nullable": true
+          },
+          "leaseDocumentNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLineDto"
+            }
+          },
+          "subTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalVatAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalAmount": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "InvoiceListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceItemDto"
+            }
+          }
+        }
+      },
+      "BatchInvoiceRunRequest": {
+        "type": "object",
+        "required": [
+          "period"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "buildingId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "BatchInvoiceRunResponse": {
+        "type": "object",
+        "required": [
+          "period",
+          "created",
+          "skipped"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "created": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceItemDto"
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchInvoiceSkipDto"
             }
           }
         }

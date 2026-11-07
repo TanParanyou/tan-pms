@@ -101,7 +101,9 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                     PermissionKeys.AdminStayCheckOut,
                     PermissionKeys.AdminRegulatoryExport,
                     PermissionKeys.AdminLeasesManage,
-                    PermissionKeys.AdminLeasesSettleMoveOut
+                    PermissionKeys.AdminLeasesSettleMoveOut,
+                    PermissionKeys.AdminMetersRecord,
+                    PermissionKeys.AdminBillingIssueBatch
                 };
             }
 

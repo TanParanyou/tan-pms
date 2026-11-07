@@ -1,0 +1,339 @@
+using TanPms.Application.Billing;
+using TanPms.Application.Common.Results;
+using TanPms.Application.Meters;
+using TanPms.Domain.Billing;
+using TanPms.Domain.Common;
+using TanPms.Domain.DocumentNumbering;
+using TanPms.Domain.Meters;
+using TanPms.Domain.Notifications;
+using TanPms.Domain.Rates;
+
+namespace TanPms.Infrastructure.Services;
+
+public sealed partial class InMemoryOperationalService
+{
+    private readonly List<MeterReading> _meterReadings = [];
+
+    public Result<MeterReadingSheetResponse> GetAdminMeterReadingSheet(Guid propertyId, string period, Guid? buildingId)
+    {
+        if (BillingPeriod.Parse(period, out var start, out var end) is { } periodError)
+        {
+            return Result<MeterReadingSheetResponse>.Failure(periodError);
+        }
+
+        var normalizedPeriod = BillingPeriod.Format(start);
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<MeterReadingSheetResponse>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+            }
+
+            var water = FindTariffLocked(propertyId, UtilityType.Water);
+            var electric = FindTariffLocked(propertyId, UtilityType.Electric);
+            var rows = BuildLeaseMeterContextsLocked(propertyId, normalizedPeriod, start, end, buildingId)
+                .Select(c => MeterBillingComposer.BuildSheetRow(c, normalizedPeriod, water, electric))
+                .ToList();
+            return Result<MeterReadingSheetResponse>.Success(new MeterReadingSheetResponse(normalizedPeriod, rows));
+        }
+    }
+
+    public Result<SaveMeterReadingsResponse> SaveAdminMeterReadings(
+        Guid propertyId,
+        SaveMeterReadingsRequest request,
+        bool callerCanOverrideLocked)
+    {
+        if (BillingPeriod.Parse(request.Period, out var start, out var end) is { } periodError)
+        {
+            return Result<SaveMeterReadingsResponse>.Failure(periodError);
+        }
+
+        if (request.Items is not { Count: > 0 })
+        {
+            return Result<SaveMeterReadingsResponse>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "At least one meter reading item is required."));
+        }
+
+        var period = BillingPeriod.Format(start);
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<SaveMeterReadingsResponse>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+            }
+
+            var contexts = BuildLeaseMeterContextsLocked(propertyId, period, start, end, buildingId: null)
+                .ToDictionary(c => c.UnitRef.Id);
+            var rows = MeterBillingComposer.EvaluateSave(
+                request,
+                period,
+                contexts,
+                FindTariffLocked(propertyId, UtilityType.Water),
+                FindTariffLocked(propertyId, UtilityType.Electric),
+                callerCanOverrideLocked);
+
+            var isSaved = rows.All(r => r.Errors.Count == 0);
+            if (isSaved)
+            {
+                foreach (var (row, item) in rows.Zip(request.Items))
+                {
+                    UpsertReadingLocked(propertyId, row.UnitId, UtilityType.Water, period, row.Water!, item.WaterRolloverConfirmed, item.WaterPhotoFileKey);
+                    UpsertReadingLocked(propertyId, row.UnitId, UtilityType.Electric, period, row.Electric!, item.ElectricRolloverConfirmed, item.ElectricPhotoFileKey);
+                }
+            }
+
+            return Result<SaveMeterReadingsResponse>.Success(new SaveMeterReadingsResponse(period, isSaved, rows));
+        }
+    }
+
+    public Result<BatchInvoiceRunResponse> RunAdminBatchInvoices(
+        Guid propertyId,
+        BatchInvoiceRunRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (BillingPeriod.Parse(request.Period, out var start, out var end) is { } periodError)
+        {
+            return Result<BatchInvoiceRunResponse>.Failure(periodError);
+        }
+
+        var period = BillingPeriod.Format(start);
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(propertyId, out var property))
+            {
+                return Result<BatchInvoiceRunResponse>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+            }
+
+            var profiles = _taxProfiles.Values.Where(p => p.PropertyId == propertyId).ToList();
+            var created = new List<Invoice>();
+            var skipped = new List<BatchInvoiceSkipDto>();
+            foreach (var context in BuildLeaseMeterContextsLocked(propertyId, period, start, end, request.BuildingId))
+            {
+                if (_invoices.Any(i => i.LeaseId == context.Lease.Id && i.BillingPeriodYearMonth == period && i.Status != InvoiceStatus.Voided))
+                {
+                    skipped.Add(new BatchInvoiceSkipDto(context.Lease.Id, context.Lease.DocumentNumber, context.UnitRef, BatchInvoiceSkipReasons.InvoiceAlreadyExists));
+                    continue;
+                }
+
+                var water = context.UnitReadings.FirstOrDefault(r => r.UtilityType == UtilityType.Water && r.BillingPeriodYearMonth == period);
+                var electric = context.UnitReadings.FirstOrDefault(r => r.UtilityType == UtilityType.Electric && r.BillingPeriodYearMonth == period);
+                if (water is null || electric is null)
+                {
+                    skipped.Add(new BatchInvoiceSkipDto(context.Lease.Id, context.Lease.DocumentNumber, context.UnitRef, BatchInvoiceSkipReasons.MissingMeterReadings));
+                    continue;
+                }
+
+                var invoice = MeterBillingComposer.BuildDraftInvoice(
+                    context,
+                    period,
+                    NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.INV, clockUtc).GetAwaiter().GetResult(),
+                    water,
+                    electric,
+                    category => MeterBillingComposer.ResolveTaxMode(profiles, category));
+                _invoices.Add(invoice);
+                created.Add(invoice);
+            }
+
+            return Result<BatchInvoiceRunResponse>.Success(new BatchInvoiceRunResponse(
+                period,
+                created.Select(i => MapInvoiceLocked(i, unmaskPii: false)).ToList(),
+                skipped));
+        }
+    }
+
+    public Result<InvoiceListResponse> GetAdminInvoices(
+        Guid propertyId,
+        string? period,
+        string? status,
+        bool unmaskPii = false)
+    {
+        string? periodFilter = null;
+        if (!string.IsNullOrWhiteSpace(period))
+        {
+            if (BillingPeriod.Parse(period, out var start, out _) is { } periodError)
+            {
+                return Result<InvoiceListResponse>.Failure(periodError);
+            }
+
+            periodFilter = BillingPeriod.Format(start);
+        }
+
+        InvoiceStatus? statusFilter = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<InvoiceStatus>(status, ignoreCase: true, out var parsed))
+            {
+                return Result<InvoiceListResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid InvoiceStatus '{status}'."));
+            }
+
+            statusFilter = parsed;
+        }
+
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<InvoiceListResponse>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+            }
+
+            var items = _invoices
+                .Where(i => i.PropertyId == propertyId
+                            && (periodFilter is null || i.BillingPeriodYearMonth == periodFilter)
+                            && (!statusFilter.HasValue || i.Status == statusFilter.Value))
+                .OrderByDescending(i => i.DocumentNumber, StringComparer.Ordinal)
+                .Select(i => MapInvoiceLocked(i, unmaskPii))
+                .ToList();
+            return Result<InvoiceListResponse>.Success(new InvoiceListResponse(items));
+        }
+    }
+
+    public Result<InvoiceIssueResponse> IssueAdminInvoicesForPeriod(Guid propertyId, IssueInvoicesRequest request)
+    {
+        if (BillingPeriod.Parse(request.Period, out var start, out _) is { } periodError)
+        {
+            return Result<InvoiceIssueResponse>.Failure(periodError);
+        }
+
+        var period = BillingPeriod.Format(start);
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<InvoiceIssueResponse>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+            }
+
+            var drafts = _invoices
+                .Where(i => i.PropertyId == propertyId && i.BillingPeriodYearMonth == period && i.Status == InvoiceStatus.Draft)
+                .ToList();
+            foreach (var invoice in drafts)
+            {
+                IssueLocked(invoice);
+            }
+
+            return Result<InvoiceIssueResponse>.Success(new InvoiceIssueResponse(
+                drafts.Select(i => MapInvoiceLocked(i, unmaskPii: false)).ToList()));
+        }
+    }
+
+    public Result<InvoiceItemDto> IssueAdminInvoice(Guid propertyId, Guid invoiceId)
+    {
+        lock (_syncRoot)
+        {
+            var invoice = _invoices.FirstOrDefault(i => i.Id == invoiceId && i.PropertyId == propertyId);
+            if (invoice is null)
+            {
+                return Result<InvoiceItemDto>.Failure(MeterBillingComposer.InvoiceNotFound(propertyId, invoiceId));
+            }
+
+            try
+            {
+                IssueLocked(invoice);
+                return Result<InvoiceItemDto>.Success(MapInvoiceLocked(invoice, unmaskPii: false));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<InvoiceItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<InvoiceItemDto> DeleteAdminInvoice(Guid propertyId, Guid invoiceId)
+    {
+        lock (_syncRoot)
+        {
+            var invoice = _invoices.FirstOrDefault(i => i.Id == invoiceId && i.PropertyId == propertyId);
+            if (invoice is null)
+            {
+                return Result<InvoiceItemDto>.Failure(MeterBillingComposer.InvoiceNotFound(propertyId, invoiceId));
+            }
+
+            try
+            {
+                invoice.EnsureCanDelete();
+                var dto = MapInvoiceLocked(invoice, unmaskPii: false);
+                _invoices.Remove(invoice);
+                return Result<InvoiceItemDto>.Success(dto);
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<InvoiceItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    private void IssueLocked(Invoice invoice)
+    {
+        invoice.Issue();
+        _notifications.Add(new NotificationMessage
+        {
+            PropertyId = invoice.PropertyId,
+            CustomerId = invoice.CustomerId,
+            Channel = NotificationChannel.InApp,
+            TemplateKey = InvoiceIssuedNotification.TemplateKey,
+            Title = InvoiceIssuedNotification.Title(invoice.DocumentNumber),
+            Body = InvoiceIssuedNotification.Body(invoice.DocumentNumber, invoice.BillingPeriodYearMonth, invoice.TotalAmount),
+            SentAtUtc = DateTimeOffset.UtcNow
+        });
+    }
+
+    private List<LeaseMeterContext> BuildLeaseMeterContextsLocked(
+        Guid propertyId,
+        string period,
+        DateOnly start,
+        DateOnly end,
+        Guid? buildingId)
+    {
+        return _leases
+            .Where(l => l.PropertyId == propertyId && MeterReadingRules.IsLeaseBillableInPeriod(l, start, end))
+            .Select(l => (Lease: l, Unit: _units[l.UnitId]))
+            .Where(x => !buildingId.HasValue || x.Unit.BuildingId == buildingId.Value)
+            .OrderBy(x => _buildings.TryGetValue(x.Unit.BuildingId, out var b) ? b.Code : string.Empty, StringComparer.Ordinal)
+            .ThenBy(x => _floors.TryGetValue(x.Unit.FloorId, out var f) ? f.FloorNumber : 0)
+            .ThenBy(x => x.Unit.UnitNumber, StringComparer.Ordinal)
+            .Select(x => new LeaseMeterContext(
+                x.Lease,
+                _unitRefs[x.Unit.Id],
+                _customers[x.Lease.CustomerId],
+                Math.Max(1, _occupants.Count(o => o.LeaseId == x.Lease.Id)),
+                _meterReadings.Where(r => r.UnitId == x.Unit.Id).ToList(),
+                _invoices.Any(i => i.LeaseId == x.Lease.Id && i.BillingPeriodYearMonth == period && MeterReadingRules.LocksPeriod(i))))
+            .ToList();
+    }
+
+    private void UpsertReadingLocked(
+        Guid propertyId,
+        Guid unitId,
+        UtilityType utilityType,
+        string period,
+        UtilityReadingResultDto result,
+        bool rolloverConfirmed,
+        string? photoFileKey)
+    {
+        var existing = _meterReadings.FirstOrDefault(r =>
+            r.UnitId == unitId && r.UtilityType == utilityType && r.BillingPeriodYearMonth == period);
+        if (MeterBillingComposer.Upsert(existing, propertyId, unitId, utilityType, period, result, rolloverConfirmed, photoFileKey) is { } added)
+        {
+            _meterReadings.Add(added);
+        }
+    }
+
+    private PropertyUtilityTariff? FindTariffLocked(Guid propertyId, UtilityType utilityType) =>
+        _utilityTariffs.Values.FirstOrDefault(t => t.PropertyId == propertyId && t.UtilityType == utilityType);
+
+    private InvoiceItemDto MapInvoiceLocked(Invoice invoice, bool unmaskPii)
+    {
+        var lease = invoice.LeaseId.HasValue ? _leases.FirstOrDefault(l => l.Id == invoice.LeaseId.Value) : null;
+        var stay = invoice.StayId.HasValue ? _stays.FirstOrDefault(s => s.Id == invoice.StayId.Value) : null;
+        Guid? unitId = lease?.UnitId ?? stay?.UnitId;
+        return MeterBillingComposer.MapInvoice(
+            invoice,
+            _customers[invoice.CustomerId],
+            unitId.HasValue ? _unitRefs[unitId.Value] : null,
+            lease?.DocumentNumber,
+            unmaskPii);
+    }
+}

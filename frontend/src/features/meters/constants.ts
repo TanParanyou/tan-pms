@@ -1,31 +1,19 @@
-import type { MeterReadingRow } from "./types";
+export const METER_UTILITIES = ["water", "electric"] as const;
+export type MeterUtility = (typeof METER_UTILITIES)[number];
 
-export const INITIAL_METER_ROWS: MeterReadingRow[] = [
-  {
-    unitId: "u-101",
-    unitNumber: "A-101",
-    previousWater: 1420.0,
-    currentWater: "1438.5",
-    previousElectric: 8940,
-    currentElectric: "9120",
-    isRolloverConfirmed: false,
-  },
-  {
-    unitId: "u-201",
-    unitNumber: "A-201",
-    previousWater: 2150.0,
-    currentWater: "2172.0",
-    previousElectric: 11200,
-    currentElectric: "11410",
-    isRolloverConfirmed: false,
-  },
-  {
-    unitId: "u-301",
-    unitNumber: "A-301",
-    previousWater: 3040.0,
-    currentWater: "3020.0", // Rollover condition
-    previousElectric: 14500,
-    currentElectric: "14850",
-    isRolloverConfirmed: false,
-  },
-];
+/** Backend issue code -> i18n key under admin.meters.issues (codes contain dots, so they cannot be used as keys). */
+export const METER_ISSUE_MESSAGE_KEYS: Record<string, string> = {
+  "meter.rollover_unconfirmed": "rolloverUnconfirmed",
+  "meter.negative_reading": "negativeReading",
+  "meter.no_active_lease": "noActiveLease",
+  "meter.duplicate_unit": "duplicateUnit",
+  "meter.tariff_missing": "tariffMissing",
+  "meter.period_locked": "periodLocked",
+  "meter.override_reason_required": "overrideReasonRequired",
+  "meter.usage_anomaly": "usageAnomaly",
+};
+
+export const METER_ISSUE_UNKNOWN_KEY = "unknownIssue";
+
+export const PERMISSION_METERS_RECORD = "admin.meters.record";
+export const PERMISSION_METERS_OVERRIDE_LOCKED = "admin.meters.override_locked";

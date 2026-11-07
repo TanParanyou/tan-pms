@@ -660,6 +660,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/properties/{propertyId}/meter-readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminMeterReadingSheet"];
+        put: operations["saveAdminMeterReadings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/billing/batch-invoice-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["runAdminBatchInvoices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/billing/batch-invoice-runs/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["issueAdminInvoicesForPeriod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminInvoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/invoices/{invoiceId}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["issueAdminInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/invoices/{invoiceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminInvoice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1413,6 +1509,140 @@ export interface components {
         };
         CustomerListResponse: {
             items: components["schemas"]["CustomerRefDto"][];
+        };
+        UtilityReadingResultDto: {
+            /** Format: double */
+            previousReading: number;
+            /** Format: double */
+            currentReading: number;
+            /** Format: double */
+            usageUnits: number;
+            /** Format: double */
+            chargeAmount: number;
+            usedRollover: boolean;
+        };
+        MeterReadingIssueDto: {
+            code: string;
+            utilityType?: string | null;
+        };
+        MeterReadingInputDto: {
+            /** Format: uuid */
+            unitId: string;
+            /** Format: double */
+            currentWaterReading: number;
+            /** Format: double */
+            currentElectricReading: number;
+            waterRolloverConfirmed?: boolean;
+            electricRolloverConfirmed?: boolean;
+            waterPhotoFileKey?: string | null;
+            electricPhotoFileKey?: string | null;
+        };
+        MeterReadingRowResultDto: {
+            /** Format: uuid */
+            unitId: string;
+            unitNumber?: string | null;
+            isLockedOverride: boolean;
+            water?: components["schemas"]["UtilityReadingResultDto"] | null;
+            electric?: components["schemas"]["UtilityReadingResultDto"] | null;
+            errors: components["schemas"]["MeterReadingIssueDto"][];
+            warnings: components["schemas"]["MeterReadingIssueDto"][];
+        };
+        SaveMeterReadingsRequest: {
+            period: string;
+            items: components["schemas"]["MeterReadingInputDto"][];
+            overrideReason?: string | null;
+        };
+        SaveMeterReadingsResponse: {
+            period: string;
+            isSaved: boolean;
+            rows: components["schemas"]["MeterReadingRowResultDto"][];
+        };
+        MeterReadingSheetResponse: {
+            period: string;
+            rows: components["schemas"]["MeterReadingSheetRowDto"][];
+        };
+        MeterReadingSheetRowDto: {
+            unit: components["schemas"]["UnitRefDto"];
+            /** Format: uuid */
+            leaseId: string;
+            leaseDocumentNumber: string;
+            customer: components["schemas"]["CustomerRefDto"];
+            occupantCount: number;
+            isLocked: boolean;
+            water: components["schemas"]["UtilityReadingDto"];
+            electric: components["schemas"]["UtilityReadingDto"];
+        };
+        UtilityReadingDto: {
+            meterMaxDigits?: number | null;
+            /** Format: double */
+            previousReading: number;
+            /** Format: double */
+            previousUsageUnits?: number | null;
+            /** Format: double */
+            currentReading?: number | null;
+            /** Format: double */
+            usageUnits?: number | null;
+            /** Format: double */
+            chargeAmount?: number | null;
+            isRolloverConfirmed: boolean;
+            photoFileKey?: string | null;
+        };
+        InvoiceIssueResponse: {
+            issued: components["schemas"]["InvoiceItemDto"][];
+        };
+        BatchInvoiceSkipDto: {
+            /** Format: uuid */
+            leaseId: string;
+            leaseDocumentNumber: string;
+            unit: components["schemas"]["UnitRefDto"];
+            reasonCode: string;
+        };
+        IssueInvoicesRequest: {
+            period: string;
+        };
+        InvoiceLineDto: {
+            /** Format: uuid */
+            id: string;
+            description: components["schemas"]["LocalizedTextDto"];
+            taxMode: string;
+            /** Format: double */
+            lineAmount: number;
+            /** Format: double */
+            subTotal: number;
+            /** Format: double */
+            vatAmount: number;
+            /** Format: double */
+            netAmount: number;
+        };
+        InvoiceItemDto: {
+            /** Format: uuid */
+            id: string;
+            documentNumber: string;
+            status: string;
+            billingPeriodYearMonth?: string | null;
+            customer: components["schemas"]["CustomerRefDto"];
+            unit?: components["schemas"]["UnitRefDto"] | null;
+            leaseDocumentNumber?: string | null;
+            lines: components["schemas"]["InvoiceLineDto"][];
+            /** Format: double */
+            subTotal: number;
+            /** Format: double */
+            totalVatAmount: number;
+            /** Format: double */
+            totalAmount: number;
+        };
+        InvoiceListResponse: {
+            items: components["schemas"]["InvoiceItemDto"][];
+        };
+        BatchInvoiceRunRequest: {
+            period: string;
+            /** Format: uuid */
+            buildingId?: string | null;
+        };
+        BatchInvoiceRunResponse: {
+            period: string;
+            created: components["schemas"]["InvoiceItemDto"][];
+            skipped: components["schemas"]["BatchInvoiceSkipDto"][];
         };
     };
     responses: never;
@@ -2975,6 +3205,315 @@ export interface operations {
             };
             /** @description Property scope or permission denied */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminMeterReadingSheet: {
+        parameters: {
+            query: {
+                period: string;
+                buildingId?: string;
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Meter reading sheet per leased unit with previous readings and lock state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeterReadingSheetResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    saveAdminMeterReadings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveMeterReadingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Atomic bulk save result with per-row errors and warnings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveMeterReadingsResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    runAdminBatchInvoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchInvoiceRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Draft invoices created and skipped leases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchInvoiceRunResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    issueAdminInvoicesForPeriod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueInvoicesRequest"];
+            };
+        };
+        responses: {
+            /** @description All draft invoices of the period issued and clients notified */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceIssueResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminInvoices: {
+        parameters: {
+            query?: {
+                period?: string;
+                status?: string;
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoices filtered by period and status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceListResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    issueAdminInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoice issued and client notified */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draft invoice deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Invoice is not a Draft */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -5,11 +5,14 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using TanPms.Application.Billing;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Customers;
 using TanPms.Application.Leases;
+using TanPms.Application.Meters;
+using TanPms.Application.Notifications;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
@@ -246,6 +249,74 @@ public sealed class PostgresPersistenceIntegrationTests
             Assert.NotNull(dash.ActiveLease);
             Assert.Single(dash.UnpaidInvoices);
             Assert.Single(dash.PendingParcels);
+
+            // 6. PM-07 bulk meter reading + batch billing through EfCorePmsStore + PostgreSQL
+            using var billingClient = factory.CreateClient();
+            billingClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            billingClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+            billingClient.DefaultRequestHeaders.Add(
+                "X-TanPms-Permissions",
+                string.Join(",", PermissionKeys.AdminMetersRecord, PermissionKeys.AdminBillingIssueBatch));
+            var bkkUrl = $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}";
+
+            var rejectRes = await billingClient.PutAsJsonAsync($"{bkkUrl}/meter-readings", new SaveMeterReadingsRequest(
+                "2026-09",
+                [
+                    new MeterReadingInputDto(PmsSeedConstants.OccupiedMonthlyUnitA201Id, 9990m, 9800m),
+                    new MeterReadingInputDto(PmsSeedConstants.CleanUnitA101Id, 1m, 1m)
+                ]));
+            var rejected = await rejectRes.Content.ReadFromJsonAsync<SaveMeterReadingsResponse>();
+            Assert.NotNull(rejected);
+            Assert.False(rejected.IsSaved);
+
+            var septRes = await billingClient.PutAsJsonAsync($"{bkkUrl}/meter-readings", new SaveMeterReadingsRequest(
+                "2026-09",
+                [new MeterReadingInputDto(PmsSeedConstants.OccupiedMonthlyUnitA201Id, 9990m, 9800m)]));
+            var sept = await septRes.Content.ReadFromJsonAsync<SaveMeterReadingsResponse>();
+            Assert.True(sept!.IsSaved);
+            Assert.NotEmpty(sept.Rows[0].Warnings);
+
+            var octRes = await billingClient.PutAsJsonAsync($"{bkkUrl}/meter-readings", new SaveMeterReadingsRequest(
+                "2026-10",
+                [new MeterReadingInputDto(PmsSeedConstants.OccupiedMonthlyUnitA201Id, 15m, 9850m, WaterRolloverConfirmed: true)]));
+            var oct = await octRes.Content.ReadFromJsonAsync<SaveMeterReadingsResponse>();
+            Assert.True(oct!.IsSaved);
+            Assert.Equal(25m, oct.Rows[0].Water!.UsageUnits);
+
+            // Re-save the same period upserts instead of violating the unique index.
+            var octAgain = await (await billingClient.PutAsJsonAsync($"{bkkUrl}/meter-readings", new SaveMeterReadingsRequest(
+                "2026-10",
+                [new MeterReadingInputDto(PmsSeedConstants.OccupiedMonthlyUnitA201Id, 15m, 9850m, WaterRolloverConfirmed: true)])))
+                .Content.ReadFromJsonAsync<SaveMeterReadingsResponse>();
+            Assert.True(octAgain!.IsSaved);
+
+            var octSheet = await billingClient.GetFromJsonAsync<MeterReadingSheetResponse>($"{bkkUrl}/meter-readings?period=2026-10");
+            var octRow = Assert.Single(octSheet!.Rows, r => r.Unit.Id == PmsSeedConstants.OccupiedMonthlyUnitA201Id);
+            Assert.Equal(9990m, octRow.Water.PreviousReading);
+            Assert.Equal(15m, octRow.Water.CurrentReading);
+
+            var runRes = await billingClient.PostAsJsonAsync($"{bkkUrl}/billing/batch-invoice-runs", new BatchInvoiceRunRequest("2026-10"));
+            Assert.Equal(HttpStatusCode.OK, runRes.StatusCode);
+            var run = await runRes.Content.ReadFromJsonAsync<BatchInvoiceRunResponse>();
+            var draft = Assert.Single(run!.Created);
+            Assert.Equal(8500m + 460m + 400m, draft.TotalAmount);
+
+            var rerun = await (await billingClient.PostAsJsonAsync($"{bkkUrl}/billing/batch-invoice-runs", new BatchInvoiceRunRequest("2026-10")))
+                .Content.ReadFromJsonAsync<BatchInvoiceRunResponse>();
+            Assert.Empty(rerun!.Created);
+
+            Assert.Equal(HttpStatusCode.OK, (await billingClient.DeleteAsync($"{bkkUrl}/invoices/{draft.Id}")).StatusCode);
+            var recreated = Assert.Single((await (await billingClient.PostAsJsonAsync($"{bkkUrl}/billing/batch-invoice-runs", new BatchInvoiceRunRequest("2026-10")))
+                .Content.ReadFromJsonAsync<BatchInvoiceRunResponse>())!.Created);
+            Assert.Equal(3, recreated.Lines.Count);
+
+            var issueRes = await billingClient.PostAsJsonAsync($"{bkkUrl}/billing/batch-invoice-runs/issue", new IssueInvoicesRequest("2026-10"));
+            var issued = await issueRes.Content.ReadFromJsonAsync<InvoiceIssueResponse>();
+            Assert.Equal("Issued", Assert.Single(issued!.Issued).Status);
+            Assert.Equal(HttpStatusCode.Conflict, (await billingClient.DeleteAsync($"{bkkUrl}/invoices/{recreated.Id}")).StatusCode);
+
+            var feed = await clientApp.GetFromJsonAsync<NotificationListResponse>("/api/v1/client/notifications");
+            Assert.Contains(feed!.Items, n => n.TemplateKey == InvoiceIssuedNotification.TemplateKey);
         }
         finally
         {

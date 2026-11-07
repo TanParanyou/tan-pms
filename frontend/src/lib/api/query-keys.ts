@@ -68,6 +68,16 @@ export const queryKeys = {
     detail: (propertyId: string, leaseId: string) =>
       [...queryKeys.leases.all, "detail", propertyId, leaseId] as const,
   },
+  meters: {
+    all: ["admin-meters"] as const,
+    sheet: (propertyId: string, period: string, buildingId?: string) =>
+      [...queryKeys.meters.all, propertyId, period, buildingId ?? ""] as const,
+  },
+  billing: {
+    all: ["admin-billing"] as const,
+    invoices: (propertyId: string, period?: string, status?: string) =>
+      [...queryKeys.billing.all, "invoices", propertyId, period ?? "", status ?? ""] as const,
+  },
   customers: {
     all: ["admin-customers"] as const,
     search: (propertyId: string, search: string) =>
