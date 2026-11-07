@@ -815,6 +815,279 @@
         }
       }
     },
+    "/api/v1/admin/properties/{propertyId}/stays": {
+      "get": {
+        "operationId": "getAdminStays",
+        "tags": ["AdminStay"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["Active", "CheckedOut", "Cancelled"]
+            }
+          },
+          {
+            "name": "stayMode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["Hourly", "Daily"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active and historical stays with live timers, folio balances, and occupant counts",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StayListResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/extend": {
+      "post": {
+        "operationId": "extendAdminStay",
+        "tags": ["AdminStay"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExtendStayRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stay extended and additional charge posted to Folio with AutoCapToDailyRate protection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StayDetailDto" }
+              }
+            }
+          },
+          "409": {
+            "description": "Slot overlap with upcoming reservation or lease",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/charges": {
+      "post": {
+        "operationId": "addAdminFolioCharge",
+        "tags": ["AdminStay"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AddFolioChargeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Charge posted to guest Folio",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StayDetailDto" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/payments": {
+      "post": {
+        "operationId": "recordAdminFolioPayment",
+        "tags": ["AdminStay"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RecordFolioPaymentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment recorded against Folio",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StayDetailDto" }
+              }
+            }
+          },
+          "409": {
+            "description": "Cashier shift is not open (shift.not_open)",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/check-out": {
+      "post": {
+        "operationId": "checkOutAdminStay",
+        "tags": ["AdminStay"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CheckOutStayRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stay checked out, key deposit settled, Unit marked Dirty, and HousekeepingTask created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StayDetailDto" }
+              }
+            }
+          },
+          "409": {
+            "description": "Folio unsettled (stay.folio_unsettled) or shift not open (shift.not_open)",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/regulatory-exports": {
+      "get": {
+        "operationId": "getAdminRegulatoryExport",
+        "tags": ["AdminRegulatory"],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "reportType",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["RR4", "TM30"]
+            }
+          },
+          {
+            "name": "unmaskPii",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RR4 Hotel Guest Register or TM.30 Foreign Guest Notification export",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RegulatoryExportResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing admin.regulatory.export or admin.customer.unmask_pii permission",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "loginAuthSession",
@@ -1095,7 +1368,15 @@
           "stayMode": { "type": "string", "enum": ["Hourly", "Daily"] },
           "keyDepositAmount": { "type": "number", "format": "decimal" },
           "overrideDirtyCheckIn": { "type": "boolean" },
-          "overrideReason": { "type": "string", "nullable": true }
+          "overrideReason": { "type": "string", "nullable": true },
+          "reservationId": { "type": "string", "format": "uuid", "nullable": true },
+          "expectedCheckOutAt": { "type": "string", "format": "date-time", "nullable": true },
+          "initialRoomChargeAmount": { "type": "number", "nullable": true },
+          "occupants": {
+            "type": "array",
+            "nullable": true,
+            "items": { "$ref": "#/components/schemas/CheckInOccupantInputDto" }
+          }
         }
       },
       "StaySummaryDto": {
@@ -1847,6 +2128,178 @@
         "required": ["paymentSlipFileKey"],
         "properties": {
           "paymentSlipFileKey": { "type": "string" }
+        }
+      },
+      "CheckInOccupantInputDto": {
+        "type": "object",
+        "required": ["fullName", "nationalityCode", "identityNumber", "isPrimaryOccupant"],
+        "properties": {
+          "fullName": { "type": "string" },
+          "nationalityCode": { "type": "string" },
+          "identityNumber": { "type": "string" },
+          "isPrimaryOccupant": { "type": "boolean" },
+          "vehicleLicensePlate": { "type": "string", "nullable": true }
+        }
+      },
+      "StayOccupantDto": {
+        "type": "object",
+        "required": ["id", "fullName", "nationalityCode", "maskedIdentityNumber", "isPrimaryOccupant"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fullName": { "type": "string" },
+          "nationalityCode": { "type": "string" },
+          "maskedIdentityNumber": { "type": "string" },
+          "isPrimaryOccupant": { "type": "boolean" },
+          "vehicleLicensePlate": { "type": "string", "nullable": true }
+        }
+      },
+      "FolioChargeItemDto": {
+        "type": "object",
+        "required": ["id", "description", "amount", "taxMode"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "description": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "amount": { "type": "number" },
+          "taxMode": { "type": "string", "enum": ["Exempt", "VatIncluded", "VatExcluded"] }
+        }
+      },
+      "FolioSummaryDto": {
+        "type": "object",
+        "required": ["id", "charges", "totalCharges", "totalPayments", "balanceDue"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "charges": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FolioChargeItemDto" }
+          },
+          "totalCharges": { "type": "number" },
+          "totalPayments": { "type": "number" },
+          "balanceDue": { "type": "number" }
+        }
+      },
+      "StayDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentNumber",
+          "property",
+          "unit",
+          "customer",
+          "stayMode",
+          "status",
+          "checkInAt",
+          "isOvertime",
+          "keyDepositAmount",
+          "keyDepositBalance",
+          "folio",
+          "occupants"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "documentNumber": { "type": "string" },
+          "property": { "$ref": "#/components/schemas/PropertyRefDto" },
+          "unit": { "$ref": "#/components/schemas/UnitRefDto" },
+          "customer": { "$ref": "#/components/schemas/CustomerRefDto" },
+          "reservationDocumentNumber": { "type": "string", "nullable": true },
+          "stayMode": { "type": "string", "enum": ["Hourly", "Daily"] },
+          "status": { "type": "string", "enum": ["Active", "CheckedOut", "Cancelled"] },
+          "checkInAt": { "type": "string", "format": "date-time" },
+          "expectedCheckOutAt": { "type": "string", "format": "date-time", "nullable": true },
+          "checkOutAt": { "type": "string", "format": "date-time", "nullable": true },
+          "remainingMinutes": { "type": "integer", "nullable": true },
+          "isOvertime": { "type": "boolean" },
+          "keyDepositAmount": { "type": "number" },
+          "keyDepositBalance": { "type": "number" },
+          "folio": { "$ref": "#/components/schemas/FolioSummaryDto" },
+          "occupants": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StayOccupantDto" }
+          },
+          "generatedHousekeepingTaskStatus": { "type": "string", "nullable": true }
+        }
+      },
+      "StayListResponse": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StayDetailDto" }
+          }
+        }
+      },
+      "ExtendStayRequest": {
+        "type": "object",
+        "required": ["additionalHours"],
+        "properties": {
+          "additionalHours": { "type": "integer" }
+        }
+      },
+      "AddFolioChargeRequest": {
+        "type": "object",
+        "required": ["description", "amount", "taxMode"],
+        "properties": {
+          "description": { "$ref": "#/components/schemas/LocalizedTextDto" },
+          "amount": { "type": "number" },
+          "taxMode": { "type": "string", "enum": ["Exempt", "VatIncluded", "VatExcluded"] }
+        }
+      },
+      "RecordFolioPaymentRequest": {
+        "type": "object",
+        "required": ["amount", "paymentMethod"],
+        "properties": {
+          "amount": { "type": "number" },
+          "paymentMethod": { "type": "string", "enum": ["Cash", "BankTransfer", "PromptPay"] }
+        }
+      },
+      "CheckOutStayRequest": {
+        "type": "object",
+        "required": ["keyDepositDeductionAmount", "deductionOrRefundReason"],
+        "properties": {
+          "keyDepositDeductionAmount": { "type": "number" },
+          "deductionOrRefundReason": { "type": "string" }
+        }
+      },
+      "RegulatoryGuestRowDto": {
+        "type": "object",
+        "required": [
+          "occupantId",
+          "sourceDocumentNumber",
+          "unitNumber",
+          "fullName",
+          "nationalityCode",
+          "identityNumber",
+          "isPrimaryOccupant",
+          "checkInAt",
+          "stayMode"
+        ],
+        "properties": {
+          "occupantId": { "type": "string", "format": "uuid" },
+          "sourceDocumentNumber": { "type": "string" },
+          "unitNumber": { "type": "string" },
+          "fullName": { "type": "string" },
+          "nationalityCode": { "type": "string" },
+          "identityNumber": { "type": "string" },
+          "isPrimaryOccupant": { "type": "boolean" },
+          "vehicleLicensePlate": { "type": "string", "nullable": true },
+          "checkInAt": { "type": "string", "format": "date-time" },
+          "checkOutAt": { "type": "string", "format": "date-time", "nullable": true },
+          "stayMode": { "type": "string" }
+        }
+      },
+      "RegulatoryExportResponse": {
+        "type": "object",
+        "required": ["property", "reportType", "generatedAt", "isPiiUnmasked", "csvContent", "rows"],
+        "properties": {
+          "property": { "$ref": "#/components/schemas/PropertyRefDto" },
+          "reportType": { "type": "string", "enum": ["RR4", "TM30"] },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "isPiiUnmasked": { "type": "boolean" },
+          "csvContent": { "type": "string" },
+          "rows": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RegulatoryGuestRowDto" }
+          }
         }
       }
     }

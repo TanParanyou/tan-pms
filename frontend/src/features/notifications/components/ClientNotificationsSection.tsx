@@ -9,6 +9,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { INITIAL_CLIENT_NOTIFICATIONS } from "../constants";
 import type { NotificationItemDto } from "../types";
+import { Bell } from "lucide-react";
 
 export interface ClientNotificationsSectionProps {
   initialNotifications?: NotificationItemDto[];
@@ -108,7 +109,7 @@ export function ClientNotificationsSection({
         <div className="divide-y divide-hairline rounded-lg border border-hairline overflow-hidden">
           {filteredNotifications.length === 0 ? (
             <div className="p-8 text-center text-body space-y-1 bg-surface-soft">
-              <span className="text-xl" aria-hidden="true">🔔</span>
+              <Bell className="h-6 w-6 text-mute mx-auto mb-1" aria-hidden="true" />
               <p className="text-xs font-medium text-ink">{tNotif("emptyTitle")}</p>
               <p className="text-[11px] text-body">{tNotif("emptyDesc")}</p>
             </div>

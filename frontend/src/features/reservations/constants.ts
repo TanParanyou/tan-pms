@@ -227,3 +227,15 @@ export const INITIAL_RESERVATIONS: ReservationItemDto[] = [
     status: "Hold",
   },
 ];
+
+export const CUSTOMER_MAP: Record<string, CustomerRefDto> = Object.fromEntries(
+  SAMPLE_CUSTOMERS.map((c) => [c.id, c])
+);
+
+export const RESERVATION_UNIT_TYPE_MAP: Record<string, UnitTypeRefDto> = Object.fromEntries(
+  SAMPLE_UNIT_TYPES.map((ut) => [ut.id, ut])
+);
+
+export const ALL_ASSIGNABLE_UNITS_MAP: Record<string, AssignableUnitOptionDto> = Object.fromEntries(
+  Object.values(SAMPLE_ASSIGNABLE_UNITS).flatMap((units) => units.map((u) => [u.id, u]))
+);

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
+import { Inbox } from "lucide-react";
 
 export interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -30,8 +31,8 @@ export function EmptyState({
         className
       )}
     >
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-hairline bg-surface-soft text-xl">
-        {icon || "📄"}
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-hairline bg-surface-soft text-body">
+        {icon || <Inbox className="h-6 w-6 text-mute" aria-hidden="true" />}
       </div>
       <h3 className="text-sm font-semibold text-ink">{title}</h3>
       {description && (

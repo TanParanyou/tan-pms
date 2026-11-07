@@ -77,10 +77,10 @@ export const ROLE_CATALOG_PROJECTION: RoleDefinitionDto[] = [
     ],
   },
   {
-    code: "HousekeepingStaff",
+    code: "Housekeeper",
     name: {
       th: "พนักงานแม่บ้าน",
-      en: "Housekeeping Staff",
+      en: "Housekeeper",
     },
     scope: "AdminScope",
     defaultPermissions: [
@@ -179,3 +179,11 @@ export const INITIAL_ADMIN_USERS: AdminUserDto[] = [
     ],
   },
 ];
+
+export const INITIAL_ROLE_CATALOG = ROLE_CATALOG_PROJECTION;
+export const ROLE_CATALOG_MAP = Object.fromEntries(
+  ROLE_CATALOG_PROJECTION.map((r) => [r.code, r])
+);
+export const ADMIN_USER_MAP = Object.fromEntries(
+  INITIAL_ADMIN_USERS.map((u) => [u.id, u])
+);

@@ -8,15 +8,15 @@ export interface PropertyMasterItem {
 
 export const CENTRAL_PROPERTIES: readonly PropertyMasterItem[] = [
   {
-    id: "prop-bkk-01",
+    id: "11111111-1111-1111-1111-111111111101",
     code: "BKK01",
     name: {
-      th: "\u0e41\u0e17\u0e19 \u0e40\u0e23\u0e2a\u0e0b\u0e34\u0e40\u0e14\u0e19\u0e0b\u0e4c \u0e1enh\u0e23\u0e30\u0e23\u0e32\u0e21 9",
+      th: "\u0e41\u0e17\u0e19 \u0e40\u0e23\u0e2a\u0e0b\u0e34\u0e40\u0e14\u0e19\u0e0b\u0e4c \u0e1e\u0e23\u0e30\u0e23\u0e32\u0e21 9",
       en: "TAN Residence Rama 9",
     },
   },
   {
-    id: "prop-bkk-02",
+    id: "11111111-1111-1111-1111-111111111102",
     code: "BKK02",
     name: {
       th: "\u0e41\u0e17\u0e19 \u0e2a\u0e27\u0e35\u0e17 \u0e2a\u0e38\u0e02\u0e38\u0e21\u0e27\u0e34\u0e17",
@@ -24,7 +24,7 @@ export const CENTRAL_PROPERTIES: readonly PropertyMasterItem[] = [
     },
   },
   {
-    id: "prop-cnx-01",
+    id: "22222222-2222-2222-2222-222222222202",
     code: "CNX01",
     name: {
       th: "\u0e41\u0e17\u0e19 \u0e41\u0e01\u0e23\u0e19\u0e14\u0e4c \u0e19\u0e34\u0e21\u0e21\u0e32\u0e19",

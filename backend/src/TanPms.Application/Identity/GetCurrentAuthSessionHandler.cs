@@ -5,10 +5,10 @@ namespace TanPms.Application.Identity;
 
 public sealed class GetCurrentAuthSessionHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IIdentityStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public GetCurrentAuthSessionHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public GetCurrentAuthSessionHandler(IIdentityStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;

@@ -1,15 +1,15 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 
 namespace TanPms.Application.Reservations;
 
 public sealed class CreateClientHoldReservationHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IReservationStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public CreateClientHoldReservationHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public CreateClientHoldReservationHandler(IReservationStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;
@@ -17,13 +17,11 @@ public sealed class CreateClientHoldReservationHandler
 
     public Result<ReservationItemDto> Handle(CreateClientHoldReservationCommand command)
     {
-        if (!_currentUser.IsClientScope || _currentUser.CustomerId is null || _currentUser.CustomerId == Guid.Empty)
+        if (ScopeAuthorizationGuard.CheckClientScope(_currentUser, out var customerId) is { } authError)
         {
-            return Result<ReservationItemDto>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                "Endpoint requires ClientScope with a bound CustomerId."));
+            return Result<ReservationItemDto>.Failure(authError);
         }
 
-        return _store.CreateClientHoldReservation(_currentUser.CustomerId.Value, command.Request);
+        return _store.CreateClientHoldReservation(customerId, command.Request);
     }
 }

@@ -1,16 +1,16 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
 
 namespace TanPms.Application.Reservations;
 
 public sealed class GetAdminAvailabilityHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IReservationStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public GetAdminAvailabilityHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public GetAdminAvailabilityHandler(IReservationStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;
@@ -18,20 +18,13 @@ public sealed class GetAdminAvailabilityHandler
 
     public Result<AvailabilitySearchResponse> Handle(GetAdminAvailabilityQuery query)
     {
-        if (!_currentUser.IsAdminScope
-            || (!_currentUser.Permissions.Contains(PermissionKeys.AdminReservationsRead)
-                && !_currentUser.Permissions.Contains(PermissionKeys.AdminReservationsManage)))
+        if (ScopeAuthorizationGuard.CheckAdminPropertyScopeAnyPermission(
+            _currentUser,
+            query.PropertyId,
+            PermissionKeys.AdminReservationsRead,
+            PermissionKeys.AdminReservationsManage) is { } authError)
         {
-            return Result<AvailabilitySearchResponse>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                $"Caller lacks required permission '{PermissionKeys.AdminReservationsRead}'."));
-        }
-
-        if (!_currentUser.AllowedPropertyIds.Contains(query.PropertyId))
-        {
-            return Result<AvailabilitySearchResponse>.Failure(new Error(
-                DomainErrorCodes.PropertyScopeDenied,
-                $"Caller does not have access to property '{query.PropertyId}'."));
+            return Result<AvailabilitySearchResponse>.Failure(authError);
         }
 
         return _store.SearchAvailability(

@@ -175,4 +175,105 @@ describe("Frontend Code Hygiene & Standards Enforcement", () => {
     const matches = content.match(hexClassRegex);
     expect(matches).toBeNull();
   });
+
+  it("enforces Zero Emojis or Unicode Pictographs across all .tsx UI files and messages/*.json", () => {
+    const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+    const violations: string[] = [];
+
+    const filesToCheck = [
+      ...allSourceFiles.filter((f) => f.endsWith(".tsx")),
+      path.resolve(__dirname, "../messages/th.json"),
+      path.resolve(__dirname, "../messages/en.json"),
+    ];
+
+    for (const file of filesToCheck) {
+      if (!fs.existsSync(file)) continue;
+      const content = fs.readFileSync(file, "utf-8");
+      const lines = content.split("\n");
+      lines.forEach((line, lineIdx) => {
+        if (emojiRegex.test(line)) {
+          violations.push(
+            `${path.relative(srcDir, file)}:${lineIdx + 1}: ${line.trim()}`
+          );
+        }
+      });
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  it("enforces Zero .find() lookups in src/features/**/components/*.tsx (Table-Preserved & O(1) Map Lookup Architecture)", () => {
+    const componentFiles = allSourceFiles.filter((f) =>
+      f.includes("/src/features/") && f.includes("/components/") && f.endsWith(".tsx")
+    );
+    const violations: string[] = [];
+    const findCallRegex = /(?<!\/\/\s*.*)\.find\s*\(/;
+
+    for (const file of componentFiles) {
+      const content = fs.readFileSync(file, "utf-8");
+      const lines = content.split("\n");
+      lines.forEach((line, lineIdx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+          return;
+        }
+        if (findCallRegex.test(trimmed)) {
+          violations.push(
+            `${path.relative(srcDir, file)}:${lineIdx + 1}: ${trimmed}`
+          );
+        }
+      });
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  it("enforces Zero Forbidden Product Boundary Words (staff, backoffice, portal, member) across src/app/ and src/features/", () => {
+    const appAndFeatureFiles = allSourceFiles.filter(
+      (f) => f.includes("/src/app/") || f.includes("/src/features/")
+    );
+    const violations: string[] = [];
+    const forbiddenWordRegex = /\b(staff|backoffice|member)\b/i;
+
+    for (const file of appAndFeatureFiles) {
+      const content = fs.readFileSync(file, "utf-8");
+      const lines = content.split("\n");
+      lines.forEach((line, lineIdx) => {
+        const trimmed = line.trim();
+        // Allow Radix Primitive Portal imports and comments
+        if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+          return;
+        }
+        if (forbiddenWordRegex.test(trimmed)) {
+          violations.push(
+            `${path.relative(srcDir, file)}:${lineIdx + 1}: ${trimmed}`
+          );
+        }
+        if (/\bportal\b/i.test(trimmed) && !trimmed.includes("Portal") && !trimmed.includes("portal")) {
+          violations.push(
+            `${path.relative(srcDir, file)}:${lineIdx + 1}: ${trimmed}`
+          );
+        }
+      });
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  it("enforces that queryKeys factory is used across all src/features/*/api/*.ts hooks", () => {
+    const apiFiles = allSourceFiles.filter(
+      (f) => f.includes("/src/features/") && f.includes("/api/") && f.endsWith(".ts")
+    );
+    expect(apiFiles.length).toBeGreaterThan(0);
+
+    const missingQueryKeys: string[] = [];
+    for (const file of apiFiles) {
+      const content = fs.readFileSync(file, "utf-8");
+      if (!content.includes("queryKeys")) {
+        missingQueryKeys.push(path.relative(srcDir, file));
+      }
+    }
+
+    expect(missingQueryKeys).toEqual([]);
+  });
 });

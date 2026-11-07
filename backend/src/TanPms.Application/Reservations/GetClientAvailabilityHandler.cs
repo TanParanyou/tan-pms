@@ -1,15 +1,15 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 
 namespace TanPms.Application.Reservations;
 
 public sealed class GetClientAvailabilityHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IReservationStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public GetClientAvailabilityHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public GetClientAvailabilityHandler(IReservationStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;
@@ -17,11 +17,9 @@ public sealed class GetClientAvailabilityHandler
 
     public Result<AvailabilitySearchResponse> Handle(GetClientAvailabilityQuery query)
     {
-        if (!_currentUser.IsClientScope)
+        if (ScopeAuthorizationGuard.CheckClientScopeOnly(_currentUser) is { } authError)
         {
-            return Result<AvailabilitySearchResponse>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                "Endpoint requires ClientScope."));
+            return Result<AvailabilitySearchResponse>.Failure(authError);
         }
 
         return _store.SearchAvailability(

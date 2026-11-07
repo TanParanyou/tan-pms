@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { useTranslations } from "next-intl";
 import type { QueuedFile } from "@/hooks/use-deferred-file-upload";
+import { FileText, Paperclip, X } from "lucide-react";
 
 export interface DeferredFilePickerProps {
   queuedFiles: QueuedFile[];
@@ -68,9 +69,10 @@ export function DeferredFilePicker({
           size="sm"
           disabled={isUploading}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-full border-hairline bg-canvas text-xs hover:bg-surface-soft"
+          className="rounded-full border-hairline bg-canvas text-xs hover:bg-surface-soft gap-1.5"
         >
-          📎 {t("chooseFile")}
+          <Paperclip className="h-3.5 w-3.5" />
+          <span>{t("chooseFile")}</span>
         </Button>
         <span className="text-xs text-body">{resolvedHelperText}</span>
       </div>
@@ -91,7 +93,7 @@ export function DeferredFilePicker({
                     className="h-6 w-6 rounded-full object-cover border border-hairline"
                   />
                 ) : (
-                  <span className="text-sm" aria-hidden="true">📄</span>
+                  <FileText className="h-4 w-4 text-body shrink-0" aria-hidden="true" />
                 )}
                 <span className="font-mono truncate max-w-[200px] text-ink">
                   {item.name}
@@ -113,7 +115,7 @@ export function DeferredFilePicker({
                 aria-label={t("removeFile")}
                 className="h-6 w-6 rounded-full text-body hover:text-destructive"
               >
-                ✕
+                <X className="h-3.5 w-3.5" />
               </Button>
             </div>
           ))}

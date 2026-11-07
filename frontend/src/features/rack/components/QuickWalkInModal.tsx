@@ -15,6 +15,7 @@ import { useFormTabErrors } from "@/hooks/use-form-tab-errors";
 import { useTranslations, useLocale } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { AVAILABLE_WALK_IN_UNITS, DEFAULT_KEY_DEPOSIT } from "../constants";
+import { Check, Dices } from "lucide-react";
 
 export interface QuickWalkInModalProps {
   isOpen: boolean;
@@ -170,7 +171,7 @@ export function QuickWalkInModal({
                   }
                   className="h-6 w-6 rounded-full text-xs text-body"
                 >
-                  🎲
+                  <Dices className="h-3.5 w-3.5" />
                 </Button>
               </Tooltip>
             </div>
@@ -253,9 +254,14 @@ export function QuickWalkInModal({
                   onClick={() => setOverrideDirty(!overrideDirty)}
                   className="rounded-full h-7 px-3 text-xs bg-canvas border-terminal-yellow text-amber-800"
                 >
-                  {overrideDirty
-                    ? `✓ ${tModal("allowOverride")}`
-                    : tModal("requestOverride")}
+                  {overrideDirty ? (
+                    <span className="flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      <span>{tModal("allowOverride")}</span>
+                    </span>
+                  ) : (
+                    tModal("requestOverride")
+                  )}
                 </Button>
                 <span className="text-xs font-medium text-amber-800">
                   {tModal("overrideDirty")}

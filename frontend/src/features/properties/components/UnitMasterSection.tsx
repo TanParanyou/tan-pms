@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { CommandTag } from "@/components/ui/command-tag";
 import { SelectPill } from "@/components/ui/select-pill";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { useDataTableState } from "@/hooks/use-data-table-state";
 import {
   Dialog,
   DialogContent,
@@ -17,13 +18,28 @@ import {
 } from "@/components/ui/dialog";
 import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useTranslations, useLocale } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
+import { ListToolbar } from "@/components/layout/list-toolbar";
+import { BulkActionToolbar } from "@/components/layout/bulk-action-toolbar";
+import { formatDecimal } from "@/lib/formatters";
+import {
+  BedDouble,
+  Building2,
+  Layers,
+  Plus,
+  Settings2,
+  Tag,
+} from "lucide-react";
 import {
   INITIAL_BUILDINGS,
   INITIAL_UNIT_TYPES,
   INITIAL_UNIT_MASTER_ITEMS,
   SAMPLE_ROOM_ASSETS,
+  BUILDING_MAP,
+  UNIT_TYPE_MAP,
+  FLOOR_MAP,
 } from "../constants";
 import type {
   UnitMasterItemDto,
@@ -49,9 +65,22 @@ export function UnitMasterSection({
   const tCommon = useTranslations("common");
 
   const [units, setUnits] = useState<UnitMasterItemDto[]>(initialUnits);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBuildingFilter, setSelectedBuildingFilter] = useState("All");
-  const [selectedStayModeFilter, setSelectedStayModeFilter] = useState("All");
+  // Filters & Table State
+  const {
+    searchQuery,
+    setSearchQuery,
+    filters,
+    setFilter,
+    selectedIds: selectedRowIds,
+    setSelectedIds: setSelectedRowIds,
+  } = useDataTableState<{ building: string; stayMode: string }>({
+    initialFilters: { building: "All", stayMode: "All" },
+    debounceMs: 0,
+  });
+  const selectedBuildingFilter = filters.building;
+  const setSelectedBuildingFilter = (v: string) => setFilter("building", v);
+  const selectedStayModeFilter = filters.stayMode;
+  const setSelectedStayModeFilter = (v: string) => setFilter("stayMode", v);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,14 +114,14 @@ export function UnitMasterSection({
 
   // Available floors for selected building in form
   const availableFloors = useMemo(() => {
-    const building = INITIAL_BUILDINGS.find((b) => b.id === formBuildingId);
+    const building = BUILDING_MAP[formBuildingId];
     return building ? building.floors : [];
   }, [formBuildingId]);
 
   // Handle building change in form
   const handleBuildingChange = (bldId: string) => {
     setFormBuildingId(bldId);
-    const bld = INITIAL_BUILDINGS.find((b) => b.id === bldId);
+    const bld = BUILDING_MAP[bldId];
     if (bld && bld.floors.length > 0) {
       setFormFloorId(bld.floors[0].id);
     }
@@ -210,13 +239,13 @@ export function UnitMasterSection({
     setIsSubmitting(true);
     try {
       const selectedBuilding =
-        INITIAL_BUILDINGS.find((b) => b.id === formBuildingId) ||
+        BUILDING_MAP[formBuildingId] ??
         INITIAL_BUILDINGS[0];
       const selectedFloor =
-        selectedBuilding.floors.find((f) => f.id === formFloorId) ||
+        FLOOR_MAP[formFloorId] ??
         selectedBuilding.floors[0];
       const selectedUnitType =
-        INITIAL_UNIT_TYPES.find((ut) => ut.id === formUnitTypeId) ||
+        UNIT_TYPE_MAP[formUnitTypeId] ??
         INITIAL_UNIT_TYPES[0];
 
       const resolvedAssets: UnitAssetDto[] = formAssets.map((a, idx) => ({
@@ -296,6 +325,8 @@ export function UnitMasterSection({
       id: "unit",
       header: tProp("colUnit"),
       headerClassName: "w-[160px]",
+      sortable: true,
+      sortValue: (row) => row.unitNumber,
       cell: (row) => (
         <div>
           <span className="font-mono font-bold text-ink block text-sm">
@@ -381,7 +412,7 @@ export function UnitMasterSection({
                 {row.assets.length} {tProp("assetsCount")}
               </Badge>
               <span className="text-[11px] font-mono text-body tabular-nums">
-                {tCommon("currencySymbol")}{totalValue.toLocaleString()}
+                {tCommon("currencySymbol")}{formatDecimal(totalValue, 0)}
               </span>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -403,18 +434,24 @@ export function UnitMasterSection({
     {
       id: "actions",
       header: <span className="sr-only">{tProp("colActions")}</span>,
-      headerClassName: "w-[120px] text-right",
+      headerClassName: "w-[80px] text-right",
       className: "text-right",
       cell: (row) => (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => handleOpenEdit(row)}
-          className="rounded-full h-7 px-3 text-[11px]"
-        >
-          {tProp("configureUnit")}
-        </Button>
+        <div className="flex items-center justify-end">
+          <Tooltip content={tProp("configureUnit")} position="top">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => handleOpenEdit(row)}
+              aria-label={tProp("configureUnit")}
+              className="rounded-full h-7 w-7 text-ink hover:bg-surface-soft"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              <span className="sr-only">{tProp("configureUnit")}</span>
+            </Button>
+          </Tooltip>
+        </div>
       ),
     },
   ];
@@ -570,7 +607,7 @@ export function UnitMasterSection({
                     </div>
                     <span className="text-[11px] font-mono text-body tabular-nums">
                       {tProp("replacementCost")}: {tCommon("currencySymbol")}
-                      {asset.replacementCostAmount.toLocaleString()}
+                      {formatDecimal(asset.replacementCostAmount, 0)}
                     </span>
                   </div>
                   <Button
@@ -656,74 +693,99 @@ export function UnitMasterSection({
           type="button"
           onClick={handleOpenCreate}
           size="sm"
-          className="rounded-full shadow-none"
+          className="rounded-full shadow-none gap-1.5"
         >
-          + {tProp("addUnit")}
+          <Plus className="h-3.5 w-3.5" />
+          <span>{tProp("addUnit")}</span>
         </Button>
       </div>
 
       {/* Hierarchy Summary Pills */}
       <div className="flex flex-wrap gap-2 pt-1">
-        <Badge variant="outline" className="px-3 py-1 text-xs">
-          🏢 {INITIAL_BUILDINGS.length} {tProp("summaryBuildings")}
+        <Badge variant="outline" className="px-3 py-1 text-xs gap-1.5 font-normal">
+          <Building2 className="h-3.5 w-3.5 text-body" />
+          <span>{INITIAL_BUILDINGS.length} {tProp("summaryBuildings")}</span>
         </Badge>
-        <Badge variant="outline" className="px-3 py-1 text-xs">
-          📶 {INITIAL_BUILDINGS.reduce((sum, b) => sum + b.floors.length, 0)} {tProp("summaryFloors")}
+        <Badge variant="outline" className="px-3 py-1 text-xs gap-1.5 font-normal">
+          <Layers className="h-3.5 w-3.5 text-body" />
+          <span>{INITIAL_BUILDINGS.reduce((sum, b) => sum + b.floors.length, 0)} {tProp("summaryFloors")}</span>
         </Badge>
-        <Badge variant="outline" className="px-3 py-1 text-xs">
-          🛏️ {INITIAL_UNIT_TYPES.length} {tProp("summaryUnitTypes")}
+        <Badge variant="outline" className="px-3 py-1 text-xs gap-1.5 font-normal">
+          <BedDouble className="h-3.5 w-3.5 text-body" />
+          <span>{INITIAL_UNIT_TYPES.length} {tProp("summaryUnitTypes")}</span>
         </Badge>
-        <Badge variant="mono" className="px-3 py-1 text-xs">
-          🏷️ {units.length} {tProp("summaryTotalUnits")}
+        <Badge variant="mono" className="px-3 py-1 text-xs gap-1.5 font-normal">
+          <Tag className="h-3.5 w-3.5 text-body" />
+          <span>{units.length} {tProp("summaryTotalUnits")}</span>
         </Badge>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="w-full sm:w-64">
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={tProp("searchPlaceholder")}
-            className="rounded-full h-10 text-xs bg-canvas"
-            wrapperClassName="!mb-0"
-          />
-        </div>
-        <div className="w-full sm:w-52">
-          <SelectPill
-            value={selectedBuildingFilter}
-            onChange={(e) => setSelectedBuildingFilter(e.target.value)}
-            className="rounded-full h-10 text-xs bg-canvas"
-          >
-            <option value="All">{tProp("filterBuildingAll")}</option>
-            {INITIAL_BUILDINGS.map((b) => (
-              <option key={b.id} value={b.code}>
-                {b.code} — {resolveLocalizedText(b.name, locale)}
-              </option>
-            ))}
-          </SelectPill>
-        </div>
-        <div className="w-full sm:w-48">
-          <SelectPill
-            value={selectedStayModeFilter}
-            onChange={(e) => setSelectedStayModeFilter(e.target.value)}
-            className="rounded-full h-10 text-xs bg-canvas"
-          >
-            <option value="All">{tProp("filterStayModeAll")}</option>
-            <option value="Hourly">{tModes("Hourly")}</option>
-            <option value="Daily">{tModes("Daily")}</option>
-            <option value="Monthly">{tModes("Monthly")}</option>
-          </SelectPill>
-        </div>
-      </div>
+      <ListToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={tProp("searchPlaceholder")}
+        filters={
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-full sm:w-52">
+              <SelectPill
+                value={selectedBuildingFilter}
+                onChange={(e) => setSelectedBuildingFilter(e.target.value)}
+                className="rounded-full h-10 text-xs bg-canvas"
+              >
+                <option value="All">{tProp("filterBuildingAll")}</option>
+                {INITIAL_BUILDINGS.map((b) => (
+                  <option key={b.id} value={b.code}>
+                    {b.code} — {resolveLocalizedText(b.name, locale)}
+                  </option>
+                ))}
+              </SelectPill>
+            </div>
+            <div className="w-full sm:w-48">
+              <SelectPill
+                value={selectedStayModeFilter}
+                onChange={(e) => setSelectedStayModeFilter(e.target.value)}
+                className="rounded-full h-10 text-xs bg-canvas"
+              >
+                <option value="All">{tProp("filterStayModeAll")}</option>
+                <option value="Hourly">{tModes("Hourly")}</option>
+                <option value="Daily">{tModes("Daily")}</option>
+                <option value="Monthly">{tModes("Monthly")}</option>
+              </SelectPill>
+            </div>
+          </div>
+        }
+      />
 
       {/* Unit Master DataTable (Table-Preserved Architecture) */}
       <DataTable
         columns={columns}
         data={filteredUnits}
         isLoading={isLoading}
+        getRowId={(row) => row.id}
+        enableRowSelection
+        selectedRowIds={selectedRowIds}
+        onSelectionChange={setSelectedRowIds}
+        enablePagination
+        pageSize={20}
         emptyTitle={tProp("emptyTitle")}
         emptyDescription={tProp("emptyDesc")}
+      />
+
+      <BulkActionToolbar
+        selectedCount={selectedRowIds.length}
+        onClearSelection={() => setSelectedRowIds([])}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full text-xs h-7 text-canvas border-canvas/40 hover:bg-canvas/20"
+            onClick={() => setSelectedRowIds([])}
+          >
+            {tCommon("actions")}
+          </Button>
+        }
       />
 
       {/* Create / Edit Modal */}

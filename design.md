@@ -309,6 +309,9 @@ components:
 5. **Dual-Audience Layout Separation (`(admin)` vs `(client)`):**
    - ฝั่ง **`(admin)` (`/admin/...`):** ใช้เลย์เอาต์ความหนาแน่นสูงสำหรับปฏิบัติการ (Top Command Nav + Property Switcher Pill + Unified Room Rack + 1 Inverted Cashier Shift Card)
    - ฝั่ง **`(client)` (`/client/...`):** ใช้เลย์เอาต์โปร่ง สะอาด อ่านง่ายเหมือนเอกสาร README สำหรับผู้เช่าและผู้จองออนไลน์ (1 Inverted Booking Hold / Active Invoice Card + การ์ดบิล/มิเตอร์/แจ้งซ่อม/พัสดุทรง `12px`)
+6. **Iconography Standards & Zero Emojis (No Unicode Pictographs):**
+   - ห้ามใช้ Emoji หรือ Unicode Pictographs/Symbols (เช่น 🛏️, 🏢, 🚪, 🧹, 🌐, 🧮, 📊, 🎲) บน UI หรือใน Translation Messages โดยเด็ดขาด เพื่อรักษาภาพลักษณ์ Enterprise และความสม่ำเสมอข้ามอุปกรณ์
+   - บังคับใช้ชุดไอคอนเส้นสายคมชัดจาก `lucide-react` (ใน React) หรือ Inline SVG (ใน `preview.html`) เท่านั้น
 
 ---
 

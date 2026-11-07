@@ -15,9 +15,11 @@ import { useAppLocale } from "@/components/shared/locale-provider";
 import {
   DEMO_AUTH_CREDENTIALS,
   DEMO_ROLE_PRESETS,
+  DEMO_ROLE_PRESET_MAP,
   type DemoRolePreset,
 } from "../constants";
 import { siteConfig } from "@/config/site";
+import { ArrowLeft, Globe } from "lucide-react";
 
 export function LoginView() {
   const router = useRouter();
@@ -47,7 +49,7 @@ export function LoginView() {
   };
 
   const handleRolePresetChange = (roleCode: string) => {
-    const found = DEMO_ROLE_PRESETS.find((r) => r.roleCode === roleCode);
+    const found = DEMO_ROLE_PRESET_MAP[roleCode];
     if (found) {
       setSelectedPreset(found);
       setIdentifier(found.username);
@@ -70,18 +72,20 @@ export function LoginView() {
       <div className="flex items-center justify-between pt-4">
         <Link
           href="/"
-          className="font-rounded font-semibold text-lg tracking-tight text-ink"
+          className="font-rounded font-semibold text-lg tracking-tight text-ink flex items-center gap-1.5"
         >
-          ← {siteConfig.name}
+          <ArrowLeft className="h-4 w-4" />
+          <span>{siteConfig.name}</span>
         </Link>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={toggleLocale}
-          className="rounded-full text-xs font-mono h-8 px-3"
+          className="rounded-full text-xs font-mono h-8 px-3 gap-1.5"
         >
-          🌐 {locale.toUpperCase()}
+          <Globe className="h-3.5 w-3.5" />
+          <span>{locale.toUpperCase()}</span>
         </Button>
       </div>
 

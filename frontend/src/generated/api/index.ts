@@ -59,5 +59,17 @@ export type AssignReservationUnitRequest = Schemas["AssignReservationUnitRequest
 export type CancelReservationRequest = Schemas["CancelReservationRequest"];
 export type CreateClientHoldReservationRequest = Schemas["CreateClientHoldReservationRequest"];
 export type SubmitReservationSlipRequest = Schemas["SubmitReservationSlipRequest"];
+export type CheckInOccupantInputDto = Schemas["CheckInOccupantInputDto"];
+export type StayOccupantDto = Schemas["StayOccupantDto"];
+export type FolioChargeItemDto = Schemas["FolioChargeItemDto"];
+export type FolioSummaryDto = Schemas["FolioSummaryDto"];
+export type StayDetailDto = Schemas["StayDetailDto"];
+export type StayListResponse = Schemas["StayListResponse"];
+export type ExtendStayRequest = Schemas["ExtendStayRequest"];
+export type AddFolioChargeRequest = Schemas["AddFolioChargeRequest"];
+export type RecordFolioPaymentRequest = Schemas["RecordFolioPaymentRequest"];
+export type CheckOutStayRequest = Schemas["CheckOutStayRequest"];
+export type RegulatoryGuestRowDto = Schemas["RegulatoryGuestRowDto"];
+export type RegulatoryExportResponse = Schemas["RegulatoryExportResponse"];
 
 export type { paths };

@@ -40,6 +40,10 @@ export const DEMO_ROLE_PRESETS: DemoRolePreset[] = [
   },
 ];
 
+export const DEMO_ROLE_PRESET_MAP: Record<string, DemoRolePreset> = Object.fromEntries(
+  DEMO_ROLE_PRESETS.map((p) => [p.roleCode, p])
+);
+
 export const DEMO_AUTH_CREDENTIALS = {
   adminUsername: DEMO_ROLE_PRESETS[0].username,
   clientNationalId: "1-1002-39481-22-1",

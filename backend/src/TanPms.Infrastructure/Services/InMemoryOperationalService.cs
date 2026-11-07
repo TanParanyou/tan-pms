@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
-using TanPms.Application.ClientPortal;
+using System.Text;
+using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
@@ -11,6 +12,7 @@ using TanPms.Application.Rates;
 using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
 using TanPms.Domain.Billing;
+using TanPms.Domain.Cashier;
 using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
 using TanPms.Domain.DocumentNumbering;
@@ -49,6 +51,10 @@ public sealed class InMemoryOperationalService
     private readonly List<Lease> _leases = [];
     private readonly List<Reservation> _reservations = [];
     private readonly List<Stay> _stays = [];
+    private readonly Dictionary<Guid, Folio> _foliosByStayId = [];
+    private readonly List<Occupant> _occupants = [];
+    private readonly List<DepositLedger> _depositLedgers = [];
+    private readonly List<HousekeepingTask> _housekeepingTasks = [];
     private readonly object _syncRoot = new();
 
     public InMemoryOperationalService()
@@ -1723,12 +1729,32 @@ public sealed class InMemoryOperationalService
                 primaryCustomer.FullName,
                 primaryCustomer.GetMaskedIdentity());
 
+            var clockUtc = DateTimeOffset.UtcNow;
             var items = _units.Values
                 .Where(u => u.PropertyId == propertyId)
                 .OrderBy(u => u.UnitNumber)
                 .Select(u =>
                 {
                     var unitRef = _unitRefs[u.Id];
+                    var activeStay = _stays.FirstOrDefault(s => s.UnitId == u.Id && s.Status == StayStatus.Active);
+                    if (activeStay is not null)
+                    {
+                        EnsureCustomerExistsLocked(activeStay.CustomerId);
+                        var stayCust = _customers[activeStay.CustomerId];
+                        return new RoomRackItemDto(
+                            Unit: unitRef,
+                            OccupancyStatus: u.OccupancyStatus.ToString(),
+                            ConditionStatus: u.ConditionStatus.ToString(),
+                            SupportedStayModes: u.SupportedStayModes.Select(m => m.ToString()).ToList(),
+                            ActiveStayMode: activeStay.StayMode.ToString(),
+                            ActiveDocumentNumber: activeStay.DocumentNumber,
+                            Customer: new CustomerRefDto(
+                                stayCust.Id,
+                                stayCust.FullName,
+                                stayCust.GetMaskedIdentity()),
+                            RemainingMinutes: activeStay.GetRemainingMinutes(clockUtc));
+                    }
+
                     var isOccupiedLease = u.Id == PmsSeedConstants.OccupiedMonthlyUnitA201Id;
                     return new RoomRackItemDto(
                         Unit: unitRef,
@@ -1753,7 +1779,8 @@ public sealed class InMemoryOperationalService
 
     public Result<StaySummaryDto> CheckInStay(
         CheckInStayCommand command,
-        bool callerHasOverridePermission)
+        bool callerHasOverridePermission,
+        DateTimeOffset? nowUtc = null)
     {
         if (!Enum.TryParse<StayMode>(command.StayMode, ignoreCase: true, out var stayMode)
             || stayMode == StayMode.Monthly)
@@ -1762,6 +1789,15 @@ public sealed class InMemoryOperationalService
                 DomainErrorCodes.ValidationFailed,
                 "CheckInStay only supports Hourly or Daily StayMode."));
         }
+
+        if (command.KeyDepositAmount < 0m)
+        {
+            return Result<StaySummaryDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "KeyDepositAmount cannot be negative."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
 
         lock (_syncRoot)
         {
@@ -1777,6 +1813,19 @@ public sealed class InMemoryOperationalService
                 return Result<StaySummaryDto>.Failure(new Error(
                     DomainErrorCodes.ReservationSlotOverlap,
                     $"Unit {unit.UnitNumber} is already {unit.OccupancyStatus}."));
+            }
+
+            Reservation? linkedReservation = null;
+            if (command.ReservationId.HasValue)
+            {
+                linkedReservation = _reservations.FirstOrDefault(r =>
+                    r.Id == command.ReservationId.Value && r.PropertyId == command.PropertyId);
+                if (linkedReservation is null)
+                {
+                    return Result<StaySummaryDto>.Failure(new Error(
+                        DomainErrorCodes.ValidationFailed,
+                        $"Reservation '{command.ReservationId}' was not found in property '{command.PropertyId}'."));
+                }
             }
 
             try
@@ -1801,12 +1850,15 @@ public sealed class InMemoryOperationalService
                 });
             }
 
+            unit.MarkOccupied();
+            linkedReservation?.MarkCheckedIn(unit.Id);
+
             var property = _properties[command.PropertyId];
             var docNo = NextDocumentNumberAsync(
                 property.Id,
                 property.Code,
                 DocumentTypeCode.STY,
-                DateTimeOffset.UtcNow).GetAwaiter().GetResult();
+                clockUtc).GetAwaiter().GetResult();
 
             if (!_customers.TryGetValue(command.CustomerId, out var customer))
             {
@@ -1819,17 +1871,117 @@ public sealed class InMemoryOperationalService
                 _customers[customer.Id] = customer;
             }
 
+            var unitType = _unitTypes[unit.UnitTypeId];
+            var ratePlan = FindActiveRatePlanLocked(command.PropertyId, unit.UnitTypeId);
+            var baseHours = ratePlan?.BasePackageHours ?? unitType.HourlyBasePackageHours;
+            var expectedCheckOutAt = command.ExpectedCheckOutAt
+                ?? (stayMode == StayMode.Hourly
+                    ? clockUtc.AddHours(Math.Max(1, baseHours))
+                    : clockUtc.AddDays(1));
+
             var stay = new Stay
             {
                 PropertyId = command.PropertyId,
                 DocumentNumber = docNo,
                 UnitId = unit.Id,
                 CustomerId = customer.Id,
+                ReservationId = linkedReservation?.Id,
                 StayMode = stayMode,
-                CheckInAt = DateTimeOffset.UtcNow,
-                KeyDepositAmount = command.KeyDepositAmount
+                CheckInAt = clockUtc,
+                ExpectedCheckOutAt = expectedCheckOutAt,
+                KeyDepositAmount = decimal.Round(command.KeyDepositAmount, 2, MidpointRounding.AwayFromZero)
             };
             _stays.Add(stay);
+
+            // Create Guest Folio with initial room charge
+            var folio = new Folio
+            {
+                PropertyId = command.PropertyId,
+                StayId = stay.Id
+            };
+
+            decimal initialRoomCharge;
+            if (command.InitialRoomChargeAmount.HasValue)
+            {
+                initialRoomCharge = command.InitialRoomChargeAmount.Value;
+            }
+            else if (stayMode == StayMode.Hourly)
+            {
+                var durationMins = Math.Max(60, (int)Math.Ceiling((expectedCheckOutAt - clockUtc).TotalMinutes));
+                initialRoomCharge = ratePlan is not null
+                    ? HourlyPricingCalculator.Calculate(durationMins, ratePlan.ToHourlyRateRule()).FinalHourlyRoomCharge
+                    : unitType.HourlyBasePackagePrice;
+            }
+            else
+            {
+                var nights = Math.Max(1, (int)Math.Ceiling((expectedCheckOutAt - clockUtc).TotalDays));
+                var nightly = ratePlan?.WeekdayRate ?? unitType.DailyRate;
+                initialRoomCharge = decimal.Round(nights * nightly, 2, MidpointRounding.AwayFromZero);
+            }
+
+            var chargeTitleTh = stayMode == StayMode.Hourly
+                ? $"ค่าแพ็กเกจห้องพักรายชั่วโมง ({unit.UnitNumber})"
+                : $"ค่าห้องพักรายวัน ({unit.UnitNumber})";
+            var chargeTitleEn = stayMode == StayMode.Hourly
+                ? $"Hourly Room Package ({unit.UnitNumber})"
+                : $"Daily Room Charge ({unit.UnitNumber})";
+            folio.AddCharge(chargeTitleTh, initialRoomCharge, TaxMode.VatIncluded, chargeTitleEn);
+            _foliosByStayId[stay.Id] = folio;
+
+            // Isolate Key Deposit inside DepositLedger (never mixed into Folio revenue)
+            if (stay.KeyDepositAmount > 0m)
+            {
+                var ledger = new DepositLedger
+                {
+                    PropertyId = command.PropertyId,
+                    CustomerId = customer.Id,
+                    StayId = stay.Id,
+                    DepositType = DepositType.KeyDeposit
+                };
+                var depDocNo = NextDocumentNumberAsync(
+                    property.Id,
+                    property.Code,
+                    DocumentTypeCode.DEP,
+                    clockUtc).GetAwaiter().GetResult();
+                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount);
+                _depositLedgers.Add(ledger);
+            }
+
+            // Register Occupants for RR4 & TM.30 regulatory compliance
+            if (command.Occupants is { Count: > 0 })
+            {
+                foreach (var occInput in command.Occupants)
+                {
+                    _occupants.Add(new Occupant
+                    {
+                        PropertyId = command.PropertyId,
+                        CustomerId = customer.Id,
+                        StayId = stay.Id,
+                        FullName = occInput.FullName.Trim(),
+                        NationalityCode = string.IsNullOrWhiteSpace(occInput.NationalityCode)
+                            ? "THA"
+                            : occInput.NationalityCode.Trim().ToUpperInvariant(),
+                        IdentityNumber = occInput.IdentityNumber.Trim(),
+                        IsPrimaryOccupant = occInput.IsPrimaryOccupant,
+                        VehicleLicensePlate = string.IsNullOrWhiteSpace(occInput.VehicleLicensePlate)
+                            ? null
+                            : occInput.VehicleLicensePlate.Trim()
+                    });
+                }
+            }
+            else
+            {
+                _occupants.Add(new Occupant
+                {
+                    PropertyId = command.PropertyId,
+                    CustomerId = customer.Id,
+                    StayId = stay.Id,
+                    FullName = customer.FullName,
+                    NationalityCode = customer.IsPassport ? "USA" : "THA",
+                    IdentityNumber = customer.NationalIdOrPassport,
+                    IsPrimaryOccupant = true
+                });
+            }
 
             return Result<StaySummaryDto>.Success(new StaySummaryDto(
                 Id: stay.Id,
@@ -1842,6 +1994,567 @@ public sealed class InMemoryOperationalService
                     customer.FullName,
                     customer.GetMaskedIdentity())));
         }
+    }
+
+    public Result<StayListResponse> GetAdminStays(
+        Guid propertyId,
+        string? status,
+        string? stayMode,
+        bool unmaskPii = false,
+        DateTimeOffset? nowUtc = null)
+    {
+        StayStatus? statusFilter = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<StayStatus>(status, ignoreCase: true, out var parsedStatus))
+            {
+                return Result<StayListResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid StayStatus '{status}'."));
+            }
+
+            statusFilter = parsedStatus;
+        }
+
+        StayMode? modeFilter = null;
+        if (!string.IsNullOrWhiteSpace(stayMode))
+        {
+            if (!Enum.TryParse<StayMode>(stayMode, ignoreCase: true, out var parsedMode)
+                || parsedMode == StayMode.Monthly)
+            {
+                return Result<StayListResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Invalid StayMode '{stayMode}' for Stay."));
+            }
+
+            modeFilter = parsedMode;
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            if (!_properties.ContainsKey(propertyId))
+            {
+                return Result<StayListResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Property '{propertyId}' was not found."));
+            }
+
+            var items = _stays
+                .Where(s => s.PropertyId == propertyId)
+                .Where(s => !statusFilter.HasValue || s.Status == statusFilter.Value)
+                .Where(s => !modeFilter.HasValue || s.StayMode == modeFilter.Value)
+                .OrderByDescending(s => s.CheckInAt)
+                .ThenByDescending(s => s.DocumentNumber)
+                .Select(s => MapStayDetailDtoLocked(s, clockUtc, unmaskPii))
+                .ToList();
+
+            return Result<StayListResponse>.Success(new StayListResponse(items));
+        }
+    }
+
+    public Result<StayDetailDto> ExtendAdminStay(
+        Guid propertyId,
+        Guid stayId,
+        ExtendStayRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (request.AdditionalHours <= 0)
+        {
+            return Result<StayDetailDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "AdditionalHours must be greater than zero."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var stay = _stays.FirstOrDefault(s => s.Id == stayId && s.PropertyId == propertyId);
+            if (stay is null)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Stay '{stayId}' was not found in property '{propertyId}'."));
+            }
+
+            if (stay.Status != StayStatus.Active)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Cannot extend stay {stay.DocumentNumber} when status is {stay.Status}."));
+            }
+
+            var unit = _units[stay.UnitId];
+            var unitType = _unitTypes[unit.UnitTypeId];
+            var ratePlan = FindActiveRatePlanLocked(propertyId, unit.UnitTypeId);
+            var turnaroundBufferMinutes = ratePlan?.TurnaroundBufferMinutes ?? 30;
+
+            var oldExpectedEnd = stay.ExpectedCheckOutAt ?? stay.CheckInAt.AddHours(3);
+            var proposedEnd = oldExpectedEnd.AddHours(request.AdditionalHours);
+            var proposedEffectiveEnd = stay.StayMode == StayMode.Hourly
+                ? proposedEnd.AddMinutes(turnaroundBufferMinutes)
+                : proposedEnd;
+
+            // Verify extended window does not collide with an upcoming reservation or lease on this unit
+            ExpireStaleHoldsLocked(clockUtc);
+            var collidesWithReservation = _reservations.Any(r =>
+                r.PropertyId == propertyId
+                && r.UnitId == unit.Id
+                && r.Id != stay.ReservationId
+                && r.BlocksInventory(clockUtc)
+                && UnifiedAvailabilityCalculator.IntervalsOverlap(
+                    oldExpectedEnd,
+                    proposedEffectiveEnd,
+                    r.SlotStartAt,
+                    r.GetEffectiveBlockedEndAt(turnaroundBufferMinutes)));
+
+            if (collidesWithReservation)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ReservationSlotOverlap,
+                    $"Cannot extend stay {stay.DocumentNumber}: Unit {unit.UnitNumber} has an upcoming reservation."));
+            }
+
+            var folio = EnsureFolioLocked(stay);
+
+            try
+            {
+                if (stay.StayMode == StayMode.Hourly)
+                {
+                    var hourlyRule = ratePlan?.ToHourlyRateRule() ?? new HourlyRateRule(
+                        BasePackageHours: Math.Max(1, unitType.HourlyBasePackageHours),
+                        BasePackagePrice: unitType.HourlyBasePackagePrice,
+                        AdditionalHourPrice: unitType.HourlyAdditionalHourPrice,
+                        GracePeriodMinutes: 15,
+                        AutoCapToDailyRate: unitType.DailyRate,
+                        TurnaroundBufferMinutes: 30);
+
+                    var oldDurationMins = Math.Max(60, (int)Math.Ceiling((oldExpectedEnd - stay.CheckInAt).TotalMinutes));
+                    var oldQuote = HourlyPricingCalculator.Calculate(oldDurationMins, hourlyRule);
+
+                    stay.ExtendStay(request.AdditionalHours);
+
+                    var newDurationMins = Math.Max(60, (int)Math.Ceiling((stay.ExpectedCheckOutAt!.Value - stay.CheckInAt).TotalMinutes));
+                    var newQuote = HourlyPricingCalculator.Calculate(newDurationMins, hourlyRule);
+
+                    var deltaCharge = Math.Max(0m, newQuote.FinalHourlyRoomCharge - oldQuote.FinalHourlyRoomCharge);
+                    if (deltaCharge > 0m)
+                    {
+                        var capSuffixTh = newQuote.IsCappedToDailyRate ? " (ปัดเพดานรายวัน)" : string.Empty;
+                        var capSuffixEn = newQuote.IsCappedToDailyRate ? " (Auto-capped to Daily Rate)" : string.Empty;
+                        folio.AddCharge(
+                            $"ค่าต่อเวลาเข้าพัก +{request.AdditionalHours} ชม.{capSuffixTh}",
+                            deltaCharge,
+                            TaxMode.VatIncluded,
+                            $"Stay Extension +{request.AdditionalHours}h{capSuffixEn}");
+                    }
+                }
+                else
+                {
+                    stay.ExtendStay(request.AdditionalHours);
+                    var nightlyRate = ratePlan?.WeekdayRate ?? unitType.DailyRate;
+                    var additionalCharge = request.AdditionalHours >= 24
+                        ? decimal.Round((request.AdditionalHours / 24m) * nightlyRate, 2, MidpointRounding.AwayFromZero)
+                        : Math.Min(nightlyRate, decimal.Round(request.AdditionalHours * (ratePlan?.AdditionalHourPrice ?? unitType.HourlyAdditionalHourPrice), 2, MidpointRounding.AwayFromZero));
+
+                    if (additionalCharge > 0m)
+                    {
+                        folio.AddCharge(
+                            $"ค่าต่อเวลาเช็คเอาต์ +{request.AdditionalHours} ชม.",
+                            additionalCharge,
+                            TaxMode.VatIncluded,
+                            $"Late Check-out / Extension +{request.AdditionalHours}h");
+                    }
+                }
+
+                return Result<StayDetailDto>.Success(MapStayDetailDtoLocked(stay, clockUtc, unmaskPii: false));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<StayDetailDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<StayDetailDto> AddAdminFolioCharge(
+        Guid propertyId,
+        Guid stayId,
+        AddFolioChargeRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (request.Amount <= 0m)
+        {
+            return Result<StayDetailDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "Folio charge Amount must be greater than zero."));
+        }
+
+        if (!Enum.TryParse<TaxMode>(request.TaxMode, ignoreCase: true, out var parsedTaxMode))
+        {
+            return Result<StayDetailDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                $"Invalid TaxMode '{request.TaxMode}'."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var stay = _stays.FirstOrDefault(s => s.Id == stayId && s.PropertyId == propertyId);
+            if (stay is null)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Stay '{stayId}' was not found in property '{propertyId}'."));
+            }
+
+            if (stay.Status != StayStatus.Active)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Cannot add charge to stay {stay.DocumentNumber} when status is {stay.Status}."));
+            }
+
+            try
+            {
+                var folio = EnsureFolioLocked(stay);
+                folio.AddCharge(
+                    LocalizedText.Create(request.Description.Th, request.Description.En),
+                    request.Amount,
+                    parsedTaxMode);
+
+                return Result<StayDetailDto>.Success(MapStayDetailDtoLocked(stay, clockUtc, unmaskPii: false));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<StayDetailDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<StayDetailDto> RecordAdminFolioPayment(
+        Guid propertyId,
+        Guid stayId,
+        RecordFolioPaymentRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (request.Amount <= 0m)
+        {
+            return Result<StayDetailDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "Payment Amount must be greater than zero."));
+        }
+
+        if (request.PaymentMethod is not ("Cash" or "BankTransfer" or "PromptPay"))
+        {
+            return Result<StayDetailDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                $"Invalid PaymentMethod '{request.PaymentMethod}'."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var stay = _stays.FirstOrDefault(s => s.Id == stayId && s.PropertyId == propertyId);
+            if (stay is null)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Stay '{stayId}' was not found in property '{propertyId}'."));
+            }
+
+            var folio = EnsureFolioLocked(stay);
+            var roundedAmount = decimal.Round(request.Amount, 2, MidpointRounding.AwayFromZero);
+            if (roundedAmount > folio.BalanceDue)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Payment amount ({roundedAmount:0.00}) cannot exceed Folio balance due ({folio.BalanceDue:0.00})."));
+            }
+
+            var property = _properties[propertyId];
+            _ = NextDocumentNumberAsync(
+                property.Id,
+                property.Code,
+                DocumentTypeCode.RCT,
+                clockUtc).GetAwaiter().GetResult();
+
+            folio.RecordPayment(roundedAmount);
+            return Result<StayDetailDto>.Success(MapStayDetailDtoLocked(stay, clockUtc, unmaskPii: false));
+        }
+    }
+
+    public Result<StayDetailDto> CheckOutAdminStay(
+        Guid propertyId,
+        Guid stayId,
+        CheckOutStayRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (request.KeyDepositDeductionAmount < 0m)
+        {
+            return Result<StayDetailDto>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "KeyDepositDeductionAmount cannot be negative."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            var stay = _stays.FirstOrDefault(s => s.Id == stayId && s.PropertyId == propertyId);
+            if (stay is null)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Stay '{stayId}' was not found in property '{propertyId}'."));
+            }
+
+            if (stay.Status != StayStatus.Active)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Stay {stay.DocumentNumber} is already in status {stay.Status}."));
+            }
+
+            var folio = EnsureFolioLocked(stay);
+            if (folio.BalanceDue != 0.00m)
+            {
+                return Result<StayDetailDto>.Failure(new Error(
+                    DomainErrorCodes.StayFolioUnsettled,
+                    $"Stay {stay.DocumentNumber} cannot be checked out while Folio balance due is {folio.BalanceDue:0.00}."));
+            }
+
+            var ledger = _depositLedgers.FirstOrDefault(l =>
+                l.StayId == stay.Id && l.DepositType == DepositType.KeyDeposit);
+
+            try
+            {
+                if (ledger is not null && ledger.CurrentBalance > 0m)
+                {
+                    var property = _properties[propertyId];
+                    var reason = string.IsNullOrWhiteSpace(request.DeductionOrRefundReason)
+                        ? "Keycard returned at check-out"
+                        : request.DeductionOrRefundReason.Trim();
+
+                    if (request.KeyDepositDeductionAmount > 0m)
+                    {
+                        var deductDocNo = NextDocumentNumberAsync(
+                            property.Id,
+                            property.Code,
+                            DocumentTypeCode.DEP,
+                            clockUtc).GetAwaiter().GetResult();
+                        ledger.RecordDeduction(deductDocNo, request.KeyDepositDeductionAmount, reason);
+                    }
+
+                    if (ledger.CurrentBalance > 0m)
+                    {
+                        var refundDocNo = NextDocumentNumberAsync(
+                            property.Id,
+                            property.Code,
+                            DocumentTypeCode.DEP,
+                            clockUtc).GetAwaiter().GetResult();
+                        ledger.RefundRemainingBalance(refundDocNo, reason);
+                    }
+                }
+
+                stay.CompleteCheckOut(folio, ledger, clockUtc);
+
+                var unit = _units[stay.UnitId];
+                var housekeepingTask = unit.MarkCheckedOutOrMovedOut(stay.DocumentNumber);
+                _housekeepingTasks.Add(housekeepingTask);
+
+                return Result<StayDetailDto>.Success(MapStayDetailDtoLocked(stay, clockUtc, unmaskPii: false));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<StayDetailDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<RegulatoryExportResponse> GetAdminRegulatoryExport(
+        Guid propertyId,
+        string reportType,
+        bool unmaskPii,
+        DateTimeOffset? nowUtc = null)
+    {
+        var normalizedType = reportType?.Trim().ToUpperInvariant() ?? string.Empty;
+        if (normalizedType is not ("RR4" or "TM30"))
+        {
+            return Result<RegulatoryExportResponse>.Failure(new Error(
+                DomainErrorCodes.ValidationFailed,
+                "ReportType must be 'RR4' or 'TM30'."));
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(propertyId, out var property))
+            {
+                return Result<RegulatoryExportResponse>.Failure(new Error(
+                    DomainErrorCodes.ValidationFailed,
+                    $"Property '{propertyId}' was not found."));
+            }
+
+            var filteredOccupants = _occupants
+                .Where(o => o.PropertyId == propertyId)
+                .Where(o => normalizedType == "RR4" || o.IsForeignNational)
+                .ToList();
+
+            var rows = new List<RegulatoryGuestRowDto>();
+            foreach (var occ in filteredOccupants)
+            {
+                string sourceDoc = "N/A";
+                string unitNumber = "-";
+                DateTimeOffset checkInAt = clockUtc;
+                DateTimeOffset? checkOutAt = null;
+                string mode = StayMode.Daily.ToString();
+
+                if (occ.StayId.HasValue)
+                {
+                    var stay = _stays.FirstOrDefault(s => s.Id == occ.StayId.Value);
+                    if (stay is not null)
+                    {
+                        sourceDoc = stay.DocumentNumber;
+                        unitNumber = _units.TryGetValue(stay.UnitId, out var u) ? u.UnitNumber : "-";
+                        checkInAt = stay.CheckInAt;
+                        checkOutAt = stay.CheckOutAt;
+                        mode = stay.StayMode.ToString();
+                    }
+                }
+                else if (occ.LeaseId.HasValue)
+                {
+                    var lease = _leases.FirstOrDefault(l => l.Id == occ.LeaseId.Value);
+                    if (lease is not null)
+                    {
+                        sourceDoc = lease.DocumentNumber;
+                        unitNumber = _units.TryGetValue(lease.UnitId, out var u) ? u.UnitNumber : "-";
+                        checkInAt = new DateTimeOffset(lease.StartDate.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+                        mode = StayMode.Monthly.ToString();
+                    }
+                }
+
+                rows.Add(new RegulatoryGuestRowDto(
+                    OccupantId: occ.Id,
+                    SourceDocumentNumber: sourceDoc,
+                    UnitNumber: unitNumber,
+                    FullName: occ.FullName,
+                    NationalityCode: occ.NationalityCode,
+                    IdentityNumber: unmaskPii ? occ.IdentityNumber : occ.GetMaskedIdentity(),
+                    IsPrimaryOccupant: occ.IsPrimaryOccupant,
+                    VehicleLicensePlate: occ.VehicleLicensePlate,
+                    CheckInAt: checkInAt,
+                    CheckOutAt: checkOutAt,
+                    StayMode: mode));
+            }
+
+            var orderedRows = rows.OrderByDescending(r => r.CheckInAt).ToList();
+            var csv = new StringBuilder();
+            csv.AppendLine("ReportType,PropertyCode,DocumentNumber,UnitNumber,FullName,NationalityCode,IdentityNumber,IsPrimaryOccupant,VehicleLicensePlate,StayMode,CheckInAt,CheckOutAt");
+            foreach (var row in orderedRows)
+            {
+                csv.AppendLine($"{normalizedType},{property.Code},{row.SourceDocumentNumber},{row.UnitNumber},\"{row.FullName}\",{row.NationalityCode},{row.IdentityNumber},{row.IsPrimaryOccupant},{row.VehicleLicensePlate ?? string.Empty},{row.StayMode},{row.CheckInAt:O},{row.CheckOutAt?.ToString("O") ?? string.Empty}");
+            }
+
+            return Result<RegulatoryExportResponse>.Success(new RegulatoryExportResponse(
+                Property: new PropertyRefDto(
+                    property.Id,
+                    property.Code,
+                    LocalizedTextDto.FromDomain(property.Name)),
+                ReportType: normalizedType,
+                GeneratedAt: clockUtc,
+                IsPiiUnmasked: unmaskPii,
+                CsvContent: csv.ToString(),
+                Rows: orderedRows));
+        }
+    }
+
+    private Folio EnsureFolioLocked(Stay stay)
+    {
+        if (!_foliosByStayId.TryGetValue(stay.Id, out var folio))
+        {
+            folio = new Folio
+            {
+                PropertyId = stay.PropertyId,
+                StayId = stay.Id
+            };
+            _foliosByStayId[stay.Id] = folio;
+        }
+
+        return folio;
+    }
+
+    private StayDetailDto MapStayDetailDtoLocked(Stay stay, DateTimeOffset clockUtc, bool unmaskPii)
+    {
+        var property = _properties[stay.PropertyId];
+        EnsureCustomerExistsLocked(stay.CustomerId);
+        var customer = _customers[stay.CustomerId];
+        var unit = _units[stay.UnitId];
+        var ratePlan = FindActiveRatePlanLocked(stay.PropertyId, unit.UnitTypeId);
+        var graceMinutes = ratePlan?.GracePeriodMinutes ?? 15;
+
+        var folio = EnsureFolioLocked(stay);
+        var folioDto = new FolioSummaryDto(
+            Id: folio.Id,
+            Charges: folio.Charges.Select(c => new FolioChargeItemDto(
+                c.Id,
+                LocalizedTextDto.FromDomain(c.Description),
+                c.Amount,
+                c.TaxMode.ToString())).ToList(),
+            TotalCharges: folio.TotalCharges,
+            TotalPayments: folio.TotalPayments,
+            BalanceDue: folio.BalanceDue);
+
+        var ledger = _depositLedgers.FirstOrDefault(l =>
+            l.StayId == stay.Id && l.DepositType == DepositType.KeyDeposit);
+
+        var occupants = _occupants
+            .Where(o => o.StayId == stay.Id)
+            .Select(o => new StayOccupantDto(
+                Id: o.Id,
+                FullName: o.FullName,
+                NationalityCode: o.NationalityCode,
+                MaskedIdentityNumber: unmaskPii ? o.IdentityNumber : o.GetMaskedIdentity(),
+                IsPrimaryOccupant: o.IsPrimaryOccupant,
+                VehicleLicensePlate: o.VehicleLicensePlate))
+            .ToList();
+
+        var reservationDocNo = stay.ReservationId.HasValue
+            ? _reservations.FirstOrDefault(r => r.Id == stay.ReservationId.Value)?.DocumentNumber
+            : null;
+
+        var hkTask = _housekeepingTasks
+            .LastOrDefault(t => t.PropertyId == stay.PropertyId && t.SourceDocumentNumber == stay.DocumentNumber);
+
+        return new StayDetailDto(
+            Id: stay.Id,
+            DocumentNumber: stay.DocumentNumber,
+            Property: new PropertyRefDto(
+                property.Id,
+                property.Code,
+                LocalizedTextDto.FromDomain(property.Name)),
+            Unit: _unitRefs[stay.UnitId],
+            Customer: new CustomerRefDto(
+                customer.Id,
+                customer.FullName,
+                unmaskPii ? customer.NationalIdOrPassport : customer.GetMaskedIdentity()),
+            ReservationDocumentNumber: reservationDocNo,
+            StayMode: stay.StayMode.ToString(),
+            Status: stay.Status.ToString(),
+            CheckInAt: stay.CheckInAt,
+            ExpectedCheckOutAt: stay.ExpectedCheckOutAt,
+            CheckOutAt: stay.CheckOutAt,
+            RemainingMinutes: stay.GetRemainingMinutes(clockUtc),
+            IsOvertime: stay.IsOvertime(clockUtc, graceMinutes),
+            KeyDepositAmount: stay.KeyDepositAmount,
+            KeyDepositBalance: ledger?.CurrentBalance ?? 0m,
+            Folio: folioDto,
+            Occupants: occupants,
+            GeneratedHousekeepingTaskStatus: hkTask?.Status.ToString());
     }
 
     public Result<ClientDashboardResponse> GetClientDashboard(Guid customerId)
@@ -2555,5 +3268,62 @@ public sealed class InMemoryOperationalService
             id: PmsSeedConstants.SampleConfirmedReservationId);
 
         _reservations.AddRange([sampleHold, sampleConfirmed]);
+
+        // Seed primary lease occupant (Thai) and one completed historical foreign guest stay for RR4 / TM.30 exports
+        _occupants.Add(new Occupant
+        {
+            PropertyId = bkk.Id,
+            CustomerId = customer1.Id,
+            LeaseId = lease1.Id,
+            FullName = customer1.FullName,
+            NationalityCode = "THA",
+            IdentityNumber = customer1.NationalIdOrPassport,
+            IsPrimaryOccupant = true,
+            VehicleLicensePlate = "1กข-8899"
+        });
+
+        var foreignCustomer = new Customer
+        {
+            Id = Guid.Parse("44444444-4444-4444-4444-444444444403"),
+            FullName = "Johnathan Miller",
+            NationalIdOrPassport = "US99887766",
+            IsPassport = true,
+            PhoneNumber = "+1-415-555-0199"
+        };
+        _customers[foreignCustomer.Id] = foreignCustomer;
+
+        var octStayCheckIn = new DateTimeOffset(2026, 10, 20, 7, 0, 0, TimeSpan.Zero);
+        var octStay = new Stay
+        {
+            PropertyId = bkk.Id,
+            DocumentNumber = "BKK01-STY-2610-0001",
+            UnitId = unitA102.Id,
+            CustomerId = foreignCustomer.Id,
+            StayMode = StayMode.Daily,
+            CheckInAt = octStayCheckIn,
+            ExpectedCheckOutAt = octStayCheckIn.AddDays(2),
+            KeyDepositAmount = 0m
+        };
+        var octFolio = new Folio
+        {
+            PropertyId = bkk.Id,
+            StayId = octStay.Id
+        };
+        octFolio.AddCharge("ค่าห้องพักรายวัน (A-102)", 2400.00m, TaxMode.VatIncluded, "Daily Room Charge (A-102)");
+        octFolio.RecordPayment(2400.00m);
+        octStay.CompleteCheckOut(octFolio, null, octStayCheckIn.AddDays(2));
+        _stays.Add(octStay);
+        _foliosByStayId[octStay.Id] = octFolio;
+
+        _occupants.Add(new Occupant
+        {
+            PropertyId = bkk.Id,
+            CustomerId = foreignCustomer.Id,
+            StayId = octStay.Id,
+            FullName = foreignCustomer.FullName,
+            NationalityCode = "USA",
+            IdentityNumber = foreignCustomer.NationalIdOrPassport,
+            IsPrimaryOccupant = true
+        });
     }
 }

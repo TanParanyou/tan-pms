@@ -9,6 +9,7 @@
 > - **ตรวจก่อน แล้วบอกว่าตรวจอะไร (Verify & Report Evidence):** ก่อนส่งงานหรือยืนยันความเรียบร้อย ต้องรันคำสั่งตรวจสอบ (เช่น `npm run verify:docs`, type check, test, build หรือ linter) และระบุผลการตรวจสอบชัดเจนเสมอว่าตรวจอะไรไปบ้างและผลลัพธ์เป็นอย่างไร
 > - **ห้ามใช้ type `any`, `as any` หรือ `@ts-ignore` เด็ดขาด:** ให้ใช้ strict types, interfaces หรือ `unknown` แล้ว narrow อย่างรัดกุม
 > - **ห้าม Hardcode ข้อความและค่าคงที่:** ข้อความที่แสดงบนหน้าจอทั้งหมดต้องดึงผ่านระบบแปลภาษา (`i18n`) เสมอ
+> - **ห้ามใช้ Emoji / Symbol อักขระภาพบน UI เด็ดขาด:** ห้ามใช้ Emoji (เช่น 🛏️, 🏢, 🌐, 🧮, 📊, 🎲) หรือ Unicode Pictographs บน UI หรือใน Translation Messages ให้ใช้ชุดไอคอนมาตรฐานเส้นคมชัดจาก `lucide-react` หรือ SVG ทางการเท่านั้น
 > - **แปลภาษาให้ครบทั้งสองภาษา (`th` และ `en`):** ภาษาไทยเป็นค่าเริ่มต้น และต้องมีคู่เทียบภาษาอังกฤษเสมอใน `messages/` (`th.json` และ `en.json`) ห้ามตกหล่น
 > - **Reuse First & Global Reuse Proposal:** ส่วนไหนที่มี components, hooks, หรือ functions กลางอยู่แล้วให้นำมาใช้เสมอ หากไม่มี ให้เสนอแนะในการทำ Global Reuse แก่ผู้ใช้ก่อนเริ่มลงมือสร้าง
 > - **Tailwind-first & `shadcn/ui` Frontend:** งาน UI ใน `frontend/` ต้องใช้ `Tailwind CSS` utilities, คอมโพเนนต์ `shadcn/ui` กลางใน `src/components/ui/` และ semantic tokens ตาม `design.md` ก่อนแก้ Styling เสมอ
@@ -115,6 +116,9 @@ This repository is in **Foundation & Application Implementation (`Phase 0` & `PM
   1. ต้องใช้ **Icon-only Button (`size="icon"` `rounded-full` ล็อกความสูงเท่ากับช่องกรอก เช่น `h-10 w-10` หรือ `h-11 w-11`)** เสมอ ห้ามเขียนข้อความยาวๆ เช่น `[+ เพิ่ม]` เพื่อประหยัดพื้นที่แนวนอนและป้องกันข้อความตกบรรทัด
   2. ต้องครอบด้วย `<Tooltip content="..." position="top">` พร้อมใส่ `aria-label` ทุกครั้ง เพื่อคงความสามารถในการเข้าถึง (Accessibility)
   3. คอนเทนเนอร์ Input/Select ต้องใส่ `wrapperClassName="!mb-0"` และจัดแนวแถวด้วย `flex items-center gap-2` เพื่อล็อกขอบบนและล่างให้ขนานกับช่องกรอกพอดีเป๊ะ
+- **Iconography Standards & Zero Emojis (No Unicode Pictographs):**
+  - ห้ามใช้ Emoji (เช่น 🛏️, 🏢, 🚪, 🧹, 🌐, 🧮, 📊, 🎲) หรือ Unicode Pictographs/Symbols บนหน้าจอ UI หรือใน Translation Messages เด็ดขาด เพื่อคงความเป็น Enterprise และความสม่ำเสมอข้ามระบบปฏิบัติการ
+  - บังคับใช้ชุดไอคอนมาตรฐานเส้นคมชัดจากไลบรารี `lucide-react` (หรือ Inline SVG ใน `preview.html`) เสมอ
 - **Name-First Dropdown Hierarchy:** การแสดงผลใน Autocomplete / Select ต้องแสดงชื่อรายการเป็นหลัก (Name-First) ตัวหนาชัดเจน ควบคู่กับรหัส Code (เช่น `สมชาย ใจดี (CUS-00088)`, `A-301 — Deluxe 32 ตร.ม.`) ห้ามแสดงเฉพาะรหัสตัวเลขเดี่ยวๆ
 - **Table-Preserved Form Input Balance & Primary Action Prominence:**
   1. ในฟอร์มแบบตารางรายการ (Dynamic Array / Table Rows เช่น ตารางจดมิเตอร์น้ำ-ไฟ `PM-07` หรือรายการ `InvoiceLine`) ช่อง Input ทุกคอลัมน์ต้องระบุความสูงสม่ำเสมอพร้อม `wrapperClassName="!mb-0"` และจัดแนวแถวตารางเป็น `align-middle`
@@ -210,6 +214,7 @@ This repository is in **Foundation & Application Implementation (`Phase 0` & `PM
   3. ไม่มีแท็ก HTML ดิบ (`<button`, `<input`, `<select`, `<textarea`, `<table`) ใน `src/app/` และ `src/features/`
   4. คีย์ใน `th.json` และ `en.json` ตรงกัน 100% ทุกระดับ
   5. ไม่มี Arbitrary Hex Color Classes (`[#...]`) ทั้งในไฟล์ `.tsx` และใน `preview.html` เด็ดขาด (ต้องใช้ Semantic Tokens เท่านั้น)
+  6. ไม่มี Emoji หรือ Unicode Pictographs (`[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]`) หลุดในไฟล์ `.tsx` (ใช้ `lucide-react` หรือ SVG ทางการเท่านั้น)
 - **ห้ามกล่าวอ้างว่างาน "เสร็จแล้ว" หรือ "ผ่านแล้ว" หากยังไม่ได้รันคำสั่ง Verify และยืนยันผลลัพธ์จริงจาก Terminal**
 
 ---

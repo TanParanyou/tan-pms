@@ -16,6 +16,7 @@ import {
 import { useTranslations } from "next-intl";
 import type { MeterReadingRow } from "../types";
 import { INITIAL_METER_ROWS } from "../constants";
+import { AlertTriangle, Check, Save, Zap } from "lucide-react";
 
 export function BulkMeterReadingSection() {
   const tMeters = useTranslations("admin.meters");
@@ -69,17 +70,19 @@ export function BulkMeterReadingSection() {
             variant="outline"
             size="sm"
             onClick={handleSaveAll}
-            className="rounded-full text-xs shadow-none"
+            className="rounded-full text-xs shadow-none gap-1.5"
           >
-            💾 {tMeters("saveBatch")}
+            <Save className="h-3.5 w-3.5" />
+            <span>{tMeters("saveBatch")}</span>
           </Button>
           <Button
             type="button"
             size="sm"
             onClick={() => setSaveSuccessMessage(tMeters("invoiceRunSuccess"))}
-            className="rounded-full text-xs shadow-none"
+            className="rounded-full text-xs shadow-none gap-1.5"
           >
-            ⚡ {tMeters("batchInvoice")}
+            <Zap className="h-3.5 w-3.5" />
+            <span>{tMeters("batchInvoice")}</span>
           </Button>
         </div>
       </div>
@@ -227,8 +230,9 @@ export function BulkMeterReadingSection() {
                   <div className="flex items-center">
                     {isWaterRollover ? (
                       row.isRolloverConfirmed ? (
-                        <Badge variant="success" className="text-[10px]">
-                          ✓ {tMeters("rolloverConfirmed")}
+                        <Badge variant="success" className="text-[10px] gap-1">
+                          <Check className="h-3 w-3" />
+                          <span>{tMeters("rolloverConfirmed")}</span>
                         </Badge>
                       ) : (
                         <Button
@@ -236,9 +240,10 @@ export function BulkMeterReadingSection() {
                           variant="destructive"
                           size="sm"
                           onClick={() => toggleRolloverConfirm(idx)}
-                          className="rounded-full h-7 px-3 text-[11px] animate-pulse"
+                          className="rounded-full h-7 px-3 text-[11px] animate-pulse gap-1"
                         >
-                          ⚠️ {tMeters("rolloverConfirmed")}
+                          <AlertTriangle className="h-3 w-3" />
+                          <span>{tMeters("rolloverConfirmed")}</span>
                         </Button>
                       )
                     ) : (

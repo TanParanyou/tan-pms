@@ -8,6 +8,7 @@ import { CommandTag } from "@/components/ui/command-tag";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { useTranslations } from "next-intl";
 import { ACTIVE_CASHIER_SHIFT_DEMO } from "../constants";
+import { Check, Receipt, X } from "lucide-react";
 
 export interface CashierShiftInvertedCardProps {
   shiftNumber?: string;
@@ -81,7 +82,7 @@ export function CashierShiftInvertedCard({
         {/* Slip Verification Queue */}
         <div className="rounded-[8px] bg-neutral-900 border border-neutral-800 p-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-lg" aria-hidden="true">🧾</span>
+            <Receipt className="h-5 w-5 text-canvas shrink-0" aria-hidden="true" />
             <div>
               <span className="text-xs font-mono text-canvas block">
                 {t("queueSampleTitle")}
@@ -99,18 +100,20 @@ export function CashierShiftInvertedCard({
                   type="button"
                   size="sm"
                   onClick={() => setSlipVerified("approved")}
-                  className="rounded-full bg-terminal-green text-canvas hover:bg-terminal-green/90 h-8 text-xs font-medium"
+                  className="rounded-full bg-terminal-green text-canvas hover:bg-terminal-green/90 h-8 text-xs font-medium gap-1.5"
                 >
-                  ✓ {t("verifyApprove")}
+                  <Check className="h-3.5 w-3.5" />
+                  <span>{t("verifyApprove")}</span>
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={() => setSlipVerified("rejected")}
-                  className="rounded-full bg-transparent text-canvas border-neutral-700 hover:bg-neutral-800 h-8 text-xs font-medium"
+                  className="rounded-full bg-transparent text-canvas border-neutral-700 hover:bg-neutral-800 h-8 text-xs font-medium gap-1.5"
                 >
-                  ✕ {t("verifyReject")}
+                  <X className="h-3.5 w-3.5" />
+                  <span>{t("verifyReject")}</span>
                 </Button>
               </>
             ) : (

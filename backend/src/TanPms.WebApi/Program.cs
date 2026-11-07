@@ -1,4 +1,4 @@
-using TanPms.Application.ClientPortal;
+using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
@@ -7,23 +7,30 @@ using TanPms.Application.Rack;
 using TanPms.Application.Rates;
 using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
-using TanPms.Infrastructure.Persistence;
+using TanPms.Infrastructure;
 using TanPms.Infrastructure.Services;
 using TanPms.WebApi.ErrorHandling;
 using TanPms.WebApi.Security;
+
+const string FrontendCorsPolicy = "TanPmsFrontend";
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
-builder.Services.AddScoped<AuditableEntityInterceptor>();
+builder.Services.AddTanPmsInfrastructure(builder.Configuration);
 
-var operationalService = new InMemoryOperationalService();
-builder.Services.AddSingleton(operationalService);
-builder.Services.AddSingleton<IPmsOperationalStore>(operationalService);
-builder.Services.AddSingleton<IDocumentNumberService>(operationalService);
-builder.Services.AddSingleton<IAuditLogger>(operationalService);
-builder.Services.AddSingleton<INotificationSender>(operationalService);
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(FrontendCorsPolicy, policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
 builder.Services.AddScoped<LoginAuthSessionHandler>();
 builder.Services.AddScoped<GetCurrentAuthSessionHandler>();
@@ -51,6 +58,12 @@ builder.Services.AddScoped<CreateClientHoldReservationHandler>();
 builder.Services.AddScoped<SubmitClientReservationSlipHandler>();
 builder.Services.AddScoped<GetAdminRoomRackHandler>();
 builder.Services.AddScoped<CheckInStayHandler>();
+builder.Services.AddScoped<GetAdminStaysHandler>();
+builder.Services.AddScoped<ExtendAdminStayHandler>();
+builder.Services.AddScoped<AddAdminFolioChargeHandler>();
+builder.Services.AddScoped<RecordAdminFolioPaymentHandler>();
+builder.Services.AddScoped<CheckOutAdminStayHandler>();
+builder.Services.AddScoped<GetAdminRegulatoryExportHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
 
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
@@ -59,6 +72,7 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseCors(FrontendCorsPolicy);
 
 app.MapGet("/health/live", () => Results.Ok(new { status = "Live" }));
 app.MapGet("/health/ready", () => Results.Ok(new { status = "Ready" }));
@@ -336,12 +350,97 @@ adminGroup.MapPost("/stays/check-in", (
         StayMode: request.StayMode,
         KeyDepositAmount: request.KeyDepositAmount,
         OverrideDirtyCheckIn: request.OverrideDirtyCheckIn,
-        OverrideReason: request.OverrideReason);
+        OverrideReason: request.OverrideReason,
+        ReservationId: request.ReservationId,
+        ExpectedCheckOutAt: request.ExpectedCheckOutAt,
+        InitialRoomChargeAmount: request.InitialRoomChargeAmount,
+        Occupants: request.Occupants);
 
     var result = handler.Handle(command);
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Created($"/api/v1/admin/stays/{result.Value!.Id}", result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/stays", (
+    Guid propertyId,
+    string? status,
+    string? stayMode,
+    GetAdminStaysHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminStaysQuery(propertyId, status, stayMode));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/extend", (
+    Guid propertyId,
+    Guid stayId,
+    ExtendStayRequest request,
+    ExtendAdminStayHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ExtendAdminStayCommand(propertyId, stayId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/folio/charges", (
+    Guid propertyId,
+    Guid stayId,
+    AddFolioChargeRequest request,
+    AddAdminFolioChargeHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new AddAdminFolioChargeCommand(propertyId, stayId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/folio/payments", (
+    Guid propertyId,
+    Guid stayId,
+    RecordFolioPaymentRequest request,
+    RecordAdminFolioPaymentHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new RecordAdminFolioPaymentCommand(propertyId, stayId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/check-out", (
+    Guid propertyId,
+    Guid stayId,
+    CheckOutStayRequest request,
+    CheckOutAdminStayHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CheckOutAdminStayCommand(propertyId, stayId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/regulatory-exports", (
+    Guid propertyId,
+    string reportType,
+    bool? unmaskPii,
+    GetAdminRegulatoryExportHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminRegulatoryExportQuery(
+        propertyId,
+        reportType,
+        unmaskPii ?? false));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
 });
 
 var clientGroup = app.MapGroup("/api/v1/client");
@@ -416,6 +515,14 @@ clientGroup.MapPost("/reservations/{reservationId:guid}/slip", (
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
 });
+
+if (app.Environment.IsDevelopment())
+{
+    await PmsDatabaseInitializer.InitializeIfPostgresAsync(
+        app.Services,
+        app.Configuration,
+        app.Logger);
+}
 
 app.Run();
 

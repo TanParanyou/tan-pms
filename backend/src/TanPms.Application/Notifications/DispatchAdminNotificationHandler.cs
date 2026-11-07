@@ -1,17 +1,17 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 
 namespace TanPms.Application.Notifications;
 
 public sealed class DispatchAdminNotificationHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly INotificationStore _store;
     private readonly ICurrentUserContext _currentUser;
     private readonly INotificationSender _notificationSender;
 
     public DispatchAdminNotificationHandler(
-        IPmsOperationalStore store,
+        INotificationStore store,
         ICurrentUserContext currentUser,
         INotificationSender notificationSender)
     {
@@ -22,18 +22,9 @@ public sealed class DispatchAdminNotificationHandler
 
     public Result<NotificationItemDto> Handle(DispatchAdminNotificationCommand command)
     {
-        if (!_currentUser.IsAdminScope)
+        if (ScopeAuthorizationGuard.CheckAdminPropertyAccess(_currentUser, command.PropertyId) is { } authError)
         {
-            return Result<NotificationItemDto>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                "Endpoint requires AdminScope authorization."));
-        }
-
-        if (!_currentUser.AllowedPropertyIds.Contains(command.PropertyId))
-        {
-            return Result<NotificationItemDto>.Failure(new Error(
-                DomainErrorCodes.PropertyScopeDenied,
-                $"Caller does not have access to property '{command.PropertyId}'."));
+            return Result<NotificationItemDto>.Failure(authError);
         }
 
         var result = _store.DispatchNotification(command);

@@ -1,15 +1,15 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 
 namespace TanPms.Application.Reservations;
 
 public sealed class GetClientReservationsHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IReservationStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public GetClientReservationsHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public GetClientReservationsHandler(IReservationStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;
@@ -17,13 +17,11 @@ public sealed class GetClientReservationsHandler
 
     public Result<ReservationListResponse> Handle(GetClientReservationsQuery _)
     {
-        if (!_currentUser.IsClientScope || _currentUser.CustomerId is null || _currentUser.CustomerId == Guid.Empty)
+        if (ScopeAuthorizationGuard.CheckClientScope(_currentUser, out var customerId) is { } authError)
         {
-            return Result<ReservationListResponse>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                "Endpoint requires ClientScope with a bound CustomerId."));
+            return Result<ReservationListResponse>.Failure(authError);
         }
 
-        return _store.GetClientReservations(_currentUser.CustomerId.Value);
+        return _store.GetClientReservations(customerId);
     }
 }

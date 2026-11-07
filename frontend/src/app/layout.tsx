@@ -3,6 +3,8 @@ import "./globals.css";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { LocaleProvider } from "@/components/shared/locale-provider";
+import { QueryProvider } from "@/components/shared/query-provider";
+import { ToastProvider } from "@/components/ui/toast";
 import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
@@ -21,7 +23,11 @@ export default async function RootLayout({
     <html lang="th">
       <body className="min-h-screen bg-canvas text-ink font-sans antialiased selection:bg-ink selection:text-canvas">
         <NextIntlClientProvider messages={messages}>
-          <LocaleProvider>{children}</LocaleProvider>
+          <LocaleProvider>
+            <QueryProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </QueryProvider>
+          </LocaleProvider>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -74,6 +74,12 @@ const config: Config = {
         lg: "12px",
         full: "9999px",
       },
+      height: {
+        control: "var(--pms-control-h, 2.5rem)",
+      },
+      minHeight: {
+        control: "var(--pms-control-h, 2.5rem)",
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],

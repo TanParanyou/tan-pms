@@ -6,6 +6,7 @@ import { CommandTag } from "@/components/ui/command-tag";
 import { TerminalCard } from "@/components/ui/terminal-card";
 import { useTranslations } from "next-intl";
 import { siteConfig } from "@/config/site";
+import { ArrowRight } from "lucide-react";
 
 export default function HomePage() {
   const t = useTranslations("home");
@@ -45,13 +46,15 @@ export default function HomePage() {
         {/* Action Buttons (Pill Geometry 9999px) */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link href="/admin">
-            <Button size="lg" className="rounded-full shadow-none">
-              {t("adminCta")}
+            <Button size="lg" className="rounded-full shadow-none gap-2">
+              <span>{t("adminCta")}</span>
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
           <Link href="/client">
-            <Button variant="outline" size="lg" className="rounded-full shadow-none">
-              {t("clientCta")}
+            <Button variant="outline" size="lg" className="rounded-full shadow-none gap-2">
+              <span>{t("clientCta")}</span>
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
           <Link href="/login">

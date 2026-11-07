@@ -5,6 +5,11 @@ import type {
   UnitAssetDto,
 } from "./types";
 
+export const DEFAULT_PROPERTY_NAME = {
+  th: "แทน เรสซิเดนซ์ พระราม 9",
+  en: "Tan Residence Rama 9",
+};
+
 export const INITIAL_BUILDINGS: BuildingDetailDto[] = [
   {
     id: "bld-01",
@@ -274,3 +279,15 @@ export const INITIAL_UNIT_MASTER_ITEMS: UnitMasterItemDto[] = [
     ],
   },
 ];
+
+export const BUILDING_MAP: Record<string, BuildingDetailDto> = Object.fromEntries(
+  INITIAL_BUILDINGS.map((b) => [b.id, b])
+);
+
+export const UNIT_TYPE_MAP: Record<string, UnitTypeDetailDto> = Object.fromEntries(
+  INITIAL_UNIT_TYPES.map((ut) => [ut.id, ut])
+);
+
+export const FLOOR_MAP: Record<string, BuildingDetailDto["floors"][number]> = Object.fromEntries(
+  INITIAL_BUILDINGS.flatMap((b) => b.floors.map((f) => [f.id, f]))
+);

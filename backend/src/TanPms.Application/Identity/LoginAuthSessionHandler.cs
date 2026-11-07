@@ -6,9 +6,9 @@ namespace TanPms.Application.Identity;
 
 public sealed class LoginAuthSessionHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IIdentityStore _store;
 
-    public LoginAuthSessionHandler(IPmsOperationalStore store)
+    public LoginAuthSessionHandler(IIdentityStore store)
     {
         _store = store;
     }

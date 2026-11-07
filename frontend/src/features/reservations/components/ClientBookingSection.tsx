@@ -8,8 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { CommandTag } from "@/components/ui/command-tag";
 import { DeferredFilePicker } from "@/components/ui/deferred-file-picker";
 import { useDeferredFileUpload } from "@/hooks/use-deferred-file-upload";
+import { useCountdownTimer } from "@/hooks/use-countdown-timer";
+import { formatCurrencyThb, formatDecimal } from "@/lib/formatters";
 import { useTranslations, useLocale } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
+import { CheckCircle2 } from "lucide-react";
 import {
   INITIAL_AVAILABILITY_ITEMS,
   INITIAL_RESERVATIONS,
@@ -51,7 +54,6 @@ export function ClientBookingSection({
   const [activeHoldRes, setActiveHoldRes] = useState<ReservationItemDto | null>(
     null
   );
-  const [remainingSeconds, setRemainingSeconds] = useState(900); // 15 minutes TTL
   const [slipSubmitted, setSlipSubmitted] = useState(false);
 
   // Client's Reservations list
@@ -68,29 +70,20 @@ export function ClientBookingSection({
     isUploading,
   } = useDeferredFileUpload({ maxFiles: 1 });
 
-  // 15-Minute Countdown Timer
-  useEffect(() => {
-    if (!activeHoldRes || activeHoldRes.status !== "Hold") return;
-    const interval = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setActiveHoldRes((curr) =>
-            curr ? { ...curr, status: "Expired" } : null
-          );
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [activeHoldRes]);
-
-  const formatCountdown = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+  // 15-Minute Countdown Timer via central useCountdownTimer
+  const {
+    remainingSeconds,
+    formattedTime,
+    reset: resetTimer,
+  } = useCountdownTimer({
+    initialSeconds: 15 * 60,
+    onExpire: () => {
+      setActiveHoldRes((curr) =>
+        curr ? { ...curr, status: "Expired" } : null
+      );
+    },
+    autoStart: Boolean(activeHoldRes && activeHoldRes.status === "Hold"),
+  });
 
   // Handle Book & Lock Quota
   const handleBookRoom = (item: UnitTypeAvailabilityDto) => {
@@ -128,7 +121,7 @@ export function ClientBookingSection({
     };
 
     setActiveHoldRes(newRes);
-    setRemainingSeconds(900);
+    resetTimer(900);
     setSlipSubmitted(false);
     setMyReservations((prev) => [newRes, ...prev]);
   };
@@ -257,12 +250,12 @@ export function ClientBookingSection({
                     <div className="pt-2 border-t border-hairline space-y-1 font-mono text-xs">
                       <div className="text-primary font-bold text-sm">
                         {tBooking("rateStartingFrom", {
-                          rate: item.estimatedRoomRate.toLocaleString(),
+                          rate: formatDecimal(item.estimatedRoomRate, 0),
                         })}
                       </div>
                       <div className="text-mute text-[11px]">
                         {tBooking("depositRequired", {
-                          amount: item.estimatedDepositAmount.toLocaleString(),
+                          amount: formatDecimal(item.estimatedDepositAmount, 0),
                         })}
                       </div>
                       {selectedStayMode === "Hourly" &&
@@ -322,7 +315,7 @@ export function ClientBookingSection({
                 data-testid="hold-countdown-timer"
                 className="font-mono text-sm font-bold text-ink tabular-nums"
               >
-                {formatCountdown(remainingSeconds)}
+                {formattedTime}
               </span>
             </div>
           </div>
@@ -333,7 +326,7 @@ export function ClientBookingSection({
                 {tBooking("depositAmountLabel")}
               </span>
               <span className="text-base font-bold text-primary tabular-nums">
-                {activeHoldRes.depositAmount.toLocaleString()} THB
+                {formatCurrencyThb(activeHoldRes.depositAmount)}
               </span>
             </div>
             <div className="p-3 bg-surface-soft/60 border border-hairline rounded-[12px] space-y-1">
@@ -352,8 +345,9 @@ export function ClientBookingSection({
               data-testid="slip-success-banner"
               className="p-4 rounded-[12px] bg-surface-soft border border-hairline space-y-1 text-xs"
             >
-              <div className="font-semibold text-primary">
-                ✓ {tBooking("slipSuccessTitle")}
+              <div className="font-semibold text-primary flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-terminal-green shrink-0" aria-hidden="true" />
+                <span>{tBooking("slipSuccessTitle")}</span>
               </div>
               <div className="text-body">{tBooking("slipSuccessDesc")}</div>
             </div>
@@ -412,7 +406,7 @@ export function ClientBookingSection({
 
                 <div className="flex items-center gap-3">
                   <span className="font-bold text-ink">
-                    {res.depositAmount.toLocaleString()} THB
+                    {formatCurrencyThb(res.depositAmount)}
                   </span>
                   <Badge
                     variant={res.status === "Confirmed" ? "default" : "outline"}

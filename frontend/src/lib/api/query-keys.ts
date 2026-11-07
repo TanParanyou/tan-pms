@@ -1,0 +1,74 @@
+/**
+ * Centralized React Query Keys Factory for tan-pms.
+ * Ensures strict cache invalidation harmony across all admin and client features.
+ */
+export const queryKeys = {
+  auth: {
+    all: ["auth"] as const,
+    session: () => [...queryKeys.auth.all, "session"] as const,
+  },
+  roles: {
+    all: ["admin-roles"] as const,
+    list: () => [...queryKeys.roles.all, "list"] as const,
+  },
+  users: {
+    all: ["admin-users"] as const,
+    list: () => [...queryKeys.users.all, "list"] as const,
+    detail: (id: string) => [...queryKeys.users.all, "detail", id] as const,
+  },
+  notifications: {
+    all: ["notifications"] as const,
+    admin: (propertyId?: string) =>
+      [...queryKeys.notifications.all, "admin", propertyId ?? "all"] as const,
+    client: (customerId?: string) =>
+      [...queryKeys.notifications.all, "client", customerId ?? "all"] as const,
+  },
+  properties: {
+    all: ["admin-property-hierarchy"] as const,
+    hierarchy: (propertyId: string) =>
+      [...queryKeys.properties.all, propertyId] as const,
+    unitDetail: (unitId: string) =>
+      ["admin-unit-detail", unitId] as const,
+  },
+  rates: {
+    all: ["admin-rates"] as const,
+    catalog: (propertyId: string) =>
+      [...queryKeys.rates.all, propertyId] as const,
+    detail: (planId: string) =>
+      ["admin-rate-plan-detail", planId] as const,
+  },
+  availability: {
+    all: ["admin-availability"] as const,
+    search: (propertyId: string, params?: Record<string, unknown>) =>
+      [...queryKeys.availability.all, propertyId, params] as const,
+  },
+  reservations: {
+    all: ["admin-reservations"] as const,
+    list: (propertyId: string) =>
+      [...queryKeys.reservations.all, propertyId] as const,
+    detail: (id: string) =>
+      ["admin-reservation-detail", id] as const,
+  },
+  rack: {
+    all: ["admin-rack"] as const,
+    byProperty: (propertyId: string) =>
+      [...queryKeys.rack.all, propertyId] as const,
+  },
+  stays: {
+    all: ["admin-stays"] as const,
+    list: (propertyId: string) =>
+      [...queryKeys.stays.all, propertyId] as const,
+    detail: (id: string) =>
+      ["admin-stay-detail", id] as const,
+  },
+  regulatoryExports: {
+    all: ["admin-regulatory"] as const,
+    export: (propertyId: string, date?: string) =>
+      [...queryKeys.regulatoryExports.all, propertyId, date ?? ""] as const,
+  },
+  clientDashboard: {
+    all: ["client-dashboard"] as const,
+    summary: (customerId?: string) =>
+      [...queryKeys.clientDashboard.all, customerId ?? "current"] as const,
+  },
+} as const;

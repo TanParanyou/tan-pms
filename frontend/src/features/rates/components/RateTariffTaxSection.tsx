@@ -17,13 +17,17 @@ import {
 } from "@/components/ui/dialog";
 import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useTranslations, useLocale } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
+import { formatCurrencyThb, formatDecimal } from "@/lib/formatters";
+import { Calculator, Pencil, Plus } from "lucide-react";
 import {
   INITIAL_RATE_PLANS,
   INITIAL_UTILITY_TARIFFS,
   INITIAL_TAX_PROFILES,
   SAMPLE_UNIT_TYPE_REFS,
+  RATE_UNIT_TYPE_MAP,
 } from "../constants";
 import type {
   RatePlanItemDto,
@@ -248,7 +252,7 @@ export function RateTariffTaxSection({
     setIsSubmitting(true);
     try {
       const selectedUnitType =
-        SAMPLE_UNIT_TYPE_REFS.find((ut) => ut.id === formRpUnitTypeId) ||
+        RATE_UNIT_TYPE_MAP[formRpUnitTypeId] ??
         SAMPLE_UNIT_TYPE_REFS[0];
 
       const updatedPlan: RatePlanItemDto = {
@@ -410,30 +414,48 @@ export function RateTariffTaxSection({
     }
   };
 
+  // Memoized maps for zero-find lookups
+  const ratePlansMap = useMemo(
+    () => Object.fromEntries(ratePlans.map((rp) => [rp.id, rp])),
+    [ratePlans]
+  );
+  const utilityTariffsByType = useMemo(
+    () => Object.fromEntries(utilityTariffs.map((ut) => [ut.utilityType, ut])),
+    [utilityTariffs]
+  );
+  const utilityTariffsById = useMemo(
+    () => Object.fromEntries(utilityTariffs.map((ut) => [ut.id, ut])),
+    [utilityTariffs]
+  );
+  const taxProfilesMap = useMemo(
+    () => Object.fromEntries(taxProfiles.map((tp) => [tp.id, tp])),
+    [taxProfiles]
+  );
+
   // --- Real-time Simulator Calculations ---
   const activeSimRatePlan = useMemo(() => {
     return (
-      ratePlans.find((rp) => rp.id === simRatePlanId) ||
-      ratePlans[0] ||
+      ratePlansMap[simRatePlanId] ??
+      ratePlans[0] ??
       INITIAL_RATE_PLANS[0]
     );
-  }, [ratePlans, simRatePlanId]);
+  }, [ratePlansMap, ratePlans, simRatePlanId]);
 
   const activeSimTariff = useMemo(() => {
     return (
-      utilityTariffs.find((ut) => ut.utilityType === simUtilityType) ||
-      utilityTariffs[0] ||
+      utilityTariffsByType[simUtilityType] ??
+      utilityTariffs[0] ??
       INITIAL_UTILITY_TARIFFS[0]
     );
-  }, [utilityTariffs, simUtilityType]);
+  }, [utilityTariffsByType, utilityTariffs, simUtilityType]);
 
   const activeSimTaxProfile = useMemo(() => {
     return (
-      taxProfiles.find((tp) => tp.id === simTaxProfileId) ||
-      taxProfiles[0] ||
+      taxProfilesMap[simTaxProfileId] ??
+      taxProfiles[0] ??
       INITIAL_TAX_PROFILES[0]
     );
-  }, [taxProfiles, simTaxProfileId]);
+  }, [taxProfilesMap, taxProfiles, simTaxProfileId]);
 
   const simHourlyQuote = useMemo(() => {
     return calculateHourlySimulationQuote(
@@ -504,12 +526,12 @@ export function RateTariffTaxSection({
         <div className="flex flex-col gap-0.5 text-xs font-mono tabular-nums text-ink">
           <div className="font-semibold text-primary">
             {row.hourlyPackage.basePackageHours}h = THB{" "}
-            {row.hourlyPackage.basePackagePrice.toLocaleString()}
+            {formatDecimal(row.hourlyPackage.basePackagePrice, 0)}
           </div>
           <div className="text-mute text-[11px]">
             +{row.hourlyPackage.additionalHourPrice} THB/h • Grace{" "}
             {row.hourlyPackage.gracePeriodMinutes}m • Cap THB{" "}
-            {row.hourlyPackage.autoCapToDailyRate.toLocaleString()}
+            {formatDecimal(row.hourlyPackage.autoCapToDailyRate, 0)}
           </div>
         </div>
       ),
@@ -520,11 +542,11 @@ export function RateTariffTaxSection({
       cell: (row) => (
         <div className="flex flex-col gap-0.5 text-xs font-mono tabular-nums text-ink">
           <div>
-            THB {row.dailyRate.weekdayRate.toLocaleString()} / THB{" "}
-            {row.dailyRate.weekendRate.toLocaleString()}
+            THB {formatDecimal(row.dailyRate.weekdayRate, 0)} / THB{" "}
+            {formatDecimal(row.dailyRate.weekendRate, 0)}
           </div>
           <div className="text-mute text-[11px]">
-            THB {row.monthlyRate.monthlyRentRate.toLocaleString()}/mo (Dep{" "}
+            THB {formatDecimal(row.monthlyRate.monthlyRentRate, 0)}/mo (Dep{" "}
             {row.monthlyRate.securityDepositMonths}m)
           </div>
         </div>
@@ -555,19 +577,24 @@ export function RateTariffTaxSection({
     },
     {
       id: "actions",
-      header: tRates("colActions"),
+      header: <span className="sr-only">{tRates("colActions")}</span>,
+      headerClassName: "w-[80px] text-right",
       className: "text-right",
       cell: (row) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenEditRatePlan(row)}
-            className="rounded-full text-xs h-7 px-3"
-          >
-            {tRates("actionEdit")}
-          </Button>
+        <div className="flex items-center justify-end">
+          <Tooltip content={tRates("actionEdit")} position="top">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => handleOpenEditRatePlan(row)}
+              aria-label={tRates("actionEdit")}
+              className="rounded-full text-xs h-7 w-7 text-ink hover:bg-surface-soft"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              <span className="sr-only">{tRates("actionEdit")}</span>
+            </Button>
+          </Tooltip>
         </div>
       ),
     },
@@ -637,19 +664,24 @@ export function RateTariffTaxSection({
     },
     {
       id: "actions",
-      header: tRates("colActions"),
+      header: <span className="sr-only">{tRates("colActions")}</span>,
+      headerClassName: "w-[80px] text-right",
       className: "text-right",
       cell: (row) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenEditTariff(row)}
-            className="rounded-full text-xs h-7 px-3"
-          >
-            {tRates("actionEdit")}
-          </Button>
+        <div className="flex items-center justify-end">
+          <Tooltip content={tRates("actionEdit")} position="top">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => handleOpenEditTariff(row)}
+              aria-label={tRates("actionEdit")}
+              className="rounded-full text-xs h-7 w-7 text-ink hover:bg-surface-soft"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              <span className="sr-only">{tRates("actionEdit")}</span>
+            </Button>
+          </Tooltip>
         </div>
       ),
     },
@@ -719,19 +751,24 @@ export function RateTariffTaxSection({
     },
     {
       id: "actions",
-      header: tRates("colActions"),
+      header: <span className="sr-only">{tRates("colActions")}</span>,
+      headerClassName: "w-[80px] text-right",
       className: "text-right",
       cell: (row) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenEditTax(row)}
-            className="rounded-full text-xs h-7 px-3"
-          >
-            {tRates("actionEdit")}
-          </Button>
+        <div className="flex items-center justify-end">
+          <Tooltip content={tRates("actionEdit")} position="top">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => handleOpenEditTax(row)}
+              aria-label={tRates("actionEdit")}
+              className="rounded-full text-xs h-7 w-7 text-ink hover:bg-surface-soft"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              <span className="sr-only">{tRates("actionEdit")}</span>
+            </Button>
+          </Tooltip>
         </div>
       ),
     },
@@ -1048,9 +1085,10 @@ export function RateTariffTaxSection({
             variant="outline"
             size="sm"
             onClick={() => setIsSimulatorOpen(true)}
-            className="rounded-full text-xs font-mono h-9 px-4"
+            className="rounded-full text-xs font-mono h-9 px-4 gap-1.5"
           >
-            🧮 {tRates("openSimulator")}
+            <Calculator className="h-4 w-4" />
+            <span>{tRates("openSimulator")}</span>
           </Button>
 
           {activeCatalogTab === "rate-plans" && (
@@ -1058,9 +1096,10 @@ export function RateTariffTaxSection({
               type="button"
               size="sm"
               onClick={handleOpenCreateRatePlan}
-              className="rounded-full text-xs h-9 px-4"
+              className="rounded-full text-xs h-9 px-4 gap-1.5"
             >
-              + {tRates("createRatePlan")}
+              <Plus className="h-4 w-4" />
+              <span>{tRates("createRatePlan")}</span>
             </Button>
           )}
 
@@ -1243,8 +1282,7 @@ export function RateTariffTaxSection({
             <DialogTitle className="font-rounded text-lg text-ink">
               {tRates("modalTitleEditTariff", {
                 type:
-                  utilityTariffs.find((t) => t.id === editingTariffId)
-                    ?.utilityType || "",
+                  (editingTariffId ? utilityTariffsById[editingTariffId]?.utilityType : "") || "",
               })}
             </DialogTitle>
             <DialogDescription className="text-xs text-body">
@@ -1654,7 +1692,7 @@ export function RateTariffTaxSection({
                     {tRates("rawChargeResult")}
                   </span>
                   <span className="font-mono text-sm font-medium text-body tabular-nums">
-                    {simHourlyQuote.rawCharge.toLocaleString()} THB
+                    {formatCurrencyThb(simHourlyQuote.rawCharge)}
                   </span>
                 </div>
                 <div className="space-y-0.5">
@@ -1662,7 +1700,7 @@ export function RateTariffTaxSection({
                     {tRates("finalChargeResult")}
                   </span>
                   <span className="font-mono text-sm font-bold text-primary tabular-nums">
-                    {simHourlyQuote.finalHourlyRoomCharge.toLocaleString()} THB
+                    {formatCurrencyThb(simHourlyQuote.finalHourlyRoomCharge)}
                   </span>
                 </div>
                 <div className="space-y-0.5">
@@ -1775,7 +1813,7 @@ export function RateTariffTaxSection({
                     {tRates("usageUnitsResult")}
                   </span>
                   <span className="font-mono text-sm font-semibold text-ink tabular-nums">
-                    {simUtilityQuote.usageUnits.toLocaleString()} units
+                    {formatDecimal(simUtilityQuote.usageUnits, 0)} units
                     {simUtilityQuote.usedRollover && (
                       <span className="ml-1 text-[10px] text-mute font-normal">
                         (Rollover Applied)
@@ -1788,7 +1826,7 @@ export function RateTariffTaxSection({
                     {tRates("utilityChargeResult")}
                   </span>
                   <span className="font-mono text-sm font-bold text-primary tabular-nums">
-                    {simUtilityQuote.chargeAmount.toLocaleString()} THB
+                    {formatCurrencyThb(simUtilityQuote.chargeAmount)}
                   </span>
                 </div>
               </div>
@@ -1864,7 +1902,7 @@ export function RateTariffTaxSection({
                     {tRates("subTotalResult")}
                   </span>
                   <span className="font-mono text-sm font-medium text-ink tabular-nums">
-                    {simTaxQuote.subTotal.toLocaleString()} THB
+                    {formatCurrencyThb(simTaxQuote.subTotal)}
                   </span>
                 </div>
                 <div className="space-y-0.5">
@@ -1872,7 +1910,7 @@ export function RateTariffTaxSection({
                     {tRates("vatResult")} ({simTaxQuote.vatRatePercent}%)
                   </span>
                   <span className="font-mono text-sm font-medium text-ink tabular-nums">
-                    {simTaxQuote.vatAmount.toLocaleString()} THB
+                    {formatCurrencyThb(simTaxQuote.vatAmount)}
                   </span>
                 </div>
                 <div className="space-y-0.5">
@@ -1880,7 +1918,7 @@ export function RateTariffTaxSection({
                     {tRates("invoiceTotalResult")}
                   </span>
                   <span className="font-mono text-sm font-bold text-ink tabular-nums">
-                    {simTaxQuote.invoiceTotal.toLocaleString()} THB
+                    {formatCurrencyThb(simTaxQuote.invoiceTotal)}
                   </span>
                 </div>
                 <div className="space-y-0.5">
@@ -1888,7 +1926,7 @@ export function RateTariffTaxSection({
                     {tRates("whtResult")} ({simTaxQuote.withholdingTaxPercent}%)
                   </span>
                   <span className="font-mono text-sm font-medium text-destructive tabular-nums">
-                    -{simTaxQuote.withholdingTaxAmount.toLocaleString()} THB
+                    -{formatCurrencyThb(simTaxQuote.withholdingTaxAmount)}
                   </span>
                 </div>
                 <div className="space-y-0.5 col-span-2 sm:col-span-1">
@@ -1896,7 +1934,7 @@ export function RateTariffTaxSection({
                     {tRates("netPayableResult")}
                   </span>
                   <span className="font-mono text-sm font-extrabold text-primary tabular-nums">
-                    {simTaxQuote.netPayable.toLocaleString()} THB
+                    {formatCurrencyThb(simTaxQuote.netPayable)}
                   </span>
                 </div>
               </div>

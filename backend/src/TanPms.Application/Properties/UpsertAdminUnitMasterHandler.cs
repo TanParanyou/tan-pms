@@ -1,5 +1,6 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
+using TanPms.Application.Common.Security;
 using TanPms.Domain.Common;
 using TanPms.Domain.Identity;
 
@@ -7,12 +8,12 @@ namespace TanPms.Application.Properties;
 
 public sealed class UpsertAdminUnitMasterHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IPropertyCatalogStore _store;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
     public UpsertAdminUnitMasterHandler(
-        IPmsOperationalStore store,
+        IPropertyCatalogStore store,
         ICurrentUserContext currentUser,
         IAuditLogger auditLogger)
     {
@@ -23,18 +24,12 @@ public sealed class UpsertAdminUnitMasterHandler
 
     public Result<UnitMasterItemDto> Handle(UpsertAdminUnitMasterCommand command)
     {
-        if (!_currentUser.IsAdminScope || !_currentUser.Permissions.Contains(PermissionKeys.AdminPropertiesManage))
+        if (ScopeAuthorizationGuard.CheckAdminPropertyScope(
+            _currentUser,
+            command.PropertyId,
+            PermissionKeys.AdminPropertiesManage) is { } authError)
         {
-            return Result<UnitMasterItemDto>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                $"Caller lacks required permission '{PermissionKeys.AdminPropertiesManage}'."));
-        }
-
-        if (!_currentUser.AllowedPropertyIds.Contains(command.PropertyId))
-        {
-            return Result<UnitMasterItemDto>.Failure(new Error(
-                DomainErrorCodes.PropertyScopeDenied,
-                $"Caller does not have access to property '{command.PropertyId}'."));
+            return Result<UnitMasterItemDto>.Failure(authError);
         }
 
         if (string.IsNullOrWhiteSpace(command.Request.UnitNumber))
@@ -54,14 +49,17 @@ public sealed class UpsertAdminUnitMasterHandler
         var result = _store.UpsertUnitMaster(command.PropertyId, command.Request);
         if (result.IsSuccess && result.Value is not null)
         {
-            _auditLogger.RecordAsync(new AuditEvent
-            {
-                PropertyId = command.PropertyId,
-                ActionKey = PermissionKeys.AdminPropertiesManage,
-                EntityId = result.Value.Id,
-                Reason = $"Upserted unit {result.Value.UnitNumber}",
-                AfterStateJson = $"{{\"unitNumber\":\"{result.Value.UnitNumber}\",\"conditionStatus\":\"{result.Value.ConditionStatus}\",\"assetsCount\":{result.Value.Assets.Count}}}"
-            }).GetAwaiter().GetResult();
+            _auditLogger.RecordMutation(
+                propertyId: command.PropertyId,
+                actionKey: PermissionKeys.AdminPropertiesManage,
+                entityId: result.Value.Id,
+                reason: $"Upserted unit {result.Value.UnitNumber}",
+                afterState: new
+                {
+                    result.Value.UnitNumber,
+                    result.Value.ConditionStatus,
+                    AssetsCount = result.Value.Assets.Count
+                });
         }
 
         return result;

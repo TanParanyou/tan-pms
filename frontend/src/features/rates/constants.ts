@@ -3,7 +3,15 @@ import type {
   UtilityTariffItemDto,
   TaxProfileItemDto,
   UnitTypeRefDto,
+  PropertyRefDto,
 } from "./types";
+import { CENTRAL_PROPERTIES } from "@/constants/master-data";
+
+export const SAMPLE_RATE_PROPERTY: PropertyRefDto = {
+  id: CENTRAL_PROPERTIES[0].id,
+  code: CENTRAL_PROPERTIES[0].code,
+  name: { ...CENTRAL_PROPERTIES[0].name },
+};
 
 export const SAMPLE_UNIT_TYPE_REFS: UnitTypeRefDto[] = [
   {
@@ -213,3 +221,19 @@ export const INITIAL_TAX_PROFILES: TaxProfileItemDto[] = [
     isActive: true,
   },
 ];
+
+export const RATE_UNIT_TYPE_MAP: Record<string, UnitTypeRefDto> = Object.fromEntries(
+  SAMPLE_UNIT_TYPE_REFS.map((ut) => [ut.id, ut])
+);
+
+export const INITIAL_RATE_PLANS_MAP: Record<string, RatePlanItemDto> = Object.fromEntries(
+  INITIAL_RATE_PLANS.map((rp) => [rp.id, rp])
+);
+
+export const INITIAL_UTILITY_TARIFFS_MAP: Record<string, UtilityTariffItemDto> = Object.fromEntries(
+  INITIAL_UTILITY_TARIFFS.map((ut) => [ut.id, ut])
+);
+
+export const INITIAL_TAX_PROFILES_MAP: Record<string, TaxProfileItemDto> = Object.fromEntries(
+  INITIAL_TAX_PROFILES.map((tp) => [tp.id, tp])
+);

@@ -1,5 +1,6 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
+using TanPms.Application.Common.Security;
 using TanPms.Domain.Common;
 using TanPms.Domain.Identity;
 
@@ -7,12 +8,12 @@ namespace TanPms.Application.Identity;
 
 public sealed class UpsertAdminUserHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IIdentityStore _store;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
     public UpsertAdminUserHandler(
-        IPmsOperationalStore store,
+        IIdentityStore store,
         ICurrentUserContext currentUser,
         IAuditLogger auditLogger)
     {
@@ -23,11 +24,9 @@ public sealed class UpsertAdminUserHandler
 
     public Result<AdminUserDto> Handle(UpsertAdminUserCommand command)
     {
-        if (!_currentUser.IsAdminScope || !_currentUser.Permissions.Contains(PermissionKeys.AdminUsersManage))
+        if (ScopeAuthorizationGuard.CheckAdminPermission(_currentUser, PermissionKeys.AdminUsersManage) is { } permError)
         {
-            return Result<AdminUserDto>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                $"Caller lacks required permission '{PermissionKeys.AdminUsersManage}'."));
+            return Result<AdminUserDto>.Failure(permError);
         }
 
         if (command.AllowedPropertyIds is null || command.AllowedPropertyIds.Count == 0)
@@ -39,25 +38,26 @@ public sealed class UpsertAdminUserHandler
 
         foreach (var propId in command.AllowedPropertyIds)
         {
-            if (!_currentUser.AllowedPropertyIds.Contains(propId))
+            if (ScopeAuthorizationGuard.CheckAdminPropertyAccess(_currentUser, propId) is { } scopeError)
             {
-                return Result<AdminUserDto>.Failure(new Error(
-                    DomainErrorCodes.PropertyScopeDenied,
-                    $"Caller cannot assign access to unauthorized property '{propId}'."));
+                return Result<AdminUserDto>.Failure(scopeError);
             }
         }
 
         var result = _store.UpsertAdminUser(command);
         if (result.IsSuccess && result.Value is not null)
         {
-            _auditLogger.RecordAsync(new AuditEvent
-            {
-                PropertyId = command.AllowedPropertyIds[0],
-                ActionKey = PermissionKeys.AdminUsersManage,
-                EntityId = result.Value.Id,
-                Reason = $"Assigned role {result.Value.RoleCode} to {result.Value.Username}",
-                AfterStateJson = $"{{\"username\":\"{result.Value.Username}\",\"roleCode\":\"{result.Value.RoleCode}\",\"isActive\":{result.Value.IsActive.ToString().ToLowerInvariant()}}}"
-            }).GetAwaiter().GetResult();
+            _auditLogger.RecordMutation(
+                propertyId: command.AllowedPropertyIds[0],
+                actionKey: PermissionKeys.AdminUsersManage,
+                entityId: result.Value.Id,
+                reason: $"Assigned role {result.Value.RoleCode} to {result.Value.Username}",
+                afterState: new
+                {
+                    result.Value.Username,
+                    result.Value.RoleCode,
+                    result.Value.IsActive
+                });
         }
 
         return result;

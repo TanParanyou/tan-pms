@@ -11,22 +11,30 @@ const SelectValue = SelectPrimitive.Value;
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "flex h-10 w-full items-center justify-between rounded-full border border-hairline bg-canvas px-4 py-2 text-sm ring-offset-background placeholder:text-mute focus:outline-none focus:border-hairline-strong disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
-      className
-    )}
-    {...props}
-  >
-    {children}
-    <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 opacity-50 ml-2" />
-    </SelectPrimitive.Icon>
-  </SelectPrimitive.Trigger>
-));
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & { hasError?: boolean }
+>(({ className, children, hasError, ...props }, ref) => {
+  const isInvalid = hasError || props["aria-invalid"] === true || props["aria-invalid"] === "true";
+
+  return (
+    <SelectPrimitive.Trigger
+      ref={ref}
+      aria-invalid={isInvalid ? true : undefined}
+      className={cn(
+        "flex h-control min-h-control w-full items-center justify-between rounded-full border bg-canvas px-4 py-2 text-sm ring-offset-background placeholder:text-mute focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 transition-colors",
+        isInvalid
+          ? "border-destructive focus:ring-2 focus:ring-destructive/40 focus:border-transparent"
+          : "border-hairline focus:border-hairline-strong",
+        className
+      )}
+      {...props}
+    >
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <ChevronDown className="h-4 w-4 opacity-50 ml-2" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  );
+});
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
 const SelectScrollUpButton = React.forwardRef<

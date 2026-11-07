@@ -15,6 +15,15 @@
   --terminal-red: #ff5f56;
   --terminal-yellow: #ffbd2e;
   --terminal-green: #27c93f;
+  --pms-control-h: 40px;
+}
+
+[data-density="compact"] {
+  --pms-control-h: 36px;
+}
+
+[data-density="spacious"] {
+  --pms-control-h: 44px;
 }
 
 body {

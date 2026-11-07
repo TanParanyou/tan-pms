@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { CommandTag } from "@/components/ui/command-tag";
 
 export interface BreadcrumbItem {
   label: string;
@@ -12,6 +13,8 @@ export interface BreadcrumbItem {
 export interface PageHeaderProps {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
+  description?: React.ReactNode;
+  prefixCode?: string;
   breadcrumbs?: BreadcrumbItem[];
   actions?: React.ReactNode;
   className?: string;
@@ -20,10 +23,14 @@ export interface PageHeaderProps {
 export function PageHeader({
   title,
   subtitle,
+  description,
+  prefixCode,
   breadcrumbs,
   actions,
   className,
 }: PageHeaderProps) {
+  const displaySubtitle = subtitle ?? description;
+
   return (
     <div className={cn("flex flex-col gap-2 pb-4", className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
@@ -51,11 +58,16 @@ export function PageHeader({
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-0.5 min-w-0">
-          <h1 className="text-2xl font-rounded font-semibold text-ink tracking-tight">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-xs text-body leading-relaxed">{subtitle}</p>
+          <div className="flex items-center gap-2">
+            {prefixCode && (
+              <CommandTag prefixCode={prefixCode}>{prefixCode}</CommandTag>
+            )}
+            <h1 className="text-2xl font-rounded font-semibold text-ink tracking-tight">
+              {title}
+            </h1>
+          </div>
+          {displaySubtitle && (
+            <p className="text-xs text-body leading-relaxed">{displaySubtitle}</p>
           )}
         </div>
         {actions && (

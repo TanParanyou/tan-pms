@@ -13,4 +13,10 @@ public sealed class Occupant : AuditableEntity
     public required string IdentityNumber { get; set; }
     public bool IsPrimaryOccupant { get; set; }
     public string? VehicleLicensePlate { get; set; }
+
+    public bool IsForeignNational =>
+        !string.Equals(NationalityCode?.Trim(), "THA", StringComparison.OrdinalIgnoreCase);
+
+    public string GetMaskedIdentity() =>
+        PiiMasker.MaskIdentity(IdentityNumber, isPassport: IsForeignNational);
 }

@@ -1,8 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using TanPms.Application.ClientPortal;
+using TanPms.Application.Client;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Identity;
 using TanPms.Application.Notifications;
@@ -19,13 +20,27 @@ using Xunit;
 
 namespace TanPms.IntegrationTests;
 
-public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly InMemoryWebApiFactory _factory;
 
-    public WebApiContractAndScopeTests(WebApplicationFactory<Program> factory)
+    public WebApiContractAndScopeTests(InMemoryWebApiFactory factory)
     {
         _factory = factory;
+    }
+
+    [Fact]
+    public async Task Cors_Should_Allow_Localhost_3000_Frontend_Origin_With_Credentials()
+    {
+        using var client = _factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/v1/auth/login");
+        request.Headers.Add("Origin", "http://localhost:3000");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Contains("http://localhost:3000", response.Headers.GetValues("Access-Control-Allow-Origin"));
+        Assert.Contains("true", response.Headers.GetValues("Access-Control-Allow-Credentials"));
     }
 
     [Fact]
@@ -581,5 +596,126 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<WebApplicationFa
         Assert.NotNull(noShow);
         Assert.Equal("NoShow", noShow.Status);
         Assert.Equal("Guest did not arrive within cut-off window", noShow.CancellationReason);
+    }
+
+    [Fact]
+    public async Task FrontDesk_Stay_Extend_Folio_CheckOut_DirtyUnit_And_RegulatoryExport_Should_Work_EndToEnd()
+    {
+        using var adminClient = _factory.CreateClient();
+        adminClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        adminClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        adminClient.DefaultRequestHeaders.Add("X-TanPms-Open-Shift", "true");
+        adminClient.DefaultRequestHeaders.Add(
+            "X-TanPms-Permissions",
+            string.Join(",",
+                PermissionKeys.AdminPropertiesRead,
+                PermissionKeys.AdminPropertiesManage,
+                PermissionKeys.AdminStayCheckIn,
+                PermissionKeys.AdminStayCheckOut,
+                PermissionKeys.AdminRegulatoryExport));
+
+        // 1. Provision dedicated clean unit A-109 so test execution order is completely isolated
+        var unitRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/units",
+            new UpsertUnitMasterRequest(
+                Id: null,
+                BuildingId: PmsSeedConstants.BkkBuildingAId,
+                FloorId: PmsSeedConstants.BkkFloor1Id,
+                UnitTypeId: PmsSeedConstants.StandardUnitTypeId,
+                UnitNumber: "A-109",
+                SupportedStayModes: ["Hourly", "Daily"],
+                ConditionStatus: "Clean",
+                Assets: []));
+        Assert.Equal(HttpStatusCode.OK, unitRes.StatusCode);
+        var unitA109 = await unitRes.Content.ReadFromJsonAsync<UnitMasterItemDto>();
+        Assert.NotNull(unitA109);
+
+        // 2. Quick Walk-in Check-in with Thai + Foreign co-occupants
+        var checkInRes = await adminClient.PostAsJsonAsync(
+            "/api/v1/admin/stays/check-in",
+            new CheckInStayRequest(
+                PropertyId: PmsSeedConstants.BkkPropertyId,
+                UnitId: unitA109.Id,
+                CustomerId: PmsSeedConstants.PrimaryCustomerId,
+                StayMode: "Hourly",
+                KeyDepositAmount: 500.00m,
+                Occupants:
+                [
+                    new CheckInOccupantInputDto("Somchai Rakdee", "THA", "1100501234123", true, "9กท-9999"),
+                    new CheckInOccupantInputDto("Mei Ling Tan", "SGP", "E9123456Z", false, null)
+                ]));
+        Assert.Equal(HttpStatusCode.Created, checkInRes.StatusCode);
+        var createdStay = await checkInRes.Content.ReadFromJsonAsync<StaySummaryDto>();
+        Assert.NotNull(createdStay);
+
+        // 3. Extend stay +1h and post minibar charge to Folio
+        var extendRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/stays/{createdStay.Id}/extend",
+            new ExtendStayRequest(1));
+        Assert.Equal(HttpStatusCode.OK, extendRes.StatusCode);
+
+        var addChargeRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/stays/{createdStay.Id}/folio/charges",
+            new AddFolioChargeRequest(
+                new LocalizedTextDto("ชุดมินิบาร์", "Minibar Snack Set"),
+                150.00m,
+                "VatIncluded"));
+        Assert.Equal(HttpStatusCode.OK, addChargeRes.StatusCode);
+        var stayWithCharges = await addChargeRes.Content.ReadFromJsonAsync<StayDetailDto>();
+        Assert.NotNull(stayWithCharges);
+        Assert.Equal(800.00m, stayWithCharges.Folio.BalanceDue); // 500 base + 150 extend + 150 minibar
+
+        // 4. Attempting check-out before settling Folio returns 409 stay.folio_unsettled
+        var blockedCheckOutRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/stays/{createdStay.Id}/check-out",
+            new CheckOutStayRequest(0m, "Attempt before settlement"));
+        Assert.Equal(HttpStatusCode.Conflict, blockedCheckOutRes.StatusCode);
+        var unsettledProblem = await blockedCheckOutRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(unsettledProblem);
+        Assert.Equal(DomainErrorCodes.StayFolioUnsettled, unsettledProblem.ErrorCode);
+
+        // 5. Pay Folio in full and complete Check-out -> Unit becomes Dirty + HousekeepingTask Pending
+        var payRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/stays/{createdStay.Id}/folio/payments",
+            new RecordFolioPaymentRequest(800.00m, "Cash"));
+        Assert.Equal(HttpStatusCode.OK, payRes.StatusCode);
+
+        var checkOutRes = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/stays/{createdStay.Id}/check-out",
+            new CheckOutStayRequest(0m, "Keycard returned intact; full 500 THB key deposit refunded"));
+        Assert.Equal(HttpStatusCode.OK, checkOutRes.StatusCode);
+        var checkedOutStay = await checkOutRes.Content.ReadFromJsonAsync<StayDetailDto>();
+        Assert.NotNull(checkedOutStay);
+        Assert.Equal("CheckedOut", checkedOutStay.Status);
+        Assert.Equal(0.00m, checkedOutStay.KeyDepositBalance);
+        Assert.Equal("Pending", checkedOutStay.GeneratedHousekeepingTaskStatus);
+
+        // 6. Regulatory Export: masked TM.30 succeeds; unmasked requires admin.customer.unmask_pii (PDPA)
+        var tm30MaskedRes = await adminClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/regulatory-exports?reportType=TM30&unmaskPii=false");
+        Assert.Equal(HttpStatusCode.OK, tm30MaskedRes.StatusCode);
+        var tm30Masked = await tm30MaskedRes.Content.ReadFromJsonAsync<RegulatoryExportResponse>();
+        Assert.NotNull(tm30Masked);
+        Assert.All(tm30Masked.Rows, r => Assert.NotEqual("THA", r.NationalityCode));
+        Assert.Contains(tm30Masked.Rows, r => r.FullName == "Mei Ling Tan" && r.IdentityNumber == "E9xxxx56Z");
+
+        var deniedUnmaskRes = await adminClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/regulatory-exports?reportType=TM30&unmaskPii=true");
+        Assert.Equal(HttpStatusCode.Forbidden, deniedUnmaskRes.StatusCode);
+
+        using var dpoClient = _factory.CreateClient();
+        dpoClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        dpoClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        dpoClient.DefaultRequestHeaders.Add(
+            "X-TanPms-Permissions",
+            $"{PermissionKeys.AdminRegulatoryExport},{PermissionKeys.AdminCustomerUnmaskPii}");
+
+        var unmaskedRes = await dpoClient.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/regulatory-exports?reportType=TM30&unmaskPii=true");
+        Assert.Equal(HttpStatusCode.OK, unmaskedRes.StatusCode);
+        var tm30Unmasked = await unmaskedRes.Content.ReadFromJsonAsync<RegulatoryExportResponse>();
+        Assert.NotNull(tm30Unmasked);
+        Assert.True(tm30Unmasked.IsPiiUnmasked);
+        Assert.Contains(tm30Unmasked.Rows, r => r.FullName == "Mei Ling Tan" && r.IdentityNumber == "E9123456Z");
     }
 }

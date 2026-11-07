@@ -1,15 +1,15 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 
 namespace TanPms.Application.Identity;
 
 public sealed class GetAdminRoleCatalogHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IIdentityStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public GetAdminRoleCatalogHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public GetAdminRoleCatalogHandler(IIdentityStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;
@@ -17,11 +17,9 @@ public sealed class GetAdminRoleCatalogHandler
 
     public Result<RoleCatalogResponse> Handle(GetAdminRoleCatalogQuery _)
     {
-        if (!_currentUser.IsAdminScope)
+        if (ScopeAuthorizationGuard.CheckAdminScope(_currentUser) is { } authError)
         {
-            return Result<RoleCatalogResponse>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                "Endpoint requires AdminScope authorization."));
+            return Result<RoleCatalogResponse>.Failure(authError);
         }
 
         return _store.GetRoleCatalog();

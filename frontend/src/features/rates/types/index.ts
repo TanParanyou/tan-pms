@@ -16,6 +16,7 @@ import type {
   RateSimulationResponse,
   UnitTypeRefDto,
   LocalizedTextDto,
+  PropertyRefDto,
 } from "@/generated/api";
 
 export type {
@@ -36,6 +37,7 @@ export type {
   RateSimulationResponse,
   UnitTypeRefDto,
   LocalizedTextDto,
+  PropertyRefDto,
 };
 
 export type RateCatalogTabKey =

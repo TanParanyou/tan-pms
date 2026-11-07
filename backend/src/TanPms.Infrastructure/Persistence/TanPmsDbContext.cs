@@ -1,11 +1,10 @@
 using System.Linq.Expressions;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TanPms.Domain.Billing;
 using TanPms.Domain.Cashier;
 using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
+using TanPms.Domain.DocumentNumbering;
 using TanPms.Domain.Identity;
 using TanPms.Domain.Leases;
 using TanPms.Domain.Meters;
@@ -25,6 +24,7 @@ public sealed class TanPmsDbContext : DbContext
     {
     }
 
+    public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Building> Buildings => Set<Building>();
     public DbSet<Floor> Floors => Set<Floor>();
@@ -60,13 +60,119 @@ public sealed class TanPmsDbContext : DbContext
 
         configurationBuilder
             .Properties<LocalizedText>()
-            .HaveConversion<LocalizedTextJsonConverter>()
+            .HaveConversion<LocalizedTextValueConverter>()
+            .HaveColumnType("jsonb");
+
+        configurationBuilder
+            .Properties<LocalizedText?>()
+            .HaveConversion<OptionalLocalizedTextValueConverter>()
             .HaveColumnType("jsonb");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<DocumentSequence>(b =>
+        {
+            b.ToTable("document_sequences");
+            b.HasKey(x => new { x.PropertyId, x.DocumentType, x.PeriodYyMm });
+
+            b.Property(x => x.PropertyId)
+                .HasColumnName("property_id")
+                .IsRequired();
+
+            b.Property(x => x.DocumentType)
+                .HasColumnName("document_type")
+                .HasMaxLength(16)
+                .IsRequired();
+
+            b.Property(x => x.PeriodYyMm)
+                .HasColumnName("period_yymm")
+                .HasMaxLength(8)
+                .IsRequired();
+
+            b.Property(x => x.LastSequence)
+                .HasColumnName("last_sequence")
+                .IsRequired();
+
+            b.Property(x => x.UpdatedAt)
+                .HasColumnName("updated_at")
+                .IsRequired();
+        });
+
+        modelBuilder.Entity<Property>(b =>
+        {
+            b.HasMany(x => x.Buildings)
+                .WithOne()
+                .HasForeignKey(x => x.PropertyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasMany(x => x.UnitTypes)
+                .WithOne()
+                .HasForeignKey(x => x.PropertyId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Building>(b =>
+        {
+            b.HasMany(x => x.Floors)
+                .WithOne()
+                .HasForeignKey(x => x.BuildingId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Floor>(b =>
+        {
+            b.HasMany(x => x.Units)
+                .WithOne()
+                .HasForeignKey(x => x.FloorId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Unit>(b =>
+        {
+            b.HasMany(x => x.Assets)
+                .WithOne()
+                .HasForeignKey(x => x.UnitId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DepositLedger>(b =>
+        {
+            b.HasMany(x => x.Transactions)
+                .WithOne()
+                .HasForeignKey(x => x.DepositLedgerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Folio>(b =>
+        {
+            b.HasMany(x => x.Charges)
+                .WithOne()
+                .HasForeignKey("FolioId")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FolioCharge>(b =>
+        {
+            b.ToTable("FolioCharge");
+            b.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<Invoice>(b =>
+        {
+            b.HasMany(x => x.Lines)
+                .WithOne()
+                .HasForeignKey("InvoiceId")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<InvoiceLine>(b =>
+        {
+            b.ToTable("InvoiceLine");
+            b.HasKey(x => x.Id);
+        });
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -86,26 +192,15 @@ public sealed class TanPmsDbContext : DbContext
                     property.SetPrecision(18);
                     property.SetScale(2);
                 }
+                else if (property.ClrType == typeof(LocalizedText))
+                {
+                    property.SetColumnType("jsonb");
+                    property.SetValueConverter(
+                        property.IsNullable
+                            ? typeof(OptionalLocalizedTextValueConverter)
+                            : typeof(LocalizedTextValueConverter));
+                }
             }
-        }
-    }
-
-    private sealed class LocalizedTextJsonConverter : ValueConverter<LocalizedText, string>
-    {
-        public LocalizedTextJsonConverter()
-            : base(
-                v => JsonSerializer.Serialize(new { th = v.Thai, en = v.English }, (JsonSerializerOptions?)null),
-                v => DeserializeLocalizedText(v))
-        {
-        }
-
-        private static LocalizedText DeserializeLocalizedText(string json)
-        {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            var th = root.TryGetProperty("th", out var thProp) ? thProp.GetString() ?? string.Empty : string.Empty;
-            var en = root.TryGetProperty("en", out var enProp) ? enProp.GetString() : null;
-            return new LocalizedText(th, en);
         }
     }
 }

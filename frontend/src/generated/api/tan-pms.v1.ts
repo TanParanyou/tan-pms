@@ -324,6 +324,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/properties/{propertyId}/stays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminStays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["extendAdminStay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addAdminFolioCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recordAdminFolioPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/check-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["checkOutAdminStay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/regulatory-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRegulatoryExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -505,6 +601,12 @@ export interface components {
             keyDepositAmount: number;
             overrideDirtyCheckIn?: boolean;
             overrideReason?: string | null;
+            /** Format: uuid */
+            reservationId?: string | null;
+            /** Format: date-time */
+            expectedCheckOutAt?: string | null;
+            initialRoomChargeAmount?: number | null;
+            occupants?: components["schemas"]["CheckInOccupantInputDto"][] | null;
         };
         StaySummaryDto: {
             /** Format: uuid */
@@ -981,6 +1083,111 @@ export interface components {
         };
         SubmitReservationSlipRequest: {
             paymentSlipFileKey: string;
+        };
+        CheckInOccupantInputDto: {
+            fullName: string;
+            nationalityCode: string;
+            identityNumber: string;
+            isPrimaryOccupant: boolean;
+            vehicleLicensePlate?: string | null;
+        };
+        StayOccupantDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+            nationalityCode: string;
+            maskedIdentityNumber: string;
+            isPrimaryOccupant: boolean;
+            vehicleLicensePlate?: string | null;
+        };
+        FolioChargeItemDto: {
+            /** Format: uuid */
+            id: string;
+            description: components["schemas"]["LocalizedTextDto"];
+            amount: number;
+            /** @enum {string} */
+            taxMode: "Exempt" | "VatIncluded" | "VatExcluded";
+        };
+        FolioSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            charges: components["schemas"]["FolioChargeItemDto"][];
+            totalCharges: number;
+            totalPayments: number;
+            balanceDue: number;
+        };
+        StayDetailDto: {
+            /** Format: uuid */
+            id: string;
+            documentNumber: string;
+            property: components["schemas"]["PropertyRefDto"];
+            unit: components["schemas"]["UnitRefDto"];
+            customer: components["schemas"]["CustomerRefDto"];
+            reservationDocumentNumber?: string | null;
+            /** @enum {string} */
+            stayMode: "Hourly" | "Daily";
+            /** @enum {string} */
+            status: "Active" | "CheckedOut" | "Cancelled";
+            /** Format: date-time */
+            checkInAt: string;
+            /** Format: date-time */
+            expectedCheckOutAt?: string | null;
+            /** Format: date-time */
+            checkOutAt?: string | null;
+            remainingMinutes?: number | null;
+            isOvertime: boolean;
+            keyDepositAmount: number;
+            keyDepositBalance: number;
+            folio: components["schemas"]["FolioSummaryDto"];
+            occupants: components["schemas"]["StayOccupantDto"][];
+            generatedHousekeepingTaskStatus?: string | null;
+        };
+        StayListResponse: {
+            items: components["schemas"]["StayDetailDto"][];
+        };
+        ExtendStayRequest: {
+            additionalHours: number;
+        };
+        AddFolioChargeRequest: {
+            description: components["schemas"]["LocalizedTextDto"];
+            amount: number;
+            /** @enum {string} */
+            taxMode: "Exempt" | "VatIncluded" | "VatExcluded";
+        };
+        RecordFolioPaymentRequest: {
+            amount: number;
+            /** @enum {string} */
+            paymentMethod: "Cash" | "BankTransfer" | "PromptPay";
+        };
+        CheckOutStayRequest: {
+            keyDepositDeductionAmount: number;
+            deductionOrRefundReason: string;
+        };
+        RegulatoryGuestRowDto: {
+            /** Format: uuid */
+            occupantId: string;
+            sourceDocumentNumber: string;
+            unitNumber: string;
+            fullName: string;
+            nationalityCode: string;
+            identityNumber: string;
+            isPrimaryOccupant: boolean;
+            vehicleLicensePlate?: string | null;
+            /** Format: date-time */
+            checkInAt: string;
+            /** Format: date-time */
+            checkOutAt?: string | null;
+            stayMode: string;
+        };
+        RegulatoryExportResponse: {
+            property: components["schemas"]["PropertyRefDto"];
+            /** @enum {string} */
+            reportType: "RR4" | "TM30";
+            /** Format: date-time */
+            generatedAt: string;
+            isPiiUnmasked: boolean;
+            csvContent: string;
+            rows: components["schemas"]["RegulatoryGuestRowDto"][];
         };
     };
     responses: never;
@@ -1712,6 +1919,209 @@ export interface operations {
             };
             /** @description Domain conflict (e.g. unit.not_clean, shift.not_open, reservation.slot_overlap) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminStays: {
+        parameters: {
+            query?: {
+                status?: "Active" | "CheckedOut" | "Cancelled";
+                stayMode?: "Hourly" | "Daily";
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active and historical stays with live timers, folio balances, and occupant counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayListResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    extendAdminStay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtendStayRequest"];
+            };
+        };
+        responses: {
+            /** @description Stay extended and additional charge posted to Folio with AutoCapToDailyRate protection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Slot overlap with upcoming reservation or lease */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    addAdminFolioCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddFolioChargeRequest"];
+            };
+        };
+        responses: {
+            /** @description Charge posted to guest Folio */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+        };
+    };
+    recordAdminFolioPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordFolioPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description Payment recorded against Folio */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Cashier shift is not open (shift.not_open) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    checkOutAdminStay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckOutStayRequest"];
+            };
+        };
+        responses: {
+            /** @description Stay checked out, key deposit settled, Unit marked Dirty, and HousekeepingTask created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Folio unsettled (stay.folio_unsettled) or shift not open (shift.not_open) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminRegulatoryExport: {
+        parameters: {
+            query: {
+                reportType: "RR4" | "TM30";
+                unmaskPii?: boolean;
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description RR4 Hotel Guest Register or TM.30 Foreign Guest Notification export */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegulatoryExportResponse"];
+                };
+            };
+            /** @description Missing admin.regulatory.export or admin.customer.unmask_pii permission */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

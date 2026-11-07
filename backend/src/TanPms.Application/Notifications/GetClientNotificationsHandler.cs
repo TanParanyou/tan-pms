@@ -1,15 +1,15 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 
 namespace TanPms.Application.Notifications;
 
 public sealed class GetClientNotificationsHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly INotificationStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public GetClientNotificationsHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public GetClientNotificationsHandler(INotificationStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;
@@ -17,13 +17,11 @@ public sealed class GetClientNotificationsHandler
 
     public Result<NotificationListResponse> Handle(GetClientNotificationsQuery _)
     {
-        if (!_currentUser.IsClientScope || _currentUser.CustomerId is null || _currentUser.CustomerId == Guid.Empty)
+        if (ScopeAuthorizationGuard.CheckClientScope(_currentUser, out var customerId) is { } authError)
         {
-            return Result<NotificationListResponse>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                "Endpoint requires ClientScope with a bound CustomerId."));
+            return Result<NotificationListResponse>.Failure(authError);
         }
 
-        return _store.GetClientNotifications(_currentUser.CustomerId.Value);
+        return _store.GetClientNotifications(customerId);
     }
 }

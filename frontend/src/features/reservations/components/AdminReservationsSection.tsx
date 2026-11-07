@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { CommandTag } from "@/components/ui/command-tag";
 import { SelectPill } from "@/components/ui/select-pill";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { Textarea } from "@/components/ui/textarea";
+import { EntityAutocomplete } from "@/components/ui/entity-autocomplete";
+import { useDataTableState } from "@/hooks/use-data-table-state";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +20,14 @@ import {
 } from "@/components/ui/dialog";
 import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useTranslations, useLocale } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
+import { BarChart3, Check, Plus, UserCheck, XCircle } from "lucide-react";
+import { formatCurrencyThb } from "@/lib/formatters";
+import { KpiSummaryStrip, type KpiItem } from "@/components/layout/kpi-summary-strip";
+import { ListToolbar } from "@/components/layout/list-toolbar";
+import { BulkActionToolbar } from "@/components/layout/bulk-action-toolbar";
 import {
   INITIAL_RESERVATIONS,
   INITIAL_AVAILABILITY_ITEMS,
@@ -26,6 +35,9 @@ import {
   SAMPLE_CUSTOMERS,
   SAMPLE_UNIT_TYPES,
   SAMPLE_ASSIGNABLE_UNITS,
+  CUSTOMER_MAP,
+  RESERVATION_UNIT_TYPE_MAP,
+  ALL_ASSIGNABLE_UNITS_MAP,
 } from "../constants";
 import type {
   ReservationItemDto,
@@ -56,10 +68,22 @@ export function AdminReservationsSection({
   const [availabilityItems] =
     useState<UnitTypeAvailabilityDto[]>(initialAvailability);
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [stayModeFilter, setStayModeFilter] = useState("All");
+  // Filters & Table State
+  const {
+    searchQuery,
+    setSearchQuery,
+    filters,
+    setFilter,
+    selectedIds: selectedRowIds,
+    setSelectedIds: setSelectedRowIds,
+  } = useDataTableState<{ status: string; stayMode: string }>({
+    initialFilters: { status: "All", stayMode: "All" },
+    debounceMs: 0,
+  });
+  const statusFilter = filters.status;
+  const setStatusFilter = (v: string) => setFilter("status", v);
+  const stayModeFilter = filters.stayMode;
+  const setStayModeFilter = (v: string) => setFilter("stayMode", v);
 
   // Modals visibility
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -99,10 +123,26 @@ export function AdminReservationsSection({
   const [cancelType, setCancelType] = useState<"cancel" | "no-show">("cancel");
   const [cancelReason, setCancelReason] = useState("");
 
+  // Customer options for EntityAutocomplete
+  const customerOptions = useMemo(
+    () =>
+      SAMPLE_CUSTOMERS.map((c) => ({
+        value: c.id,
+        label: `${c.fullName} (${c.maskedNationalId})`,
+      })),
+    []
+  );
+
+  // Memoized reservation lookup map (Zero .find() in UI components)
+  const reservationsMap = useMemo(
+    () => Object.fromEntries(reservations.map((r) => [r.id, r])),
+    [reservations]
+  );
+
   // Active target reservation
   const targetReservation = useMemo(() => {
-    return reservations.find((r) => r.id === selectedResId) || null;
-  }, [reservations, selectedResId]);
+    return selectedResId ? reservationsMap[selectedResId] ?? null : null;
+  }, [reservationsMap, selectedResId]);
 
   // Clean units available for assignment to target reservation
   const availableCleanUnits = useMemo(() => {
@@ -136,11 +176,36 @@ export function AdminReservationsSection({
   ).length;
   const kpiUnassigned = reservations.filter((r) => !r.assignedUnit).length;
 
+  const kpiItems: KpiItem[] = [
+    {
+      id: "total",
+      label: tRes("filterStatusAll"),
+      value: kpiTotal,
+    },
+    {
+      id: "hold",
+      label: tRes("statusHold"),
+      value: kpiHold,
+    },
+    {
+      id: "pending",
+      label: tRes("statusPendingVerification"),
+      value: kpiPending,
+    },
+    {
+      id: "unassigned",
+      label: tRes("badgeUnassigned", { count: "" }).replace(":", "").trim() || "Unassigned",
+      value: kpiUnassigned,
+      isAlert: kpiUnassigned > 0,
+    },
+  ];
+
   // Handlers
   const handleOpenAssign = (res: ReservationItemDto) => {
     setSelectedResId(res.id);
     const cleanUnits = SAMPLE_ASSIGNABLE_UNITS[res.unitType.id] || [];
-    const firstClean = cleanUnits.find((u) => u.conditionStatus === "Clean");
+    const cleanOnly = cleanUnits.filter((u) => u.conditionStatus === "Clean");
+    const firstClean = cleanOnly[0] ?? null;
     setSelectedUnitForAssign(firstClean?.id || "");
     setIsAssignModalOpen(true);
   };
@@ -215,9 +280,7 @@ export function AdminReservationsSection({
     if (!selectedResId || !targetReservation) return;
     setIsSubmitting(true);
     try {
-      const units =
-        SAMPLE_ASSIGNABLE_UNITS[targetReservation.unitType.id] || [];
-      const assigned = units.find((u) => u.id === selectedUnitForAssign);
+      const assigned = ALL_ASSIGNABLE_UNITS_MAP[selectedUnitForAssign];
       if (assigned) {
         setReservations((prev) =>
           prev.map((r) =>
@@ -266,16 +329,13 @@ export function AdminReservationsSection({
     setIsSubmitting(true);
     try {
       const selectedCustomer =
-        SAMPLE_CUSTOMERS.find((c) => c.id === formCustomerId) ||
-        SAMPLE_CUSTOMERS[0];
+        CUSTOMER_MAP[formCustomerId] ?? SAMPLE_CUSTOMERS[0];
       const selectedUnitType =
-        SAMPLE_UNIT_TYPES.find((ut) => ut.id === formUnitTypeId) ||
-        SAMPLE_UNIT_TYPES[0];
+        RESERVATION_UNIT_TYPE_MAP[formUnitTypeId] ?? SAMPLE_UNIT_TYPES[0];
 
       let assignedUnitObj: UnitRefDto | undefined = undefined;
       if (formAllocationType === "specific" && formSpecificUnitId) {
-        const units = SAMPLE_ASSIGNABLE_UNITS[selectedUnitType.id] || [];
-        const found = units.find((u) => u.id === formSpecificUnitId);
+        const found = ALL_ASSIGNABLE_UNITS_MAP[formSpecificUnitId];
         if (found) {
           assignedUnitObj = {
             id: found.id,
@@ -319,6 +379,8 @@ export function AdminReservationsSection({
     {
       id: "document",
       header: tRes("colDocument"),
+      sortable: true,
+      sortValue: (row) => row.documentNumber,
       cell: (row) => (
         <div className="flex flex-col gap-0.5">
           <CommandTag prefixCode="RES">{row.documentNumber}</CommandTag>
@@ -328,6 +390,8 @@ export function AdminReservationsSection({
     {
       id: "customer",
       header: tRes("colCustomer"),
+      sortable: true,
+      sortValue: (row) => row.customer.fullName,
       cell: (row) => (
         <div className="flex flex-col gap-0.5">
           <span className="font-medium text-xs text-ink">
@@ -390,6 +454,9 @@ export function AdminReservationsSection({
     {
       id: "statusDeposit",
       header: tRes("colStatusDeposit"),
+      sortable: true,
+      sortValue: (row) => row.depositAmount,
+      align: "right",
       cell: (row) => {
         let statusBadgeVariant: "default" | "outline" | "secondary" = "outline";
         if (row.status === "Confirmed") statusBadgeVariant = "default";
@@ -413,7 +480,7 @@ export function AdminReservationsSection({
               )}
             </div>
             <span className="font-mono text-xs text-body tabular-nums">
-              Dep: {row.depositAmount.toLocaleString()} THB
+              Dep: {formatCurrencyThb(row.depositAmount)}
             </span>
           </div>
         );
@@ -421,43 +488,56 @@ export function AdminReservationsSection({
     },
     {
       id: "actions",
-      header: tRes("colActions"),
+      header: <span className="sr-only">{tRes("colActions")}</span>,
+      headerClassName: "w-[120px] text-right",
       className: "text-right",
       cell: (row) => (
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-1">
           {!row.assignedUnit && row.status !== "Cancelled" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleOpenAssign(row)}
-              className="rounded-full text-xs h-7 px-3"
-            >
-              {tRes("actionAssignUnit")}
-            </Button>
+            <Tooltip content={tRes("actionAssignUnit")} position="top">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => handleOpenAssign(row)}
+                aria-label={tRes("actionAssignUnit")}
+                className="rounded-full h-7 w-7 text-xs text-ink hover:bg-surface-soft"
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                <span className="sr-only">{tRes("actionAssignUnit")}</span>
+              </Button>
+            </Tooltip>
           )}
 
           {(row.status === "Hold" || row.status === "PendingVerification") && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => handleOpenConfirmApprove(row)}
-              className="rounded-full text-xs h-7 px-3"
-            >
-              {tRes("actionConfirm")}
-            </Button>
+            <Tooltip content={tRes("actionConfirm")} position="top">
+              <Button
+                type="button"
+                size="icon"
+                onClick={() => handleOpenConfirmApprove(row)}
+                aria-label={tRes("actionConfirm")}
+                className="rounded-full h-7 w-7 text-xs bg-ink text-canvas hover:bg-neutral-800"
+              >
+                <Check className="h-3.5 w-3.5" />
+                <span className="sr-only">{tRes("actionConfirm")}</span>
+              </Button>
+            </Tooltip>
           )}
 
           {row.status !== "Cancelled" && row.status !== "NoShow" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => handleOpenCancel(row)}
-              className="rounded-full text-xs h-7 px-2.5 text-destructive hover:bg-destructive/10"
-            >
-              {tRes("actionCancel")}
-            </Button>
+            <Tooltip content={tRes("actionCancel")} position="top">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handleOpenCancel(row)}
+                aria-label={tRes("actionCancel")}
+                className="rounded-full h-7 w-7 text-xs text-destructive hover:bg-destructive/10"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                <span className="sr-only">{tRes("actionCancel")}</span>
+              </Button>
+            </Tooltip>
           )}
         </div>
       ),
@@ -599,17 +679,13 @@ export function AdminReservationsSection({
             <Label className="text-xs font-medium text-ink">
               {tRes("fieldCustomer")}
             </Label>
-            <SelectPill
+            <EntityAutocomplete
+              id="admin-reservation-customer"
+              options={customerOptions}
               value={formCustomerId}
-              onChange={(e) => setFormCustomerId(e.target.value)}
-              className="h-10 text-xs"
-            >
-              {SAMPLE_CUSTOMERS.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.fullName} ({c.maskedNationalId})
-                </option>
-              ))}
-            </SelectPill>
+              onValueChange={(val) => setFormCustomerId(val)}
+              placeholder={tRes("fieldCustomer")}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -684,35 +760,33 @@ export function AdminReservationsSection({
             variant="outline"
             size="sm"
             onClick={() => setIsInspectorOpen(true)}
-            className="rounded-full text-xs font-mono h-9 px-4"
+            className="rounded-full text-xs font-mono h-9 px-4 gap-1.5"
           >
-            📊 {tRes("inspectAvailability")}
+            <BarChart3 className="h-4 w-4" />
+            <span>{tRes("inspectAvailability")}</span>
           </Button>
 
           <Button
             type="button"
             size="sm"
             onClick={handleOpenCreateModal}
-            className="rounded-full text-xs h-9 px-4"
+            className="rounded-full text-xs h-9 px-4 gap-1.5"
           >
-            + {tRes("createReservation")}
+            <Plus className="h-4 w-4" />
+            <span>{tRes("createReservation")}</span>
           </Button>
         </div>
       </div>
 
-      {/* 2. Main Content Card (Ollama Minimal: 12px, border-hairline, bg-canvas, no nested bordered cards) */}
-      <div className="rounded-[12px] border border-hairline bg-canvas p-6 shadow-none space-y-4">
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="w-full sm:max-w-md">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={tRes("searchPlaceholder")}
-              className="h-10 rounded-full text-xs px-4"
-            />
-          </div>
+      {/* 2. KPI Metrics Summary Strip */}
+      <KpiSummaryStrip items={kpiItems} />
 
+      {/* 3. List Toolbar (Search & Multi-Filters) */}
+      <ListToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={tRes("searchPlaceholder")}
+        filters={
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <SelectPill
               value={statusFilter}
@@ -742,16 +816,38 @@ export function AdminReservationsSection({
               <option value="Monthly">{tModes("Monthly")}</option>
             </SelectPill>
           </div>
-        </div>
+        }
+      />
 
-        {/* Table-Preserved DataTable */}
-        <DataTable
-          columns={columns}
-          data={filteredReservations}
-          emptyTitle={tRes("emptyReservations")}
-          className="border border-hairline rounded-[12px] overflow-hidden"
-        />
-      </div>
+      {/* 4. Table-Preserved DataTable */}
+      <DataTable
+        columns={columns}
+        data={filteredReservations}
+        getRowId={(row) => row.id}
+        enableRowSelection
+        selectedRowIds={selectedRowIds}
+        onSelectionChange={setSelectedRowIds}
+        enablePagination
+        pageSize={20}
+        emptyTitle={tRes("emptyReservations")}
+        className="border border-hairline rounded-[12px] overflow-hidden"
+      />
+
+      <BulkActionToolbar
+        selectedCount={selectedRowIds.length}
+        onClearSelection={() => setSelectedRowIds([])}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full text-xs h-7 text-canvas border-canvas/40 hover:bg-canvas/20"
+            onClick={() => setSelectedRowIds([])}
+          >
+            {tCommon("actions")}
+          </Button>
+        }
+      />
 
       {/* --- Assign Physical Unit Dialog --- */}
       <Dialog
@@ -893,11 +989,11 @@ export function AdminReservationsSection({
               <Label className="text-xs font-medium text-ink">
                 {tRes("reasonLabel")}
               </Label>
-              <Input
+              <Textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder={tRes("reasonPlaceholder")}
-                className="h-10 rounded-full text-xs px-4"
+                className="min-h-[80px] text-xs"
               />
             </div>
 
@@ -1051,10 +1147,10 @@ export function AdminReservationsSection({
 
                   <div className="text-[11px] text-mute pt-1 border-t border-hairline flex flex-col gap-0.5 font-mono">
                     <span>
-                      Rates from {item.estimatedRoomRate.toLocaleString()} THB
+                      Rates from {formatCurrencyThb(item.estimatedRoomRate)}
                     </span>
                     <span>
-                      Deposit: {item.estimatedDepositAmount.toLocaleString()} THB
+                      Deposit: {formatCurrencyThb(item.estimatedDepositAmount)}
                     </span>
                     {item.turnaroundBufferMinutes > 0 && (
                       <span>Buffer: {item.turnaroundBufferMinutes}m</span>

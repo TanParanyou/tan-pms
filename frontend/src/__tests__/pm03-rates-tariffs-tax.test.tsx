@@ -203,7 +203,7 @@ describe("PM-03: Rate Plans, Utility Tariffs & Tax Rules UI & Calculations", () 
     it("opens Rate Plan Create dialog with tabs and handles form interactions", () => {
       renderWithIntl(<RateTariffTaxSection />);
 
-      const createButton = screen.getByText(`+ ${thMessages.admin.rates.createRatePlan}`);
+      const createButton = screen.getByText(thMessages.admin.rates.createRatePlan);
       fireEvent.click(createButton);
 
       // Modal Title should be displayed
@@ -223,7 +223,7 @@ describe("PM-03: Rate Plans, Utility Tariffs & Tax Rules UI & Calculations", () 
     it("opens Interactive Quote & Tax Simulator and simulates in real time", () => {
       renderWithIntl(<RateTariffTaxSection />);
 
-      const simButton = screen.getByText(`🧮 ${thMessages.admin.rates.openSimulator}`);
+      const simButton = screen.getByText(thMessages.admin.rates.openSimulator);
       fireEvent.click(simButton);
 
       // Simulator Title

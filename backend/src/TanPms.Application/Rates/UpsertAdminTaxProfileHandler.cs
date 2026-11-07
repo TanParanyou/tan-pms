@@ -1,18 +1,18 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
 
 namespace TanPms.Application.Rates;
 
 public sealed class UpsertAdminTaxProfileHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IRateCatalogStore _store;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
 
     public UpsertAdminTaxProfileHandler(
-        IPmsOperationalStore store,
+        IRateCatalogStore store,
         ICurrentUserContext currentUser,
         IAuditLogger auditLogger)
     {
@@ -23,31 +23,28 @@ public sealed class UpsertAdminTaxProfileHandler
 
     public Result<TaxProfileItemDto> Handle(UpsertAdminTaxProfileCommand command)
     {
-        if (!_currentUser.IsAdminScope || !_currentUser.Permissions.Contains(PermissionKeys.AdminRatesManage))
+        if (ScopeAuthorizationGuard.CheckAdminPropertyScope(
+            _currentUser,
+            command.PropertyId,
+            PermissionKeys.AdminRatesManage) is { } authError)
         {
-            return Result<TaxProfileItemDto>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                $"Caller lacks required permission '{PermissionKeys.AdminRatesManage}'."));
-        }
-
-        if (!_currentUser.AllowedPropertyIds.Contains(command.PropertyId))
-        {
-            return Result<TaxProfileItemDto>.Failure(new Error(
-                DomainErrorCodes.PropertyScopeDenied,
-                $"Caller does not have access to property '{command.PropertyId}'."));
+            return Result<TaxProfileItemDto>.Failure(authError);
         }
 
         var result = _store.UpsertTaxProfile(command.PropertyId, command.Request);
         if (result.IsSuccess && result.Value is not null)
         {
-            _auditLogger.RecordAsync(new AuditEvent
-            {
-                PropertyId = command.PropertyId,
-                ActionKey = PermissionKeys.AdminRatesManage,
-                EntityId = result.Value.Id,
-                Reason = $"Upserted tax profile {result.Value.ChargeCategoryCode} ({result.Value.TaxMode})",
-                AfterStateJson = $"{{\"chargeCategoryCode\":\"{result.Value.ChargeCategoryCode}\",\"taxMode\":\"{result.Value.TaxMode}\",\"vatRatePercent\":{result.Value.VatRatePercent}}}"
-            }).GetAwaiter().GetResult();
+            _auditLogger.RecordMutation(
+                propertyId: command.PropertyId,
+                actionKey: PermissionKeys.AdminRatesManage,
+                entityId: result.Value.Id,
+                reason: $"Upserted tax profile {result.Value.ChargeCategoryCode} ({result.Value.TaxMode})",
+                afterState: new
+                {
+                    result.Value.ChargeCategoryCode,
+                    result.Value.TaxMode,
+                    result.Value.VatRatePercent
+                });
         }
 
         return result;

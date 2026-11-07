@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { CommandTag } from "@/components/ui/command-tag";
 import { SelectPill } from "@/components/ui/select-pill";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { useDataTableState } from "@/hooks/use-data-table-state";
+import { ListToolbar } from "@/components/layout/list-toolbar";
+import { BulkActionToolbar } from "@/components/layout/bulk-action-toolbar";
 import {
   Dialog,
   DialogContent,
@@ -17,10 +20,16 @@ import {
 } from "@/components/ui/dialog";
 import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useTranslations, useLocale } from "next-intl";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
+import { UserCog, UserPlus } from "lucide-react";
 import { CENTRAL_PROPERTIES } from "@/constants/master-data";
-import { ROLE_CATALOG_PROJECTION, INITIAL_ADMIN_USERS } from "../constants";
+import {
+  ROLE_CATALOG_PROJECTION,
+  ROLE_CATALOG_MAP,
+  INITIAL_ADMIN_USERS,
+} from "../constants";
 import type { AdminUserDto, PropertyRefDto } from "../types";
 
 export interface AdminRbacUsersSectionProps {
@@ -37,8 +46,20 @@ export function AdminRbacUsersSection({
   const tCommon = useTranslations("common");
 
   const [users, setUsers] = useState<AdminUserDto[]>(initialUsers);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState("All");
+  // Filters & Table State
+  const {
+    searchQuery,
+    setSearchQuery,
+    filters,
+    setFilter,
+    selectedIds: selectedRowIds,
+    setSelectedIds: setSelectedRowIds,
+  } = useDataTableState<{ role: string }>({
+    initialFilters: { role: "All" },
+    debounceMs: 0,
+  });
+  const selectedRoleFilter = filters.role;
+  const setSelectedRoleFilter = (v: string) => setFilter("role", v);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,8 +141,7 @@ export function AdminRbacUsersSection({
     setIsSubmitting(true);
     try {
       const selectedRole =
-        ROLE_CATALOG_PROJECTION.find((r) => r.code === formRoleCode) ||
-        ROLE_CATALOG_PROJECTION[0];
+        ROLE_CATALOG_MAP[formRoleCode] ?? ROLE_CATALOG_PROJECTION[0];
 
       const resolvedProperties: PropertyRefDto[] = CENTRAL_PROPERTIES.filter((p) =>
         formAllowedPropertyIds.includes(p.id)
@@ -176,6 +196,8 @@ export function AdminRbacUsersSection({
       id: "user",
       header: tRbac("colUser"),
       headerClassName: "w-[240px]",
+      sortable: true,
+      sortValue: (row) => row.fullName,
       cell: (row) => (
         <div>
           <span className="font-medium text-ink block">{row.fullName}</span>
@@ -233,18 +255,24 @@ export function AdminRbacUsersSection({
     {
       id: "actions",
       header: <span className="sr-only">{tRbac("colActions")}</span>,
-      headerClassName: "w-[100px] text-right",
+      headerClassName: "w-[80px] text-right",
       className: "text-right",
       cell: (row) => (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => handleOpenEdit(row)}
-          className="rounded-full h-7 px-3 text-[11px]"
-        >
-          {tRbac("editUser")}
-        </Button>
+        <div className="flex items-center justify-end">
+          <Tooltip content={tRbac("editUser")} position="top">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => handleOpenEdit(row)}
+              aria-label={tRbac("editUser")}
+              className="rounded-full h-7 w-7 text-xs text-ink hover:bg-surface-soft"
+            >
+              <UserCog className="h-3.5 w-3.5" />
+              <span className="sr-only">{tRbac("editUser")}</span>
+            </Button>
+          </Tooltip>
+        </div>
       ),
     },
   ];
@@ -391,46 +419,65 @@ export function AdminRbacUsersSection({
           type="button"
           onClick={handleOpenCreate}
           size="sm"
-          className="rounded-full shadow-none"
+          className="rounded-full shadow-none gap-1.5"
         >
-          + {tRbac("addUser")}
+          <UserPlus className="h-3.5 w-3.5" />
+          <span>{tRbac("addUser")}</span>
         </Button>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="w-full sm:w-72">
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={tRbac("searchPlaceholder")}
-            className="rounded-full h-10 text-xs bg-canvas"
-            wrapperClassName="!mb-0"
-          />
-        </div>
-        <div className="w-full sm:w-60">
-          <SelectPill
-            value={selectedRoleFilter}
-            onChange={(e) => setSelectedRoleFilter(e.target.value)}
-            className="rounded-full h-10 text-xs bg-canvas"
-          >
-            <option value="All">{tRbac("filterRoleAll")}</option>
-            {ROLE_CATALOG_PROJECTION.map((r) => (
-              <option key={r.code} value={r.code}>
-                {resolveLocalizedText(r.name, locale)}
-              </option>
-            ))}
-          </SelectPill>
-        </div>
-      </div>
+      <ListToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={tRbac("searchPlaceholder")}
+        filters={
+          <div className="w-full sm:w-60">
+            <SelectPill
+              value={selectedRoleFilter}
+              onChange={(e) => setSelectedRoleFilter(e.target.value)}
+              className="rounded-full h-10 text-xs bg-canvas"
+            >
+              <option value="All">{tRbac("filterRoleAll")}</option>
+              {ROLE_CATALOG_PROJECTION.map((r) => (
+                <option key={r.code} value={r.code}>
+                  {resolveLocalizedText(r.name, locale)}
+                </option>
+              ))}
+            </SelectPill>
+          </div>
+        }
+      />
 
       {/* Users DataTable (Table-Preserved Architecture) */}
       <DataTable
         columns={columns}
         data={filteredUsers}
         isLoading={isLoading}
+        getRowId={(row) => row.id}
+        enableRowSelection
+        selectedRowIds={selectedRowIds}
+        onSelectionChange={setSelectedRowIds}
+        enablePagination
+        pageSize={20}
         emptyTitle={tRbac("emptyTitle")}
         emptyDescription={tRbac("emptyDesc")}
+      />
+
+      <BulkActionToolbar
+        selectedCount={selectedRowIds.length}
+        onClearSelection={() => setSelectedRowIds([])}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full text-xs h-7 text-canvas border-canvas/40 hover:bg-canvas/20"
+            onClick={() => setSelectedRowIds([])}
+          >
+            {tCommon("actions")}
+          </Button>
+        }
       />
 
       {/* Create / Edit Modal */}

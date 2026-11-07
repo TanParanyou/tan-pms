@@ -146,7 +146,7 @@ describe("PM-04: Unified Availability, Reservations & Booking Hold UI", () => {
     it("opens Availability Inspector and displays 3-mode net available quotas", () => {
       renderWithIntl(<AdminReservationsSection />);
 
-      const inspectorBtn = screen.getByText(`📊 ${thMessages.admin.reservations.inspectAvailability}`);
+      const inspectorBtn = screen.getByText(thMessages.admin.reservations.inspectAvailability);
       fireEvent.click(inspectorBtn);
 
       // Inspector Title
@@ -210,7 +210,7 @@ describe("PM-04: Unified Availability, Reservations & Booking Hold UI", () => {
       // Success banner appears
       await waitFor(() => {
         expect(screen.getByTestId("slip-success-banner")).toBeInTheDocument();
-        expect(screen.getByText(`✓ ${thMessages.client.booking.slipSuccessTitle}`)).toBeInTheDocument();
+        expect(screen.getByText(thMessages.client.booking.slipSuccessTitle)).toBeInTheDocument();
       });
     });
   });

@@ -1,15 +1,15 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
-using TanPms.Domain.Common;
+using TanPms.Application.Common.Security;
 
 namespace TanPms.Application.Rack;
 
 public sealed class GetAdminRoomRackHandler
 {
-    private readonly IPmsOperationalStore _store;
+    private readonly IRoomRackStore _store;
     private readonly ICurrentUserContext _currentUser;
 
-    public GetAdminRoomRackHandler(IPmsOperationalStore store, ICurrentUserContext currentUser)
+    public GetAdminRoomRackHandler(IRoomRackStore store, ICurrentUserContext currentUser)
     {
         _store = store;
         _currentUser = currentUser;
@@ -17,18 +17,9 @@ public sealed class GetAdminRoomRackHandler
 
     public Result<RoomRackResponse> Handle(GetAdminRoomRackQuery query)
     {
-        if (!_currentUser.IsAdminScope)
+        if (ScopeAuthorizationGuard.CheckAdminPropertyAccess(_currentUser, query.PropertyId) is { } authError)
         {
-            return Result<RoomRackResponse>.Failure(new Error(
-                DomainErrorCodes.PermissionDenied,
-                "Endpoint requires AdminScope authorization."));
-        }
-
-        if (!_currentUser.AllowedPropertyIds.Contains(query.PropertyId))
-        {
-            return Result<RoomRackResponse>.Failure(new Error(
-                DomainErrorCodes.PropertyScopeDenied,
-                $"Caller does not have access to property '{query.PropertyId}'."));
+            return Result<RoomRackResponse>.Failure(authError);
         }
 
         return _store.GetRoomRack(query.PropertyId);
