@@ -13,7 +13,10 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Package,
   Percent,
+  Sparkles,
+  Wrench,
   FileText,
   Receipt,
   BadgeCheck,
@@ -33,6 +36,9 @@ export type AdminModuleKey =
   | "deposits"
   | "reservations"
   | "meters"
+  | "housekeeping"
+  | "workOrders"
+  | "parcels"
   | "properties"
   | "rates"
   | "users"
@@ -68,6 +74,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       { key: "reservations", href: "/admin/reservations", icon: CalendarDays, labelKey: "reservations" },
       { key: "leases", href: "/admin/leases", icon: FileText, labelKey: "leases" },
       { key: "meters", href: "/admin/meters", icon: Zap, labelKey: "meters" },
+      { key: "housekeeping", href: "/admin/housekeeping", icon: Sparkles, labelKey: "housekeeping" },
+      { key: "workOrders", href: "/admin/work-orders", icon: Wrench, labelKey: "workOrders" },
+      { key: "parcels", href: "/admin/parcels", icon: Package, labelKey: "parcels" },
     ],
   },
   {

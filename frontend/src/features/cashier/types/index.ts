@@ -8,4 +8,5 @@ export type CurrentCashierShiftResponse = Schemas["CurrentCashierShiftResponse"]
 export type OpenCashierShiftRequest = Schemas["OpenCashierShiftRequest"];
 export type CloseCashierShiftRequest = Schemas["CloseCashierShiftRequest"];
 export type ReconcileCashierShiftRequest = Schemas["ReconcileCashierShiftRequest"];
-export type CashierShiftStatusType = "Open" | "Closed" | "Reconciled";
+export type CashierShiftStatusType = "Open" | "Closed" | "Reconciled" | "Cancelled";
+export type UpdateCashierShiftRemarkRequest = Schemas["UpdateCashierShiftRemarkRequest"];

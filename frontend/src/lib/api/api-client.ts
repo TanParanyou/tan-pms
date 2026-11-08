@@ -55,6 +55,7 @@ import type {
 } from "@/features/leases/types";
 import type {
   MeterReadingSheetResponse,
+  MeterReadingSheetRowDto,
   SaveMeterReadingsRequest,
   SaveMeterReadingsResponse,
   BatchInvoiceRunRequest,
@@ -78,6 +79,35 @@ import type {
   AdminPaymentSlipDto,
   RejectPaymentSlipRequest,
 } from "@/features/payments/types";
+import type {
+  UpdateLeaseRequest,
+  UpdateLeaseOccupantRequest,
+} from "@/features/leases/types";
+import type { InvoiceLineRequest } from "@/features/billing/types";
+import type { UpdateCashierShiftRemarkRequest } from "@/features/cashier/types";
+import type { DepositLedgerItemDto } from "@/features/deposits/types";
+import type {
+  HousekeepingTaskDto,
+  HousekeepingTaskListResponse,
+  CreateHousekeepingTaskRequest,
+  CompleteHousekeepingTaskRequest,
+  AssignHousekeepingTaskRequest,
+  UpdateHousekeepingTaskRequest,
+} from "@/features/housekeeping/types";
+import type {
+  WorkOrderItemDto,
+  WorkOrderListResponse,
+  CreateWorkOrderRequest,
+  UpdateWorkOrderRequest,
+  AssignWorkOrderRequest,
+  ResolveWorkOrderRequest,
+} from "@/features/work-orders/types";
+import type {
+  ParcelItemDto,
+  ParcelListResponse,
+  ReceiveParcelRequest,
+  PickUpParcelRequest,
+} from "@/features/parcels/types";
 import { ApiError } from "./api-error";
 
 export interface ApiClientConfig {
@@ -676,6 +706,142 @@ export class ApiClient {
       headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
+  }
+
+  // --- 6e. CRUD completion + Operations APIs (PM-09) ---
+  private adminCall<T>(propertyId: string, path: string, method: string, body?: unknown): Promise<T> {
+    return this.request<T>(`/api/v1/admin/properties/${propertyId}/${path}`, {
+      method,
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  }
+
+  updateAdminLease(propertyId: string, leaseId: string, req: UpdateLeaseRequest) {
+    return this.adminCall<LeaseItemDto>(propertyId, `leases/${leaseId}`, "PUT", req);
+  }
+  cancelAdminLease(propertyId: string, leaseId: string, reason: string) {
+    return this.adminCall<LeaseSettlementDto>(propertyId, `leases/${leaseId}/cancel`, "POST", { reason });
+  }
+  updateAdminLeaseOccupant(propertyId: string, leaseId: string, occupantId: string, req: UpdateLeaseOccupantRequest) {
+    return this.adminCall<LeaseItemDto>(propertyId, `leases/${leaseId}/occupants/${occupantId}`, "PUT", req);
+  }
+  deleteAdminLeaseOccupant(propertyId: string, leaseId: string, occupantId: string) {
+    return this.adminCall<LeaseItemDto>(propertyId, `leases/${leaseId}/occupants/${occupantId}`, "DELETE");
+  }
+  updateAdminLeaseVehicle(propertyId: string, leaseId: string, vehicleId: string, req: LeaseVehicleRequest) {
+    return this.adminCall<LeaseItemDto>(propertyId, `leases/${leaseId}/vehicles/${vehicleId}`, "PUT", req);
+  }
+  deleteAdminLeaseVehicle(propertyId: string, leaseId: string, vehicleId: string) {
+    return this.adminCall<LeaseItemDto>(propertyId, `leases/${leaseId}/vehicles/${vehicleId}`, "DELETE");
+  }
+
+  deleteAdminMeterReading(propertyId: string, unitId: string, params: { period: string; overrideReason?: string }) {
+    const qs = new URLSearchParams({ period: params.period });
+    if (params.overrideReason) qs.set("overrideReason", params.overrideReason);
+    return this.adminCall<MeterReadingSheetRowDto>(propertyId, `meter-readings/units/${unitId}?${qs.toString()}`, "DELETE");
+  }
+
+  getAdminInvoice(propertyId: string, invoiceId: string) {
+    return this.adminCall<InvoiceItemDto>(propertyId, `invoices/${invoiceId}`, "GET");
+  }
+  addAdminInvoiceLine(propertyId: string, invoiceId: string, req: InvoiceLineRequest) {
+    return this.adminCall<InvoiceItemDto>(propertyId, `invoices/${invoiceId}/lines`, "POST", req);
+  }
+  updateAdminInvoiceLine(propertyId: string, invoiceId: string, lineId: string, req: InvoiceLineRequest) {
+    return this.adminCall<InvoiceItemDto>(propertyId, `invoices/${invoiceId}/lines/${lineId}`, "PUT", req);
+  }
+  deleteAdminInvoiceLine(propertyId: string, invoiceId: string, lineId: string) {
+    return this.adminCall<InvoiceItemDto>(propertyId, `invoices/${invoiceId}/lines/${lineId}`, "DELETE");
+  }
+  voidAdminInvoice(propertyId: string, invoiceId: string, reason: string) {
+    return this.adminCall<InvoiceItemDto>(propertyId, `invoices/${invoiceId}/void`, "POST", { reason });
+  }
+
+  getAdminCashierShift(propertyId: string, shiftId: string) {
+    return this.adminCall<CashierShiftDto>(propertyId, `cashier/shifts/${shiftId}`, "GET");
+  }
+  cancelAdminCashierShift(propertyId: string, shiftId: string, reason: string) {
+    return this.adminCall<CashierShiftDto>(propertyId, `cashier/shifts/${shiftId}/cancel`, "POST", { reason });
+  }
+  updateAdminCashierShiftRemark(propertyId: string, shiftId: string, req: UpdateCashierShiftRemarkRequest) {
+    return this.adminCall<CashierShiftDto>(propertyId, `cashier/shifts/${shiftId}/variance-remark`, "PUT", req);
+  }
+
+  getAdminDepositLedger(propertyId: string, ledgerId: string) {
+    return this.adminCall<DepositLedgerItemDto>(propertyId, `deposit-ledgers/${ledgerId}`, "GET");
+  }
+  getAdminPaymentSlip(propertyId: string, slipId: string) {
+    return this.adminCall<AdminPaymentSlipDto>(propertyId, `payments/slips/${slipId}`, "GET");
+  }
+
+  getAdminHousekeepingTasks(propertyId: string, params: { status?: string; buildingId?: string } = {}) {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.buildingId) qs.set("buildingId", params.buildingId);
+    const query = qs.toString();
+    return this.adminCall<HousekeepingTaskListResponse>(propertyId, `housekeeping/tasks${query ? `?${query}` : ""}`, "GET");
+  }
+  createAdminHousekeepingTask(propertyId: string, req: CreateHousekeepingTaskRequest) {
+    return this.adminCall<HousekeepingTaskDto>(propertyId, "housekeeping/tasks", "POST", req);
+  }
+  startAdminHousekeepingTask(propertyId: string, taskId: string) {
+    return this.adminCall<HousekeepingTaskDto>(propertyId, `housekeeping/tasks/${taskId}/start`, "POST");
+  }
+  completeAdminHousekeepingTask(propertyId: string, taskId: string, req: CompleteHousekeepingTaskRequest) {
+    return this.adminCall<HousekeepingTaskDto>(propertyId, `housekeeping/tasks/${taskId}/complete`, "POST", req);
+  }
+  assignAdminHousekeepingTask(propertyId: string, taskId: string, req: AssignHousekeepingTaskRequest) {
+    return this.adminCall<HousekeepingTaskDto>(propertyId, `housekeeping/tasks/${taskId}/assign`, "POST", req);
+  }
+  updateAdminHousekeepingTask(propertyId: string, taskId: string, req: UpdateHousekeepingTaskRequest) {
+    return this.adminCall<HousekeepingTaskDto>(propertyId, `housekeeping/tasks/${taskId}`, "PUT", req);
+  }
+  deleteAdminHousekeepingTask(propertyId: string, taskId: string) {
+    return this.adminCall<HousekeepingTaskDto>(propertyId, `housekeeping/tasks/${taskId}`, "DELETE");
+  }
+
+  getAdminWorkOrders(propertyId: string, params: { status?: string } = {}) {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.adminCall<WorkOrderListResponse>(propertyId, `work-orders${query}`, "GET");
+  }
+  getAdminWorkOrder(propertyId: string, workOrderId: string) {
+    return this.adminCall<WorkOrderItemDto>(propertyId, `work-orders/${workOrderId}`, "GET");
+  }
+  createAdminWorkOrder(propertyId: string, req: CreateWorkOrderRequest) {
+    return this.adminCall<WorkOrderItemDto>(propertyId, "work-orders", "POST", req);
+  }
+  updateAdminWorkOrder(propertyId: string, workOrderId: string, req: UpdateWorkOrderRequest) {
+    return this.adminCall<WorkOrderItemDto>(propertyId, `work-orders/${workOrderId}`, "PUT", req);
+  }
+  assignAdminWorkOrder(propertyId: string, workOrderId: string, req: AssignWorkOrderRequest) {
+    return this.adminCall<WorkOrderItemDto>(propertyId, `work-orders/${workOrderId}/assign`, "POST", req);
+  }
+  resolveAdminWorkOrder(propertyId: string, workOrderId: string, req: ResolveWorkOrderRequest) {
+    return this.adminCall<WorkOrderItemDto>(propertyId, `work-orders/${workOrderId}/resolve`, "POST", req);
+  }
+  cancelAdminWorkOrder(propertyId: string, workOrderId: string, reason: string) {
+    return this.adminCall<WorkOrderItemDto>(propertyId, `work-orders/${workOrderId}/cancel`, "POST", { reason });
+  }
+
+  getAdminParcels(propertyId: string, params: { status?: string } = {}) {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.adminCall<ParcelListResponse>(propertyId, `parcels${query}`, "GET");
+  }
+  getAdminParcel(propertyId: string, parcelId: string) {
+    return this.adminCall<ParcelItemDto>(propertyId, `parcels/${parcelId}`, "GET");
+  }
+  receiveAdminParcel(propertyId: string, req: ReceiveParcelRequest) {
+    return this.adminCall<ParcelItemDto>(propertyId, "parcels", "POST", req);
+  }
+  updateAdminParcel(propertyId: string, parcelId: string, req: ReceiveParcelRequest) {
+    return this.adminCall<ParcelItemDto>(propertyId, `parcels/${parcelId}`, "PUT", req);
+  }
+  pickUpAdminParcel(propertyId: string, parcelId: string, req: PickUpParcelRequest) {
+    return this.adminCall<ParcelItemDto>(propertyId, `parcels/${parcelId}/pickup`, "POST", req);
+  }
+  voidAdminParcel(propertyId: string, parcelId: string, reason: string) {
+    return this.adminCall<ParcelItemDto>(propertyId, `parcels/${parcelId}/void`, "POST", { reason });
   }
 
   // --- 7. Client Dashboard API ---

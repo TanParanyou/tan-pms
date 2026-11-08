@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
-import type { InvoiceListResponse, BatchInvoiceRunRequest } from "../types";
+import type { InvoiceItemDto, InvoiceLineRequest, InvoiceListResponse, BatchInvoiceRunRequest } from "../types";
 
 export function useAdminInvoices(propertyId: string, period: string, status?: string, enabled = true) {
   return useQuery<InvoiceListResponse>({
@@ -36,4 +36,37 @@ export function useIssueInvoiceMutation(propertyId: string) {
 
 export function useDeleteInvoiceMutation(propertyId: string) {
   return useBillingMutation((invoiceId: string) => apiClient.deleteAdminInvoice(propertyId, invoiceId));
+}
+
+export function useAdminInvoice(propertyId: string, invoiceId: string | null) {
+  return useQuery<InvoiceItemDto>({
+    queryKey: queryKeys.billing.invoice(propertyId, invoiceId ?? ""),
+    queryFn: () => apiClient.getAdminInvoice(propertyId, invoiceId ?? ""),
+    enabled: invoiceId !== null,
+  });
+}
+
+export function useAddInvoiceLineMutation(propertyId: string) {
+  return useBillingMutation(({ invoiceId, req }: { invoiceId: string; req: InvoiceLineRequest }) =>
+    apiClient.addAdminInvoiceLine(propertyId, invoiceId, req)
+  );
+}
+
+export function useUpdateInvoiceLineMutation(propertyId: string) {
+  return useBillingMutation(
+    ({ invoiceId, lineId, req }: { invoiceId: string; lineId: string; req: InvoiceLineRequest }) =>
+      apiClient.updateAdminInvoiceLine(propertyId, invoiceId, lineId, req)
+  );
+}
+
+export function useDeleteInvoiceLineMutation(propertyId: string) {
+  return useBillingMutation(({ invoiceId, lineId }: { invoiceId: string; lineId: string }) =>
+    apiClient.deleteAdminInvoiceLine(propertyId, invoiceId, lineId)
+  );
+}
+
+export function useVoidInvoiceMutation(propertyId: string) {
+  return useBillingMutation(({ invoiceId, reason }: { invoiceId: string; reason: string }) =>
+    apiClient.voidAdminInvoice(propertyId, invoiceId, reason)
+  );
 }

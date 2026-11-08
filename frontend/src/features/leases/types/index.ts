@@ -19,3 +19,7 @@ export type LeaseStatusType =
   | "MovedOut"
   | "Terminated"
   | "Cancelled";
+export type UpdateLeaseRequest = Schemas["UpdateLeaseRequest"];
+export type UpdateLeaseOccupantRequest = Schemas["UpdateLeaseOccupantRequest"];
+export type LeaseOccupantDto = Schemas["LeaseOccupantDto"];
+export type LeaseVehicleDto = Schemas["LeaseVehicleDto"];

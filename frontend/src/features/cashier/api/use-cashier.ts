@@ -10,6 +10,7 @@ import type {
   OpenCashierShiftRequest,
   CloseCashierShiftRequest,
   ReconcileCashierShiftRequest,
+  CashierShiftDto,
 } from "../types";
 
 export function useCurrentCashierShift(propertyId: string) {
@@ -47,5 +48,25 @@ export function useCloseShiftMutation(propertyId: string) {
 export function useReconcileShiftMutation(propertyId: string) {
   return useCashierMutation(({ shiftId, req }: { shiftId: string; req: ReconcileCashierShiftRequest }) =>
     apiClient.reconcileAdminCashierShift(propertyId, shiftId, req)
+  );
+}
+
+export function useCashierShift(propertyId: string, shiftId: string | null) {
+  return useQuery<CashierShiftDto>({
+    queryKey: queryKeys.cashier.shift(propertyId, shiftId ?? ""),
+    queryFn: () => apiClient.getAdminCashierShift(propertyId, shiftId ?? ""),
+    enabled: shiftId !== null,
+  });
+}
+
+export function useCancelShiftMutation(propertyId: string) {
+  return useCashierMutation(({ shiftId, reason }: { shiftId: string; reason: string }) =>
+    apiClient.cancelAdminCashierShift(propertyId, shiftId, reason)
+  );
+}
+
+export function useUpdateShiftRemarkMutation(propertyId: string) {
+  return useCashierMutation(({ shiftId, varianceRemark }: { shiftId: string; varianceRemark: string }) =>
+    apiClient.updateAdminCashierShiftRemark(propertyId, shiftId, { varianceRemark })
   );
 }

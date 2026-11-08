@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { FilePlus2, Send, Trash2 } from "lucide-react";
+import { Eye, FilePlus2, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SelectPill } from "@/components/ui/select-pill";
@@ -33,6 +33,7 @@ import {
   PERMISSION_BILLING_ISSUE_BATCH,
 } from "../constants";
 import type { BatchInvoiceRunResponse, InvoiceItemDto, InvoiceStatusType } from "../types";
+import { InvoiceDetailSheet } from "./InvoiceDetailSheet";
 
 export function BillingSection() {
   const locale = useLocale() as "th" | "en";
@@ -48,6 +49,7 @@ export function BillingSection() {
   const [runResult, setRunResult] = useState<BatchInvoiceRunResponse | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InvoiceItemDto | null>(null);
   const [showIssueAll, setShowIssueAll] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const isPeriodValid = PERIOD_PATTERN.test(period);
   const { data, isLoading, isError, refetch } = useAdminInvoices(
@@ -155,37 +157,52 @@ export function BillingSection() {
       id: "actions",
       header: <span className="sr-only">{tCommon("actions")}</span>,
       align: "right",
-      cell: (i) =>
-        i.status === "Draft" ? (
-          <div className="flex items-center justify-end gap-1.5">
-            <Tooltip content={t("btnIssue")} position="top">
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                aria-label={`${t("btnIssue")} ${i.documentNumber}`}
-                disabled={isBusy}
-                onClick={() => void handleIssue(i.id)}
-                className="h-9 w-9 rounded-full"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </Tooltip>
-            <Tooltip content={t("btnDelete")} position="top">
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                aria-label={`${t("btnDelete")} ${i.documentNumber}`}
-                disabled={isBusy}
-                onClick={() => setDeleteTarget(i)}
-                className="h-9 w-9 rounded-full"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </Tooltip>
-          </div>
-        ) : null,
+      cell: (i) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <Tooltip content={t("btnView")} position="top">
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              aria-label={`${t("btnView")} ${i.documentNumber}`}
+              onClick={() => setDetailId(i.id)}
+              className="h-9 w-9 rounded-full"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+          {i.status === "Draft" && (
+            <>
+              <Tooltip content={t("btnIssue")} position="top">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  aria-label={`${t("btnIssue")} ${i.documentNumber}`}
+                  disabled={isBusy}
+                  onClick={() => void handleIssue(i.id)}
+                  className="h-9 w-9 rounded-full"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+              <Tooltip content={t("btnDelete")} position="top">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  aria-label={`${t("btnDelete")} ${i.documentNumber}`}
+                  disabled={isBusy}
+                  onClick={() => setDeleteTarget(i)}
+                  className="h-9 w-9 rounded-full"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+            </>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -262,15 +279,32 @@ export function BillingSection() {
           className="space-y-3 rounded-[12px] border border-hairline bg-canvas p-4 shadow-none"
         >
           <h3 className="text-sm font-semibold text-ink">
-            {t("runResultTitle", { created: runResult.created.length, skipped: runResult.skipped.length })}
+            {t("runResultTitle", {
+              created: runResult.created.length,
+              refreshed: runResult.refreshed.length,
+              skipped: runResult.skipped.length,
+            })}
           </h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
               <div className="text-xs font-medium text-ink">{t("createdHeading")}</div>
               {runResult.created.length === 0 ? (
                 <p className="text-xs text-mute">-</p>
               ) : (
                 runResult.created.map((i) => (
+                  <div key={i.id} className="flex justify-between text-xs">
+                    <span className="font-mono">{i.documentNumber}</span>
+                    <span className="font-mono tabular-nums">{formatCurrencyThb(i.totalAmount)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="space-y-1.5" data-testid="batch-refreshed">
+              <div className="text-xs font-medium text-ink">{t("refreshedHeading")}</div>
+              {runResult.refreshed.length === 0 ? (
+                <p className="text-xs text-mute">-</p>
+              ) : (
+                runResult.refreshed.map((i) => (
                   <div key={i.id} className="flex justify-between text-xs">
                     <span className="font-mono">{i.documentNumber}</span>
                     <span className="font-mono tabular-nums">{formatCurrencyThb(i.totalAmount)}</span>
@@ -309,6 +343,7 @@ export function BillingSection() {
         emptyDescription={t("emptyDescription")}
       />
 
+      <InvoiceDetailSheet propertyId={activeProperty.id} invoiceId={detailId} onClose={() => setDetailId(null)} />
       <ConfirmationModal
         isOpen={showIssueAll}
         onClose={() => setShowIssueAll(false)}

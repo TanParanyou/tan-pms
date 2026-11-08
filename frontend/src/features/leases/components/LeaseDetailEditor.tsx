@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations, useLocale } from "next-intl";
-import { ArrowLeft, LogOut, Plus, RefreshCw, Wallet } from "lucide-react";
+import { ArrowLeft, Ban, LogOut, Pencil, Plus, RefreshCw, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ import { PageLoading } from "@/components/ui/mono-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { CurrencyInput } from "@/components/forms/currency-input";
+import { ReasonDialog } from "@/components/forms/reason-dialog";
 import { FormField } from "@/components/forms/form-field";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
@@ -49,6 +50,7 @@ import {
   useRenewLeaseMutation,
   useMoveOutNoticeMutation,
   useSettleMoveOutMutation,
+  useCancelLeaseMutation,
 } from "../api/use-leases";
 import {
   leaseOccupantSchema,
@@ -61,6 +63,8 @@ import {
   type LeaseSettleFormValues,
 } from "../schemas/lease-schemas";
 import { EMPTY_OCCUPANT, EMPTY_VEHICLE, LEASE_STATUS_BADGE_VARIANT } from "../constants";
+import { LeaseEditDialog } from "./LeaseEditDialog";
+import { LeaseOccupantRow, LeaseVehicleRow } from "./LeasePeopleRows";
 import type { LeaseItemDto, LeaseStatusType } from "../types";
 
 export interface LeaseDetailEditorProps {
@@ -108,7 +112,10 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   const renew = useRenewLeaseMutation(propertyId);
   const moveOutNotice = useMoveOutNoticeMutation(propertyId);
   const settle = useSettleMoveOutMutation(propertyId);
+  const cancelLease = useCancelLeaseMutation(propertyId);
 
+  const [showEdit, setShowEdit] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
   const [showRenew, setShowRenew] = useState(false);
   const [showConfirmRenew, setShowConfirmRenew] = useState(false);
   const [showConfirmNotice, setShowConfirmNotice] = useState(false);
@@ -137,7 +144,8 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
     addVehicle.isPending ||
     renew.isPending ||
     moveOutNotice.isPending ||
-    settle.isPending;
+    settle.isPending ||
+    cancelLease.isPending;
 
   useUnsavedChanges(
     occupantForm.formState.isDirty ||
@@ -218,6 +226,18 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
     }
   };
 
+  const executeCancel = async (reason: string): Promise<boolean> => {
+    try {
+      await cancelLease.mutateAsync({ leaseId: lease.id, reason });
+      toastSuccess(t("toastLeaseCancelled"));
+      router.push("/admin/leases");
+      return true;
+    } catch (err) {
+      toastApiError(err);
+      return false;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -234,6 +254,17 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
             </Link>
             {canManage && (
               <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={status !== "Active" || isBusy}
+                  onClick={() => setShowEdit(true)}
+                  className="h-9 rounded-full px-4 gap-1.5 text-xs"
+                >
+                  <Pencil className="h-4 w-4" />
+                  <span>{t("btnEditLease")}</span>
+                </Button>
                 <Button
                   type="button"
                   size="sm"
@@ -257,6 +288,19 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
                   <span>{t("btnMoveOutNotice")}</span>
                 </Button>
               </>
+            )}
+            {canSettle && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={status !== "Active" || isBusy}
+                onClick={() => setShowCancel(true)}
+                className="h-9 rounded-full px-4 gap-1.5 text-xs"
+              >
+                <Ban className="h-4 w-4" />
+                <span>{t("btnCancelLease")}</span>
+              </Button>
             )}
             {canSettle && (
               <Button
@@ -306,23 +350,21 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
               <TableHead>{t("fieldNationality")}</TableHead>
               <TableHead>{t("fieldIdentityNumber")}</TableHead>
               <TableHead>{t("fieldPrimary")}</TableHead>
+              <TableHead className="w-24 text-right">
+                <span className="sr-only">{tCommon("actions")}</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {lease.occupants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-mute">
+                <TableCell colSpan={5} className="text-center text-mute">
                   {t("noOccupants")}
                 </TableCell>
               </TableRow>
             ) : (
               lease.occupants.map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell>{o.fullName}</TableCell>
-                  <TableCell className="font-mono text-xs">{o.nationalityCode}</TableCell>
-                  <TableCell className="font-mono text-xs">{o.maskedIdentityNumber}</TableCell>
-                  <TableCell>{o.isPrimaryOccupant ? <Badge variant="success">{t("fieldPrimary")}</Badge> : "-"}</TableCell>
-                </TableRow>
+                <LeaseOccupantRow key={o.id} leaseId={lease.id} propertyId={propertyId} item={o} canManage={canManage} />
               ))
             )}
           </TableBody>
@@ -381,22 +423,21 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
               <TableHead>{t("fieldLicensePlate")}</TableHead>
               <TableHead>{t("fieldProvince")}</TableHead>
               <TableHead>{t("fieldBrandModel")}</TableHead>
+              <TableHead className="w-24 text-right">
+                <span className="sr-only">{tCommon("actions")}</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {lease.vehicles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-mute">
+                <TableCell colSpan={4} className="text-center text-mute">
                   {t("noVehicles")}
                 </TableCell>
               </TableRow>
             ) : (
               lease.vehicles.map((v) => (
-                <TableRow key={v.id}>
-                  <TableCell className="font-mono text-xs">{v.licensePlate}</TableCell>
-                  <TableCell>{v.province || "-"}</TableCell>
-                  <TableCell>{v.vehicleBrandModel || "-"}</TableCell>
-                </TableRow>
+                <LeaseVehicleRow key={v.id} leaseId={lease.id} propertyId={propertyId} item={v} canManage={canManage} />
               ))
             )}
           </TableBody>
@@ -572,6 +613,18 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
         </DialogContent>
       </Dialog>
 
+      <LeaseEditDialog open={showEdit} onOpenChange={setShowEdit} propertyId={propertyId} lease={lease} />
+      <ReasonDialog
+        open={showCancel}
+        onOpenChange={setShowCancel}
+        title={t("cancelLeaseTitle")}
+        description={t("cancelLeaseDescription")}
+        actionText={t("btnCancelLease")}
+        confirmTitle={t("confirmCancelLeaseTitle")}
+        confirmMessage={t("confirmCancelLeaseMessage", { document: lease.documentNumber })}
+        isLoading={cancelLease.isPending}
+        onConfirm={executeCancel}
+      />
       <ConfirmationModal
         isOpen={showConfirmRenew}
         onClose={() => setShowConfirmRenew(false)}

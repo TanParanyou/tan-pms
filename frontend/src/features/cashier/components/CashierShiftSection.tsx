@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { Eye, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +51,7 @@ import {
 } from "../constants";
 import type { CashierShiftDto, CashierShiftStatusType } from "../types";
 import { CashierShiftInvertedCard } from "./CashierShiftInvertedCard";
+import { CashierShiftDetailSheet } from "./CashierShiftDetailSheet";
 
 export function CashierShiftSection() {
   const locale = useLocale() as "th" | "en";
@@ -68,6 +69,7 @@ export function CashierShiftSection() {
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [reconcileTarget, setReconcileTarget] = useState<CashierShiftDto | null>(null);
   const [showConfirmReconcile, setShowConfirmReconcile] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const { data: current } = useCurrentCashierShift(activeProperty.id);
   const shift = current?.shift ?? null;
@@ -212,20 +214,34 @@ export function CashierShiftSection() {
       id: "actions",
       header: <span className="sr-only">{tCommon("actions")}</span>,
       align: "right",
-      cell: (s) =>
-        s.status === "Closed" && canReconcile ? (
+      cell: (s) => (
+        <div className="flex items-center justify-end gap-1.5">
           <Button
             type="button"
-            size="sm"
+            size="icon"
             variant="outline"
-            disabled={isBusy}
-            onClick={() => setReconcileTarget(s)}
-            className="h-8 rounded-full px-3 gap-1.5 text-xs"
+            title={t("btnViewShift")}
+            aria-label={`${t("btnViewShift")} ${s.documentNumber}`}
+            onClick={() => setDetailId(s.id)}
+            className="h-8 w-8 rounded-full"
           >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>{t("btnReconcile")}</span>
+            <Eye className="h-3.5 w-3.5" />
           </Button>
-        ) : null,
+          {s.status === "Closed" && canReconcile && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isBusy}
+              onClick={() => setReconcileTarget(s)}
+              className="h-8 rounded-full px-3 gap-1.5 text-xs"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>{t("btnReconcile")}</span>
+            </Button>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -292,6 +308,8 @@ export function CashierShiftSection() {
         emptyTitle={t("emptyTitle")}
         emptyDescription={t("emptyDescription")}
       />
+
+      <CashierShiftDetailSheet propertyId={activeProperty.id} shiftId={detailId} onClose={() => setDetailId(null)} />
 
       {/* Open shift */}
       <Dialog open={showOpen} onOpenChange={setShowOpen}>

@@ -13,7 +13,8 @@ import { KpiSummaryStrip } from "@/components/layout/kpi-summary-strip";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { formatCurrencyThb, formatDateTime } from "@/lib/formatters";
-import { useAdminDepositLedgers } from "../api/use-deposits";
+import { PageLoading } from "@/components/ui/mono-spinner";
+import { useAdminDepositLedgers, useAdminDepositLedger } from "../api/use-deposits";
 import { DEPOSIT_TYPE_OPTIONS } from "../constants";
 import type { DepositLedgerItemDto, DepositTypeValue } from "../types";
 
@@ -26,6 +27,9 @@ export function DepositRegisterSection() {
 
   const { data, isLoading, isError, refetch } = useAdminDepositLedgers(activeProperty.id, type || undefined);
   const items = useMemo(() => data?.items ?? [], [data]);
+
+  // Expanded ledger is fetched through the single-ledger endpoint.
+  const { data: detail, isLoading: isDetailLoading } = useAdminDepositLedger(activeProperty.id, expandedId);
 
   const columns: ColumnDef<DepositLedgerItemDto>[] = [
     {
@@ -83,7 +87,7 @@ export function DepositRegisterSection() {
     },
   ];
 
-  const expanded = expandedId ? items.filter((d) => d.id === expandedId) : [];
+  const expanded = detail ? [detail] : [];
 
   return (
     <div className="space-y-6">
@@ -100,7 +104,10 @@ export function DepositRegisterSection() {
         ]}
       />
       <div className="flex items-center justify-between gap-3 rounded-[12px] border border-hairline bg-canvas p-4 shadow-none">
-        <p className="text-xs text-body">{t("heldFundsNote")}</p>
+        <div className="space-y-1">
+          <p className="text-xs text-body">{t("heldFundsNote")}</p>
+          <p data-testid="deposit-readonly-hint" className="text-[11px] text-mute">{t("readOnlyHint")}</p>
+        </div>
         <div className="w-56 shrink-0">
           <SelectPill
             aria-label={t("colType")}
@@ -128,6 +135,7 @@ export function DepositRegisterSection() {
         emptyTitle={t("emptyTitle")}
         emptyDescription={t("emptyDescription")}
       />
+      {expandedId !== null && isDetailLoading && <PageLoading message={t("loadingLedger")} />}
       {expanded.map((d) => (
         <div key={d.id} data-testid="deposit-transactions" className="space-y-3 rounded-[12px] border border-hairline bg-canvas p-4 shadow-none">
           <h3 className="text-sm font-semibold text-ink">

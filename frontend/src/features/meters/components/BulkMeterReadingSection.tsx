@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Lock, Save, Undo2 } from "lucide-react";
+import { Lock, Save, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { SelectPill } from "@/components/ui/select-pill";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { FormField } from "@/components/forms/form-field";
+import { ReasonDialog } from "@/components/forms/reason-dialog";
 import { PeriodInput, PERIOD_PATTERN, getCurrentPeriod } from "@/components/forms/period-input";
 import { PageHeader } from "@/components/layout/page-header";
 import { KpiSummaryStrip } from "@/components/layout/kpi-summary-strip";
@@ -29,7 +30,7 @@ import type {
   MeterReadingRowResultDto,
   MeterReadingInputDto,
 } from "@/features/billing/types";
-import { useMeterReadingSheet, useSaveMeterReadingsMutation } from "../api/use-meters";
+import { useMeterReadingSheet, useSaveMeterReadingsMutation, useDeleteMeterReadingMutation } from "../api/use-meters";
 import { meterRowEditSchema, meterSaveSchema, type MeterRowEdit } from "../schemas/meter-schemas";
 import {
   METER_UTILITIES,
@@ -64,6 +65,7 @@ export function BulkMeterReadingSection() {
   const [overrideReason, setOverrideReason] = useState("");
   const [lastResult, setLastResult] = useState<SaveMeterReadingsResponse | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MeterReadingSheetRowDto | null>(null);
 
   const isPeriodValid = PERIOD_PATTERN.test(period);
   const { data: hierarchy } = usePropertyHierarchy(activeProperty.id);
@@ -74,7 +76,8 @@ export function BulkMeterReadingSection() {
     refetch,
   } = useMeterReadingSheet(activeProperty.id, period, buildingId || undefined, canRecord && isPeriodValid);
   const saveMutation = useSaveMeterReadingsMutation(activeProperty.id);
-  const isBusy = saveMutation.isPending;
+  const deleteMutation = useDeleteMeterReadingMutation(activeProperty.id);
+  const isBusy = saveMutation.isPending || deleteMutation.isPending;
 
   const rows = useMemo(() => sheet?.rows ?? [], [sheet]);
   const isDirty = Object.keys(edits).length > 0;
@@ -160,6 +163,22 @@ export function BulkMeterReadingSection() {
       }
     } catch (err) {
       toastApiError(err);
+    }
+  };
+
+  const handleDeleteReading = async (reason: string): Promise<boolean> => {
+    if (!deleteTarget) return false;
+    try {
+      await deleteMutation.mutateAsync({
+        unitId: deleteTarget.unit.id,
+        period,
+        overrideReason: deleteTarget.isLocked ? reason : undefined,
+      });
+      toastSuccess(t("toastReadingDeleted"));
+      return true;
+    } catch (err) {
+      toastApiError(err);
+      return false;
     }
   };
 
@@ -322,6 +341,30 @@ export function BulkMeterReadingSection() {
         );
       },
     },
+    {
+      id: "actions",
+      header: <span className="sr-only">{tCommon("actions")}</span>,
+      align: "right",
+      cell: (row) => {
+        const hasSavedReading = row.water.currentReading != null || row.electric.currentReading != null;
+        // Locked readings may only be removed with the override permission; unsaved edits must be saved or discarded first.
+        if (!hasSavedReading || isRowReadOnly(row)) return null;
+        return (
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            title={t("btnDeleteReading")}
+            aria-label={`${t("btnDeleteReading")} ${row.unit.unitNumber}`}
+            disabled={isBusy || isDirty}
+            onClick={() => setDeleteTarget(row)}
+            className="h-9 w-9 rounded-full"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        );
+      },
+    },
   ];
 
   if (!canRecord) {
@@ -440,6 +483,18 @@ export function BulkMeterReadingSection() {
         onRetry={() => void refetch()}
         emptyTitle={t("emptyTitle")}
         emptyDescription={t("emptyDescription")}
+      />
+      <ReasonDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title={t("deleteReadingTitle")}
+        description={t("deleteReadingDescription")}
+        actionText={t("btnDeleteReading")}
+        confirmTitle={t("confirmDeleteReadingTitle")}
+        confirmMessage={t("confirmDeleteReadingMessage", { unit: deleteTarget?.unit.unitNumber ?? "", period })}
+        reasonRequired={deleteTarget?.isLocked ?? false}
+        isLoading={deleteMutation.isPending}
+        onConfirm={handleDeleteReading}
       />
     </div>
   );

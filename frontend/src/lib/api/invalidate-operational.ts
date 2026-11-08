@@ -15,6 +15,9 @@ export function invalidateOperationalCaches(queryClient: QueryClient): Promise<u
       queryKeys.rack.all,
       queryKeys.availability.all,
       queryKeys.stays.all,
+      queryKeys.housekeeping.all,
+      queryKeys.workOrders.all,
+      queryKeys.parcels.all,
     ].map((queryKey) => queryClient.invalidateQueries({ queryKey }))
   );
 }

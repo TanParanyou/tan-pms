@@ -25,3 +25,12 @@ export function useSaveMeterReadingsMutation(propertyId: string) {
     onSuccess: (res) => (res.isSaved ? invalidateOperationalCaches(queryClient) : undefined),
   });
 }
+
+export function useDeleteMeterReadingMutation(propertyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ unitId, period, overrideReason }: { unitId: string; period: string; overrideReason?: string }) =>
+      apiClient.deleteAdminMeterReading(propertyId, unitId, { period, overrideReason }),
+    onSuccess: () => invalidateOperationalCaches(queryClient),
+  });
+}

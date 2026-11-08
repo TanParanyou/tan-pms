@@ -22,3 +22,7 @@ export type InvoiceStatusType =
   | "Paid"
   | "Overdue"
   | "Voided";
+export type InvoiceLineRequest = Schemas["InvoiceLineRequest"];
+export type InvoiceLineDto = Schemas["InvoiceLineDto"];
+export type BatchInvoiceSkipDto = Schemas["BatchInvoiceSkipDto"];
+export type TaxModeType = "Exempt" | "VatIncluded" | "VatExcluded";

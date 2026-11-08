@@ -217,6 +217,7 @@ describe("PM-07: Batch billing", () => {
     const res: BatchInvoiceRunResponse = {
       period: "2026-11",
       created: [invoice("i3", "Draft", "INV-NEW")],
+      refreshed: [invoice("i4", "Draft", "INV-REFRESHED")],
       skipped: [
         { leaseId: "l9", leaseDocumentNumber: "LSE-9", unit: unitRef("u-z", "Z-1"), reasonCode: "billing.missing_meter_readings" },
       ],
@@ -273,7 +274,7 @@ describe("PM-07: Batch billing", () => {
     await waitFor(() => expect(btn).toBeDisabled());
     fireEvent.click(btn);
     expect(run).toHaveBeenCalledTimes(1);
-    await act(async () => { resolve({ period: "2026-11", created: [], skipped: [] }); });
+    await act(async () => { resolve({ period: "2026-11", created: [], skipped: [], refreshed: [] }); });
     await waitFor(() => {
       const keys = spy.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
       expect(keys).toContain(JSON.stringify(queryKeys.billing.all));

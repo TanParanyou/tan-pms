@@ -76,6 +76,11 @@ beforeEach(() => {
   vi.spyOn(apiClient, "getAdminCashierShifts").mockResolvedValue({
     items: [shift(), shift({ id: "s2", documentNumber: "SHF-2", status: "Closed", actualCashCounted: 1600, cashVariance: 0 })],
   });
+  vi.spyOn(apiClient, "getAdminPaymentSlip").mockImplementation(async (_pid, id) =>
+    id === "ap"
+      ? slip("ap", "Approved", { reviewedByUserId: "rev1", reviewedAt: "2026-11-07T03:00:00Z", receiptDocumentNumber: "RCT-9" })
+      : slip(id, "Pending")
+  );
   vi.spyOn(apiClient, "getAdminPaymentSlips").mockImplementation(async (_pid, params) => ({
     items: params?.status === "Approved"
       ? [slip("ap", "Approved", { reviewedByUserId: "rev1", reviewedAt: "2026-11-07T03:00:00Z", receiptDocumentNumber: "RCT-9" })]
@@ -238,6 +243,7 @@ describe("PM-08: Deposit register", () => {
 
   it("shows total held balance labelled as not revenue, filters by type and expands transactions", async () => {
     const get = vi.spyOn(apiClient, "getAdminDepositLedgers").mockResolvedValue(ledgers);
+    vi.spyOn(apiClient, "getAdminDepositLedger").mockResolvedValue(ledgers.items[0]);
     renderWith(<DepositRegisterSection />);
     expect(await screen.findByText("LSE-1")).toBeInTheDocument();
     expect(screen.getAllByText("12,500 THB").length).toBeGreaterThan(0);

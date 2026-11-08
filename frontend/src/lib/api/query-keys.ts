@@ -77,22 +77,47 @@ export const queryKeys = {
     all: ["admin-billing"] as const,
     invoices: (propertyId: string, period?: string, status?: string) =>
       [...queryKeys.billing.all, "invoices", propertyId, period ?? "", status ?? ""] as const,
+    invoice: (propertyId: string, id: string) =>
+      [...queryKeys.billing.all, "invoice", propertyId, id] as const,
   },
   cashier: {
     all: ["admin-cashier"] as const,
     current: (propertyId: string) => [...queryKeys.cashier.all, "current", propertyId] as const,
     shifts: (propertyId: string, status?: string) =>
       [...queryKeys.cashier.all, "shifts", propertyId, status ?? ""] as const,
+    shift: (propertyId: string, id: string) => [...queryKeys.cashier.all, "shift", propertyId, id] as const,
   },
   payments: {
     all: ["admin-payments"] as const,
     slips: (propertyId: string, status?: string) =>
       [...queryKeys.payments.all, "slips", propertyId, status ?? ""] as const,
+    slip: (propertyId: string, id: string) => [...queryKeys.payments.all, "slip", propertyId, id] as const,
   },
   depositLedgers: {
     all: ["admin-deposit-ledgers"] as const,
     list: (propertyId: string, type?: string) =>
       [...queryKeys.depositLedgers.all, propertyId, type ?? ""] as const,
+    detail: (propertyId: string, id: string) =>
+      [...queryKeys.depositLedgers.all, "detail", propertyId, id] as const,
+  },
+  housekeeping: {
+    all: ["admin-housekeeping"] as const,
+    list: (propertyId: string, status?: string, buildingId?: string) =>
+      [...queryKeys.housekeeping.all, propertyId, status ?? "", buildingId ?? ""] as const,
+  },
+  workOrders: {
+    all: ["admin-work-orders"] as const,
+    list: (propertyId: string, status?: string) =>
+      [...queryKeys.workOrders.all, "list", propertyId, status ?? ""] as const,
+    detail: (propertyId: string, id: string) =>
+      [...queryKeys.workOrders.all, "detail", propertyId, id] as const,
+  },
+  parcels: {
+    all: ["admin-parcels"] as const,
+    list: (propertyId: string, status?: string) =>
+      [...queryKeys.parcels.all, "list", propertyId, status ?? ""] as const,
+    detail: (propertyId: string, id: string) =>
+      [...queryKeys.parcels.all, "detail", propertyId, id] as const,
   },
   customers: {
     all: ["admin-customers"] as const,

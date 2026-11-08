@@ -18,6 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { PageLoading } from "@/components/ui/mono-spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { FormField } from "@/components/forms/form-field";
 import { PageHeader } from "@/components/layout/page-header";
@@ -27,7 +28,12 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { formatCurrencyThb, formatDateTime } from "@/lib/formatters";
-import { useAdminPaymentSlips, useApproveSlipMutation, useRejectSlipMutation } from "../api/use-payments";
+import {
+  useAdminPaymentSlips,
+  useAdminPaymentSlip,
+  useApproveSlipMutation,
+  useRejectSlipMutation,
+} from "../api/use-payments";
 import { rejectSlipSchema, type RejectSlipFormValues } from "../schemas/payment-schemas";
 import {
   PERMISSION_VERIFY_SLIP,
@@ -62,6 +68,8 @@ export function PaymentSlipQueueSection() {
 
   const { data, isLoading, isError, refetch } = useAdminPaymentSlips(activeProperty.id, status);
   const items = useMemo(() => data?.items ?? [], [data]);
+  // Detail sheet reads the single-slip endpoint rather than reusing the list row.
+  const { data: slip, isLoading: isSlipLoading } = useAdminPaymentSlip(activeProperty.id, selected?.id ?? null);
   const approveMutation = useApproveSlipMutation(activeProperty.id);
   const rejectMutation = useRejectSlipMutation(activeProperty.id);
   const inFlight = useRef(false);
@@ -149,7 +157,7 @@ export function PaymentSlipQueueSection() {
     },
   ];
 
-  const isPending = selected?.status === "Pending";
+  const isPending = slip?.status === "Pending";
 
   return (
     <div className="space-y-6">
@@ -187,28 +195,29 @@ export function PaymentSlipQueueSection() {
             <SheetTitle>{t("detailTitle")}</SheetTitle>
             <SheetDescription>{selected?.invoiceDocumentNumber}</SheetDescription>
           </SheetHeader>
-          {selected && (
+          {isSlipLoading && <PageLoading message={tCommon("loading")} />}
+          {slip && (
             <div className="space-y-4 py-4">
               <DetailItem label={t("colStatus")}>
-                <Badge variant={SLIP_STATUS_BADGE_VARIANT[selected.status as PaymentSlipStatusType]}>
-                  {t(`status.${selected.status}`)}
+                <Badge variant={SLIP_STATUS_BADGE_VARIANT[slip.status as PaymentSlipStatusType]}>
+                  {t(`status.${slip.status}`)}
                 </Badge>
               </DetailItem>
-              <DetailItem label={t("colAmount")}>{formatCurrencyThb(selected.amount)}</DetailItem>
-              <DetailItem label={t("colOutstanding")}>{formatCurrencyThb(selected.invoiceOutstandingAmount)}</DetailItem>
-              <DetailItem label={t("transferReference")}>{selected.transferReference ?? "-"}</DetailItem>
+              <DetailItem label={t("colAmount")}>{formatCurrencyThb(slip.amount)}</DetailItem>
+              <DetailItem label={t("colOutstanding")}>{formatCurrencyThb(slip.invoiceOutstandingAmount)}</DetailItem>
+              <DetailItem label={t("transferReference")}>{slip.transferReference ?? "-"}</DetailItem>
               <DetailItem label={t("slipKey")}>
-                <span className="font-mono text-xs">{selected.slipFileKey}</span>
+                <span className="font-mono text-xs">{slip.slipFileKey}</span>
               </DetailItem>
-              <DetailItem label={t("submittedAt")}>{formatDateTime(selected.submittedAt, locale)}</DetailItem>
-              {selected.status !== "Pending" && (
+              <DetailItem label={t("submittedAt")}>{formatDateTime(slip.submittedAt, locale)}</DetailItem>
+              {slip.status !== "Pending" && (
                 <div data-testid="slip-review-info" className="space-y-3 rounded-[12px] bg-surface-soft p-3">
-                  <DetailItem label={t("reviewedBy")}>{selected.reviewedByUserId ?? "-"}</DetailItem>
+                  <DetailItem label={t("reviewedBy")}>{slip.reviewedByUserId ?? "-"}</DetailItem>
                   <DetailItem label={t("reviewedAt")}>
-                    {selected.reviewedAt ? formatDateTime(selected.reviewedAt, locale) : "-"}
+                    {slip.reviewedAt ? formatDateTime(slip.reviewedAt, locale) : "-"}
                   </DetailItem>
-                  <DetailItem label={t("rejectReason")}>{selected.rejectReason ?? "-"}</DetailItem>
-                  <DetailItem label={t("receiptNo")}>{selected.receiptDocumentNumber ?? "-"}</DetailItem>
+                  <DetailItem label={t("rejectReason")}>{slip.rejectReason ?? "-"}</DetailItem>
+                  <DetailItem label={t("receiptNo")}>{slip.receiptDocumentNumber ?? "-"}</DetailItem>
                 </div>
               )}
             </div>

@@ -57,3 +57,20 @@ export const leaseSettleSchema = z.object({
   reason: z.string().trim().min(3, "Reason is required"),
 });
 export type LeaseSettleFormValues = z.infer<typeof leaseSettleSchema>;
+
+export const leaseEditSchema = z.object({
+  monthlyRentAmount: positiveMoneySchema,
+  initialWaterMeterReading: z.number().finite().nonnegative(),
+  initialElectricMeterReading: z.number().finite().nonnegative(),
+  reason: z.string().trim().min(3, "Reason is required"),
+});
+export type LeaseEditFormValues = z.infer<typeof leaseEditSchema>;
+
+/** Identity number is write-only (API returns it masked), so blank means keep the stored value. */
+export const leaseOccupantEditSchema = z.object({
+  fullName: z.string().trim().min(2, "Full name is required"),
+  nationalityCode: z.string().trim().min(2, "Nationality is required"),
+  identityNumber: z.union([z.literal(""), identityDocumentSchema]),
+  isPrimaryOccupant: z.boolean(),
+});
+export type LeaseOccupantEditFormValues = z.infer<typeof leaseOccupantEditSchema>;

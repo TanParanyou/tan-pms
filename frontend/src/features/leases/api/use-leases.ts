@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
+import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type {
   LeaseItemDto,
   CustomerListResponse,
@@ -13,6 +14,8 @@ import type {
   LeaseVehicleRequest,
   RenewLeaseRequest,
   SettleLeaseMoveOutRequest,
+  UpdateLeaseRequest,
+  UpdateLeaseOccupantRequest,
 } from "../types";
 
 export interface LeaseListFilters {
@@ -89,5 +92,47 @@ export function useMoveOutNoticeMutation(propertyId: string) {
 export function useSettleMoveOutMutation(propertyId: string) {
   return useLeaseMutation(({ leaseId, req }: { leaseId: string; req: SettleLeaseMoveOutRequest }) =>
     apiClient.settleAdminLeaseMoveOut(propertyId, leaseId, req)
+  );
+}
+
+export function useUpdateLeaseMutation(propertyId: string) {
+  return useLeaseMutation(({ leaseId, req }: { leaseId: string; req: UpdateLeaseRequest }) =>
+    apiClient.updateAdminLease(propertyId, leaseId, req)
+  );
+}
+
+/** Cancelling a lease can release deposits and void invoices: refresh every operational cache. */
+export function useCancelLeaseMutation(propertyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leaseId, reason }: { leaseId: string; reason: string }) =>
+      apiClient.cancelAdminLease(propertyId, leaseId, reason),
+    onSuccess: () => invalidateOperationalCaches(queryClient),
+  });
+}
+
+export function useUpdateLeaseOccupantMutation(propertyId: string) {
+  return useLeaseMutation(
+    ({ leaseId, occupantId, req }: { leaseId: string; occupantId: string; req: UpdateLeaseOccupantRequest }) =>
+      apiClient.updateAdminLeaseOccupant(propertyId, leaseId, occupantId, req)
+  );
+}
+
+export function useDeleteLeaseOccupantMutation(propertyId: string) {
+  return useLeaseMutation(({ leaseId, occupantId }: { leaseId: string; occupantId: string }) =>
+    apiClient.deleteAdminLeaseOccupant(propertyId, leaseId, occupantId)
+  );
+}
+
+export function useUpdateLeaseVehicleMutation(propertyId: string) {
+  return useLeaseMutation(
+    ({ leaseId, vehicleId, req }: { leaseId: string; vehicleId: string; req: LeaseVehicleRequest }) =>
+      apiClient.updateAdminLeaseVehicle(propertyId, leaseId, vehicleId, req)
+  );
+}
+
+export function useDeleteLeaseVehicleMutation(propertyId: string) {
+  return useLeaseMutation(({ leaseId, vehicleId }: { leaseId: string; vehicleId: string }) =>
+    apiClient.deleteAdminLeaseVehicle(propertyId, leaseId, vehicleId)
   );
 }
