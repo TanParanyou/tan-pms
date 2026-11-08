@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using TanPms.Application.Billing;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
@@ -1868,7 +1869,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             var chargeTitleEn = stayMode == StayMode.Hourly
                 ? $"Hourly Room Package ({unit.UnitNumber})"
                 : $"Daily Room Charge ({unit.UnitNumber})";
-            folio.AddCharge(chargeTitleTh, initialRoomCharge, TaxMode.VatIncluded, chargeTitleEn);
+            folio.AddCharge(chargeTitleTh, initialRoomCharge, TaxMode.VatIncluded, chargeTitleEn, UtilityChargeCategories.ShortStayRoom);
 
             _dbContext.Folios.Add(folio);
             _dbContext.Set<FolioCharge>().AddRange(folio.Charges);
@@ -2123,7 +2124,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                         $"ค่าต่อเวลาเข้าพัก +{request.AdditionalHours} ชม.{capSuffixTh}",
                         deltaCharge,
                         TaxMode.VatIncluded,
-                        $"Stay Extension +{request.AdditionalHours}h{capSuffixEn}");
+                        $"Stay Extension +{request.AdditionalHours}h{capSuffixEn}",
+                        UtilityChargeCategories.ShortStayRoom);
                 }
             }
             else
@@ -2140,7 +2142,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                         $"ค่าต่อเวลาเช็คเอาต์ +{request.AdditionalHours} ชม.",
                         additionalCharge,
                         TaxMode.VatIncluded,
-                        $"Late Check-out / Extension +{request.AdditionalHours}h");
+                        $"Late Check-out / Extension +{request.AdditionalHours}h",
+                        UtilityChargeCategories.ShortStayRoom);
                 }
             }
 

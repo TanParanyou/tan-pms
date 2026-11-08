@@ -9,4 +9,7 @@ public sealed class FolioCharge
     public required LocalizedText Description { get; init; }
     public required decimal Amount { get; init; }
     public required TaxMode TaxMode { get; init; }
+
+    // TaxProfile charge category for room charges (used by RevPAR); null for minibar, repairs and manual charges.
+    public string? ChargeCategoryCode { get; init; }
 }

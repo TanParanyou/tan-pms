@@ -55,6 +55,7 @@ public sealed class TanPmsDbContext : DbContext
     public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
     public DbSet<Parcel> Parcels => Set<Parcel>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+    public DbSet<LeaseIntentRequest> LeaseIntentRequests => Set<LeaseIntentRequest>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -229,6 +230,24 @@ public sealed class TanPmsDbContext : DbContext
             b.Property(x => x.VoidReason).HasMaxLength(2000);
             b.HasIndex(x => new { x.PropertyId, x.Status });
             b.HasIndex(x => x.CustomerId);
+        });
+
+        modelBuilder.Entity<LeaseIntentRequest>(b =>
+        {
+            b.Property(x => x.Note).HasMaxLength(1000);
+            b.Property(x => x.RejectReason).HasMaxLength(1000);
+            b.Property(x => x.ReviewedByUserId).HasMaxLength(128);
+            b.HasIndex(x => new { x.PropertyId, x.Status });
+            b.HasIndex(x => x.CustomerId);
+            // At most one Pending intent per lease.
+            b.HasIndex(x => x.LeaseId)
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false AND \"Status\" = 1");
+        });
+
+        modelBuilder.Entity<FolioCharge>(b =>
+        {
+            b.Property(x => x.ChargeCategoryCode).HasMaxLength(64);
         });
 
         modelBuilder.Entity<StoredFile>(b =>

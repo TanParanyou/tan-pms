@@ -10,6 +10,8 @@ public interface IPaymentSlipStore
         SubmitPaymentSlipRequest request,
         DateTimeOffset? nowUtc = null);
 
+    Result<ClientPaymentSlipListResponse> GetClientPaymentSlips(Guid customerId);
+
     Result<ClientPaymentSlipListResponse> GetClientInvoiceSlips(Guid customerId, Guid invoiceId);
 
     Result<ClientPaymentSlipDto> UpdateClientPaymentSlip(

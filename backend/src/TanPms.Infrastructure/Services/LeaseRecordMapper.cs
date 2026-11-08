@@ -1,9 +1,11 @@
+using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
 using TanPms.Domain.Leases;
+using TanPms.Domain.Notifications;
 
 namespace TanPms.Infrastructure.Services;
 
@@ -106,6 +108,52 @@ internal static class LeaseRecordMapper
         vehicle.Province = request.Province?.Trim() ?? string.Empty;
         vehicle.VehicleBrandModel = request.VehicleBrandModel?.Trim() ?? string.Empty;
     }
+
+    internal static Error ClientLeaseNotFound() =>
+        new(DomainErrorCodes.PermissionDenied, "Lease was not found for the current customer.");
+
+    internal static LeaseIntentDto MapIntent(
+        LeaseIntentRequest intent,
+        Lease lease,
+        UnitRefDto unitRef,
+        Customer customer,
+        Func<string?, UserRefDto?> users,
+        bool unmaskPii) => new(
+        intent.Id,
+        intent.PropertyId,
+        intent.LeaseId,
+        lease.DocumentNumber,
+        unitRef,
+        new CustomerRefDto(customer.Id, customer.FullName, unmaskPii ? customer.NationalIdOrPassport : customer.GetMaskedIdentity()),
+        intent.IntentType.ToString(),
+        intent.DesiredDate,
+        intent.Note,
+        intent.Status.ToString(),
+        users(intent.ReviewedByUserId),
+        intent.ReviewedAt,
+        intent.RejectReason,
+        intent.CreatedAt);
+
+    internal static NotificationMessage BuildIntentNotification(LeaseIntentRequest intent, string leaseDocumentNumber, DateTimeOffset sentAt) => new()
+    {
+        PropertyId = intent.PropertyId,
+        CustomerId = intent.CustomerId,
+        Channel = NotificationChannel.InApp,
+        TemplateKey = intent.Status == LeaseIntentStatus.Approved ? LeaseIntentRules.ApprovedTemplateKey : LeaseIntentRules.RejectedTemplateKey,
+        Title = LeaseIntentRules.NotificationTitle(intent, leaseDocumentNumber),
+        Body = LeaseIntentRules.NotificationBody(intent),
+        SentAtUtc = sentAt
+    };
+
+    internal static LeaseIntentRequest BuildIntent(Lease lease, LeaseIntentType intentType, CreateLeaseIntentRequest request) => new()
+    {
+        PropertyId = lease.PropertyId,
+        LeaseId = lease.Id,
+        CustomerId = lease.CustomerId,
+        IntentType = intentType,
+        DesiredDate = request.DesiredDate,
+        Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim()
+    };
 
     internal static Error LeaseNotFound(Guid propertyId, Guid leaseId) => new(
         DomainErrorCodes.ValidationFailed,

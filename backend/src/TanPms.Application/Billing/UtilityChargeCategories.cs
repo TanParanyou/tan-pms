@@ -6,4 +6,5 @@ public static class UtilityChargeCategories
     public const string MonthlyRoomRent = "MONTHLY_ROOM_RENT";
     public const string Water = "UTILITY_WATER";
     public const string Electric = "UTILITY_ELECTRIC";
+    public const string ShortStayRoom = "SHORT_STAY_ROOM";
 }

@@ -1,3 +1,4 @@
+using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Cashier;
 using TanPms.Application.Client;
@@ -118,6 +119,26 @@ builder.Services.AddScoped<RenewAdminLeaseHandler>();
 builder.Services.AddScoped<GiveAdminLeaseMoveOutNoticeHandler>();
 builder.Services.AddScoped<SettleAdminLeaseMoveOutHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
+builder.Services.AddScoped<GetClientLeasesHandler>();
+builder.Services.AddScoped<GetClientLeaseHandler>();
+builder.Services.AddScoped<GetClientInvoicesHandler>();
+builder.Services.AddScoped<GetClientInvoiceHandler>();
+builder.Services.AddScoped<GetClientUtilityUsageHandler>();
+builder.Services.AddScoped<GetClientPaymentSlipsHandler>();
+builder.Services.AddScoped<GetClientReservationHandler>();
+builder.Services.AddScoped<CancelClientReservationHandler>();
+builder.Services.AddScoped<CreateClientLeaseIntentHandler>();
+builder.Services.AddScoped<GetClientLeaseIntentsHandler>();
+builder.Services.AddScoped<UpdateClientLeaseIntentHandler>();
+builder.Services.AddScoped<WithdrawClientLeaseIntentHandler>();
+builder.Services.AddScoped<GetAdminLeaseIntentsHandler>();
+builder.Services.AddScoped<ApproveAdminLeaseIntentHandler>();
+builder.Services.AddScoped<RejectAdminLeaseIntentHandler>();
+builder.Services.AddScoped<GetAdminOccupancyReportHandler>();
+builder.Services.AddScoped<GetAdminRevParReportHandler>();
+builder.Services.AddScoped<GetAdminAgingReportHandler>();
+builder.Services.AddScoped<GetAdminCashierShiftSummaryReportHandler>();
+builder.Services.AddScoped<GetAdminDepositSummaryReportHandler>();
 builder.Services.AddScoped<UploadAdminFileHandler>();
 builder.Services.AddScoped<UploadClientFileHandler>();
 builder.Services.AddScoped<GetAdminFileHandler>();
@@ -1380,6 +1401,108 @@ adminGroup.MapGet("/properties/{propertyId:guid}/receipts/{receiptId:guid}/pdf",
         : Results.File(result.Value!.Content, "application/pdf", result.Value.FileName);
 });
 
+adminGroup.MapGet("/properties/{propertyId:guid}/lease-intents", (
+    Guid propertyId,
+    string? status,
+    GetAdminLeaseIntentsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminLeaseIntentsQuery(propertyId, status));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/lease-intents/{intentId:guid}/approve", (
+    Guid propertyId,
+    Guid intentId,
+    ApproveAdminLeaseIntentHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ApproveAdminLeaseIntentCommand(propertyId, intentId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/lease-intents/{intentId:guid}/reject", (
+    Guid propertyId,
+    Guid intentId,
+    ReasonRequest request,
+    RejectAdminLeaseIntentHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new RejectAdminLeaseIntentCommand(propertyId, intentId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/analytics/occupancy", (
+    Guid propertyId,
+    DateOnly? from,
+    DateOnly? to,
+    GetAdminOccupancyReportHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminOccupancyReportQuery(propertyId, from, to));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/analytics/revpar", (
+    Guid propertyId,
+    DateOnly? from,
+    DateOnly? to,
+    GetAdminRevParReportHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminRevParReportQuery(propertyId, from, to));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/analytics/receivables-aging", (
+    Guid propertyId,
+    DateOnly? from,
+    DateOnly? to,
+    GetAdminAgingReportHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminAgingReportQuery(propertyId, from, to));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/analytics/cashier-shifts", (
+    Guid propertyId,
+    DateOnly? from,
+    DateOnly? to,
+    GetAdminCashierShiftSummaryReportHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminCashierShiftSummaryReportQuery(propertyId, from, to));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/analytics/deposits", (
+    Guid propertyId,
+    DateOnly? from,
+    DateOnly? to,
+    GetAdminDepositSummaryReportHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminDepositSummaryReportQuery(propertyId, from, to));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
 var clientGroup = app.MapGroup("/api/v1/client");
 
 clientGroup.MapPost("/invoices/{invoiceId:guid}/slips", (
@@ -1552,6 +1675,139 @@ clientGroup.MapGet("/receipts/{receiptId:guid}/pdf", (
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.File(result.Value!.Content, "application/pdf", result.Value.FileName);
+});
+
+clientGroup.MapGet("/leases", (
+    GetClientLeasesHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientLeasesQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/leases/{leaseId:guid}", (
+    Guid leaseId,
+    GetClientLeaseHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientLeaseQuery(leaseId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapPost("/leases/{leaseId:guid}/intents", (
+    Guid leaseId,
+    CreateLeaseIntentRequest request,
+    CreateClientLeaseIntentHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CreateClientLeaseIntentCommand(leaseId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/client/lease-intents/{result.Value!.Id}", result.Value);
+});
+
+clientGroup.MapGet("/lease-intents", (
+    GetClientLeaseIntentsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientLeaseIntentsQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapPut("/lease-intents/{intentId:guid}", (
+    Guid intentId,
+    UpdateLeaseIntentRequest request,
+    UpdateClientLeaseIntentHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateClientLeaseIntentCommand(intentId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapDelete("/lease-intents/{intentId:guid}", (
+    Guid intentId,
+    WithdrawClientLeaseIntentHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new WithdrawClientLeaseIntentCommand(intentId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/invoices", (
+    string? status,
+    GetClientInvoicesHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientInvoicesQuery(status));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/invoices/{invoiceId:guid}", (
+    Guid invoiceId,
+    GetClientInvoiceHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientInvoiceQuery(invoiceId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/utility-usage", (
+    Guid? leaseId,
+    int? months,
+    GetClientUtilityUsageHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientUtilityUsageQuery(leaseId, months));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/payment-slips", (
+    GetClientPaymentSlipsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientPaymentSlipsQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/reservations/{reservationId:guid}", (
+    Guid reservationId,
+    GetClientReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientReservationQuery(reservationId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapPost("/reservations/{reservationId:guid}/cancel", (
+    Guid reservationId,
+    ReasonRequest request,
+    CancelClientReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CancelClientReservationCommand(reservationId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
 });
 
 clientGroup.MapGet("/dashboard", (

@@ -380,6 +380,28 @@ internal static class MeterBillingComposer
         }
     }
 
+    // Monthly usage for the client chart, limited to the lease window so earlier/later tenants' readings never leak.
+    internal static ClientUtilityUsageResponse BuildUtilityUsage(Lease lease, IReadOnlyList<MeterReading> unitReadings, int months)
+    {
+        var firstPeriod = BillingPeriod.Format(new DateOnly(lease.StartDate.Year, lease.StartDate.Month, 1));
+        var lastPeriod = BillingPeriod.Format(new DateOnly(lease.EndDate.Year, lease.EndDate.Month, 1));
+        var rows = unitReadings
+            .Where(r => string.CompareOrdinal(r.BillingPeriodYearMonth, firstPeriod) >= 0
+                        && string.CompareOrdinal(r.BillingPeriodYearMonth, lastPeriod) <= 0)
+            .GroupBy(r => r.BillingPeriodYearMonth)
+            .OrderByDescending(g => g.Key, StringComparer.Ordinal)
+            .Take(months)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g =>
+            {
+                var water = g.FirstOrDefault(r => r.UtilityType == UtilityType.Water);
+                var electric = g.FirstOrDefault(r => r.UtilityType == UtilityType.Electric);
+                return new UtilityUsageMonthDto(g.Key, water?.UsageUnits, water?.ChargeAmount, electric?.UsageUnits, electric?.ChargeAmount);
+            })
+            .ToList();
+        return new ClientUtilityUsageResponse(lease.Id, lease.DocumentNumber, rows);
+    }
+
     internal static Error PropertyNotFound(Guid propertyId) =>
         new(DomainErrorCodes.ValidationFailed, $"Property '{propertyId}' was not found.");
 

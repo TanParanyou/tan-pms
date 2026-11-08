@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TanPms.Application.Billing;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Domain.Billing;
 using TanPms.Domain.Common;
@@ -446,7 +447,7 @@ public static class PmsDatabaseInitializer
             LeaseId = lease1.Id,
             BillingPeriodYearMonth = "2026-11"
         };
-        invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)");
+        invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)", UtilityChargeCategories.MonthlyRoomRent);
         invoice1.AddLine("ค่าเช่าเฟอร์นิเจอร์", 1000.00m, TaxMode.VatExcluded, "Furniture Rental");
         invoice1.Issue();
 
@@ -690,7 +691,7 @@ public static class PmsDatabaseInitializer
             PropertyId = bkk.Id,
             StayId = octStay.Id
         };
-        octFolio.AddCharge("ค่าห้องพักรายวัน (A-102)", 2400.00m, TaxMode.VatIncluded, "Daily Room Charge (A-102)");
+        octFolio.AddCharge("ค่าห้องพักรายวัน (A-102)", 2400.00m, TaxMode.VatIncluded, "Daily Room Charge (A-102)", UtilityChargeCategories.ShortStayRoom);
         octFolio.RecordPayment(2400.00m);
         octStay.CompleteCheckOut(octFolio, null, octStayCheckIn.AddDays(2));
 

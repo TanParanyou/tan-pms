@@ -16,6 +16,10 @@ public interface ILeaseStore
         Guid leaseId,
         bool unmaskPii = false);
 
+    Result<LeaseListResponse> GetClientLeases(Guid customerId);
+
+    Result<LeaseItemDto> GetClientLease(Guid customerId, Guid leaseId);
+
     Result<LeaseContractDto> GetAdminLeaseContract(
         Guid propertyId,
         Guid leaseId,

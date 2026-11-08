@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Cashier;
 using TanPms.Application.Client;
@@ -75,6 +76,8 @@ public static class DependencyInjection
             services.AddSingleton<IParcelStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IStoredFileStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IReceiptStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<ILeaseIntentStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<IAnalyticsStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IRoomRackStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IClientDashboardStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IDocumentNumberService>(sp => sp.GetRequiredService<InMemoryOperationalService>());
@@ -106,6 +109,8 @@ public static class DependencyInjection
             services.AddScoped<IParcelStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IStoredFileStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IReceiptStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<ILeaseIntentStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<IAnalyticsStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IRoomRackStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IClientDashboardStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
         }

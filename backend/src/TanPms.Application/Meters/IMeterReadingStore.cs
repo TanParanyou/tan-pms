@@ -14,6 +14,9 @@ public interface IMeterReadingStore
         SaveMeterReadingsRequest request,
         bool callerCanOverrideLocked);
 
+    // leaseId null = the customer's most recent Active/MoveOutNotice lease.
+    Result<ClientUtilityUsageResponse> GetClientUtilityUsage(Guid customerId, Guid? leaseId, int months);
+
     Result<MeterReadingSheetRowDto> DeleteAdminMeterReading(
         Guid propertyId,
         Guid unitId,

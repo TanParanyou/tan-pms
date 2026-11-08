@@ -14,6 +14,7 @@ public sealed class Invoice : AuditableEntity
     public List<InvoiceLine> Lines { get; init; } = [];
     public InvoiceStatus Status { get; private set; } = InvoiceStatus.Draft;
     public string? VoidReason { get; private set; }
+    public DateTimeOffset? IssuedAt { get; private set; }
 
     public decimal SubTotal => Lines.Sum(l => l.SubTotal);
     public decimal TotalVatAmount => Lines.Sum(l => l.VatAmount);
@@ -49,10 +50,11 @@ public sealed class Invoice : AuditableEntity
     public InvoiceLine AddLine(string thaiDescription, decimal lineAmount, TaxMode taxMode, string? englishDescription = null, string? chargeCategoryCode = null) =>
         AddLine(LocalizedText.Create(thaiDescription, englishDescription), lineAmount, taxMode, chargeCategoryCode);
 
-    public void Issue()
+    public void Issue(DateTimeOffset? issuedAt = null)
     {
         EnsureMutable();
         Status = InvoiceStatus.Issued;
+        IssuedAt = issuedAt ?? DateTimeOffset.UtcNow;
     }
 
     public bool AcceptsPayment =>

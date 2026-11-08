@@ -28,6 +28,10 @@ public interface IBillingStore
         Guid propertyId,
         Guid invoiceId);
 
+    Result<ClientInvoiceListResponse> GetClientInvoices(Guid customerId, string? status);
+
+    Result<ClientInvoiceDto> GetClientInvoice(Guid customerId, Guid invoiceId);
+
     Result<InvoiceItemDto> GetAdminInvoice(Guid propertyId, Guid invoiceId, bool unmaskPii = false);
 
     Result<InvoiceItemDto> AddAdminInvoiceLine(Guid propertyId, Guid invoiceId, InvoiceLineRequest request);

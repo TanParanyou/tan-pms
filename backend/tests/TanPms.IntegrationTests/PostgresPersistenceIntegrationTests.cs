@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Cashier;
 using TanPms.Application.Client;
@@ -673,6 +674,53 @@ public sealed class PostgresPersistenceIntegrationTests
                     PmsSeedConstants.BkkPropertyId, "BKK01", DocumentTypeCode.INV, new DateTimeOffset(2026, 11, 8, 0, 0, 0, TimeSpan.Zero));
                 Assert.DoesNotContain(nextInvoiceNumber, existingInvoiceNumbers);
             }
+
+            // 11. PM-10 client self-service + executive analytics through EfCorePmsStore + PostgreSQL
+            var a201Lease = (await clientApp.GetFromJsonAsync<LeaseListResponse>("/api/v1/client/leases"))!.Items
+                .Single(l => l.Unit.Id == PmsSeedConstants.OccupiedMonthlyUnitA201Id);
+            Assert.Equal(HttpStatusCode.Forbidden, (await pgCustomer2.GetAsync($"/api/v1/client/leases/{a201Lease.Id}")).StatusCode);
+            var clientInvoices = (await clientApp.GetFromJsonAsync<ClientInvoiceListResponse>("/api/v1/client/invoices"))!.Items;
+            Assert.DoesNotContain(clientInvoices, i => i.Invoice.Status == "Draft");
+            Assert.Contains(clientInvoices, i => i.Invoice.Status == "Voided" && i.Invoice.VoidReason == "Re-billed under corrected lease");
+            var octInvoice = clientInvoices.Single(i => i.Invoice.BillingPeriodYearMonth == "2026-10");
+            Assert.Equal(octInvoice.Invoice.TotalAmount, octInvoice.OutstandingAmount);
+            Assert.Equal(HttpStatusCode.Forbidden, (await pgCustomer2.GetAsync($"/api/v1/client/invoices/{octInvoice.Invoice.Id}")).StatusCode);
+            var usage = await clientApp.GetFromJsonAsync<Application.Meters.ClientUtilityUsageResponse>($"/api/v1/client/utility-usage?leaseId={a201Lease.Id}");
+            Assert.Contains(usage!.Months, m => m.Period == "2026-10" && m.WaterUsageUnits == 25m);
+
+            var pgIntent = await (await clientApp.PostAsJsonAsync(
+                $"/api/v1/client/leases/{a201Lease.Id}/intents", new CreateLeaseIntentRequest("Renew", new DateOnly(2027, 6, 30), "Stay longer")))
+                .Content.ReadFromJsonAsync<LeaseIntentDto>();
+            Assert.Equal(HttpStatusCode.Forbidden, (await pgCustomer2.DeleteAsync($"/api/v1/client/lease-intents/{pgIntent!.Id}")).StatusCode);
+            Assert.Equal("Approved", (await (await crudClient.PostAsync($"{bkkUrl}/lease-intents/{pgIntent.Id}/approve", null))
+                .Content.ReadFromJsonAsync<LeaseIntentDto>())!.Status);
+            Assert.Equal(new DateOnly(2027, 6, 30), (await clientApp.GetFromJsonAsync<LeaseItemDto>($"/api/v1/client/leases/{a201Lease.Id}"))!.EndDate);
+            Assert.Contains((await clientApp.GetFromJsonAsync<NotificationListResponse>("/api/v1/client/notifications"))!.Items,
+                n => n.TemplateKey == LeaseIntentRules.ApprovedTemplateKey);
+
+            using var analyticsClient = factory.CreateClient();
+            analyticsClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            analyticsClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+            analyticsClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminAnalyticsRead);
+            // October: A-201 lease 31 nights + seeded A-102 daily stay 2 nights over 3 units x 31 nights.
+            var pgOccupancy = await analyticsClient.GetFromJsonAsync<OccupancyReportDto>($"{bkkUrl}/analytics/occupancy?from=2026-10-01&to=2026-10-31");
+            Assert.Equal(93, pgOccupancy!.AvailableUnitNights);
+            Assert.Equal(33, pgOccupancy.OccupiedUnitNights);
+            Assert.Equal(0.3548m, pgOccupancy.OccupancyRate);
+            // Folio 2,242.99 ex-VAT + issued October rent 8,500 = 10,742.99 / 93 = 115.52.
+            var pgRevPar = await analyticsClient.GetFromJsonAsync<RevParReportDto>($"{bkkUrl}/analytics/revpar?from=2026-10-01&to=2026-10-31");
+            Assert.Equal(2242.99m, pgRevPar!.FolioRoomRevenue);
+            Assert.Equal(8500m, pgRevPar.LeaseRentRevenue);
+            Assert.Equal(115.52m, pgRevPar.RevPar);
+            var pgAging = await analyticsClient.GetFromJsonAsync<AgingReportDto>($"{bkkUrl}/analytics/receivables-aging");
+            Assert.Contains(pgAging!.Customers, c => c.Customer.Id == PmsSeedConstants.PrimaryCustomerId && c.Buckets.Total >= octInvoice.OutstandingAmount);
+            var pgShifts = await analyticsClient.GetFromJsonAsync<CashierShiftSummaryDto>($"{bkkUrl}/analytics/cashier-shifts");
+            Assert.Contains(pgShifts!.Cashiers, c => c.Cashier.FullName == "Pimchanok Srisawat");
+            Assert.Equal(-10m, pgShifts.VarianceTotal); // only the step-7 shift closed short by 10
+            var pgDeposits = await analyticsClient.GetFromJsonAsync<DepositSummaryDto>($"{bkkUrl}/analytics/deposits");
+            Assert.Equal("Liability", pgDeposits!.Classification);
+            Assert.Equal(pgDeposits.ByType.Sum(t => t.HeldBalance), pgDeposits.TotalHeldBalance);
+            Assert.Equal(HttpStatusCode.Forbidden, (await cnxAdmin.GetAsync($"{bkkUrl}/analytics/occupancy")).StatusCode);
         }
         finally
         {

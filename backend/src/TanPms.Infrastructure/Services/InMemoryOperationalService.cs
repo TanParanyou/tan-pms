@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using TanPms.Application.Billing;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
@@ -1926,7 +1927,7 @@ public sealed partial class InMemoryOperationalService
             var chargeTitleEn = stayMode == StayMode.Hourly
                 ? $"Hourly Room Package ({unit.UnitNumber})"
                 : $"Daily Room Charge ({unit.UnitNumber})";
-            folio.AddCharge(chargeTitleTh, initialRoomCharge, TaxMode.VatIncluded, chargeTitleEn);
+            folio.AddCharge(chargeTitleTh, initialRoomCharge, TaxMode.VatIncluded, chargeTitleEn, UtilityChargeCategories.ShortStayRoom);
             _foliosByStayId[stay.Id] = folio;
 
             // Isolate Key Deposit inside DepositLedger (never mixed into Folio revenue)
@@ -2149,7 +2150,8 @@ public sealed partial class InMemoryOperationalService
                             $"ค่าต่อเวลาเข้าพัก +{request.AdditionalHours} ชม.{capSuffixTh}",
                             deltaCharge,
                             TaxMode.VatIncluded,
-                            $"Stay Extension +{request.AdditionalHours}h{capSuffixEn}");
+                            $"Stay Extension +{request.AdditionalHours}h{capSuffixEn}",
+                        UtilityChargeCategories.ShortStayRoom);
                     }
                 }
                 else
@@ -2166,7 +2168,8 @@ public sealed partial class InMemoryOperationalService
                             $"ค่าต่อเวลาเช็คเอาต์ +{request.AdditionalHours} ชม.",
                             additionalCharge,
                             TaxMode.VatIncluded,
-                            $"Late Check-out / Extension +{request.AdditionalHours}h");
+                            $"Late Check-out / Extension +{request.AdditionalHours}h",
+                        UtilityChargeCategories.ShortStayRoom);
                     }
                 }
 
@@ -3056,7 +3059,7 @@ public sealed partial class InMemoryOperationalService
             LeaseId = lease1.Id,
             BillingPeriodYearMonth = "2026-11"
         };
-        invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)");
+        invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)", UtilityChargeCategories.MonthlyRoomRent);
         invoice1.AddLine("ค่าเช่าเฟอร์นิเจอร์", 1000.00m, TaxMode.VatExcluded, "Furniture Rental");
         invoice1.Issue();
         _invoices.Add(invoice1);
@@ -3353,7 +3356,7 @@ public sealed partial class InMemoryOperationalService
             PropertyId = bkk.Id,
             StayId = octStay.Id
         };
-        octFolio.AddCharge("ค่าห้องพักรายวัน (A-102)", 2400.00m, TaxMode.VatIncluded, "Daily Room Charge (A-102)");
+        octFolio.AddCharge("ค่าห้องพักรายวัน (A-102)", 2400.00m, TaxMode.VatIncluded, "Daily Room Charge (A-102)", UtilityChargeCategories.ShortStayRoom);
         octFolio.RecordPayment(2400.00m);
         octStay.CompleteCheckOut(octFolio, null, octStayCheckIn.AddDays(2));
         _stays.Add(octStay);

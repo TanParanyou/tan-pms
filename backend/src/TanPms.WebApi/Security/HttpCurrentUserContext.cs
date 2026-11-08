@@ -107,7 +107,8 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                     PermissionKeys.AdminBillingIssueBatch,
                     PermissionKeys.AdminHousekeepingUpdate,
                     PermissionKeys.AdminWorkOrdersManage,
-                    PermissionKeys.AdminParcelsManage
+                    PermissionKeys.AdminParcelsManage,
+                    PermissionKeys.AdminAnalyticsRead
                 };
             }
 

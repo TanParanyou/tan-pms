@@ -1,3 +1,4 @@
+using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Cashier;
 using TanPms.Application.Client;
@@ -38,5 +39,7 @@ public interface IPmsOperationalStore
       IParcelStore,
       IStoredFileStore,
       IReceiptStore,
+      ILeaseIntentStore,
+      IAnalyticsStore,
       IRoomRackStore,
       IClientDashboardStore;
