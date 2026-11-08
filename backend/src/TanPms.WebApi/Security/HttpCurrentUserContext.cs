@@ -104,7 +104,10 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
                     PermissionKeys.AdminLeasesManage,
                     PermissionKeys.AdminLeasesSettleMoveOut,
                     PermissionKeys.AdminMetersRecord,
-                    PermissionKeys.AdminBillingIssueBatch
+                    PermissionKeys.AdminBillingIssueBatch,
+                    PermissionKeys.AdminHousekeepingUpdate,
+                    PermissionKeys.AdminWorkOrdersManage,
+                    PermissionKeys.AdminParcelsManage
                 };
             }
 

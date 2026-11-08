@@ -8,16 +8,19 @@ using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Customers;
+using TanPms.Application.Housekeeping;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
+using TanPms.Application.Parcels;
 using TanPms.Application.Payments;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
 using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
+using TanPms.Application.WorkOrders;
 using TanPms.Domain.Common;
 using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
@@ -453,6 +456,56 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         var ledgers = await admin.GetFromJsonAsync<DepositLedgerListResponse>($"{bkkUrl}/deposit-ledgers");
         Assert.NotNull(ledgers);
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.GetAsync($"{cnxUrl}/deposit-ledgers")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Operations_WorkOrders_And_Parcels_Should_Enforce_Client_Ownership_And_Property_Scope()
+    {
+        var bkkUrl = $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}";
+        using var ops = _factory.CreateClient();
+        ops.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        ops.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        ops.DefaultRequestHeaders.Add(
+            "X-TanPms-Permissions",
+            $"{PermissionKeys.AdminWorkOrdersManage},{PermissionKeys.AdminParcelsManage},{PermissionKeys.AdminHousekeepingUpdate}");
+
+        using var customer1 = _factory.CreateClient();
+        customer1.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer1.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.PrimaryCustomerId.ToString());
+        using var customer2 = _factory.CreateClient();
+        customer2.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
+        customer2.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.SecondaryCustomerId.ToString());
+
+        var woRes = await customer1.PostAsJsonAsync(
+            "/api/v1/client/work-orders",
+            new CreateWorkOrderRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Air-con noisy", null, null, "wo/ac.jpg"));
+        Assert.Equal(HttpStatusCode.Created, woRes.StatusCode);
+        var wo = await woRes.Content.ReadFromJsonAsync<WorkOrderItemDto>();
+        Assert.Equal(HttpStatusCode.Forbidden, (await customer2.PostAsJsonAsync(
+            "/api/v1/client/work-orders", new CreateWorkOrderRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Not mine"))).StatusCode);
+        var customer2Orders = await customer2.GetFromJsonAsync<WorkOrderListResponse>("/api/v1/client/work-orders");
+        Assert.DoesNotContain(customer2Orders!.Items, o => o.Id == wo!.Id);
+
+        var adminOrders = await ops.GetFromJsonAsync<WorkOrderListResponse>($"{bkkUrl}/work-orders?status=Open");
+        Assert.Contains(adminOrders!.Items, o => o.Id == wo!.Id && o.Unit.UnitNumber == "A-201");
+        Assert.Equal(HttpStatusCode.BadRequest, (await ops.PostAsJsonAsync(
+            $"{bkkUrl}/work-orders/{wo!.Id}/resolve", new ResolveWorkOrderRequest("Fixed"))).StatusCode);
+
+        // Receive + pick up in one test so the shared fixture's pending-parcel counts stay unchanged.
+        var parcelRes = await ops.PostAsJsonAsync($"{bkkUrl}/parcels", new ReceiveParcelRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "J&T", "JT-9"));
+        Assert.Equal(HttpStatusCode.Created, parcelRes.StatusCode);
+        var parcel = await parcelRes.Content.ReadFromJsonAsync<ParcelItemDto>();
+        var clientParcels = await customer1.GetFromJsonAsync<ParcelListResponse>("/api/v1/client/parcels?status=Arrived");
+        Assert.Contains(clientParcels!.Items, p => p.Id == parcel!.Id);
+        var feed = await customer1.GetFromJsonAsync<NotificationListResponse>("/api/v1/client/notifications");
+        Assert.Contains(feed!.Items, n => n.TemplateKey == ParcelRules.ArrivedTemplateKey);
+        Assert.Equal(HttpStatusCode.OK, (await ops.PostAsJsonAsync(
+            $"{bkkUrl}/parcels/{parcel!.Id}/pickup", new PickUpParcelRequest("Somchai"))).StatusCode);
+
+        var tasks = await ops.GetFromJsonAsync<HousekeepingTaskListResponse>($"{bkkUrl}/housekeeping/tasks");
+        Assert.NotNull(tasks);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ops.GetAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/work-orders")).StatusCode);
     }
 
     [Fact]

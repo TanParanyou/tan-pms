@@ -201,6 +201,22 @@ public sealed class TanPmsDbContext : DbContext
             b.HasIndex(x => x.InvoiceId);
         });
 
+        modelBuilder.Entity<WorkOrder>(b =>
+        {
+            b.Property(x => x.IssueSummary).HasMaxLength(200);
+            b.Property(x => x.Description).HasMaxLength(2000);
+            b.Property(x => x.ResolutionNotes).HasMaxLength(2000);
+            b.HasIndex(x => new { x.PropertyId, x.Status });
+            b.HasIndex(x => x.ReportedByCustomerId);
+        });
+
+        modelBuilder.Entity<Parcel>(b =>
+        {
+            b.Property(x => x.RecipientName).HasMaxLength(200);
+            b.HasIndex(x => new { x.PropertyId, x.Status });
+            b.HasIndex(x => x.CustomerId);
+        });
+
         modelBuilder.Entity<MeterReading>(b =>
         {
             b.Property(x => x.BillingPeriodYearMonth).HasMaxLength(7);

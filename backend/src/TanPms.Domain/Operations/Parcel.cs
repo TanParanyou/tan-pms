@@ -14,10 +14,20 @@ public sealed class Parcel : AuditableEntity
     public DateTimeOffset ArrivedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? PickedUpAt { get; private set; }
     public ParcelStatus Status { get; private set; } = ParcelStatus.Arrived;
+    public string? RecipientName { get; private set; }
 
-    public void MarkPickedUp(DateTimeOffset pickedUpAt)
+    public void MarkPickedUp(DateTimeOffset pickedUpAt, string? recipientName = null)
     {
+        if (Status != ParcelStatus.Arrived)
+        {
+            throw new DomainRuleException(
+                DomainErrorCodes.ValidationFailed,
+                $"Parcel {DocumentNumber} was already picked up.",
+                httpStatus: 400);
+        }
+
         PickedUpAt = pickedUpAt;
+        RecipientName = string.IsNullOrWhiteSpace(recipientName) ? null : recipientName.Trim();
         Status = ParcelStatus.PickedUp;
     }
 }

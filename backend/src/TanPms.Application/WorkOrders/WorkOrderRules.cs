@@ -1,0 +1,70 @@
+using TanPms.Application.Common.Results;
+using TanPms.Domain.Common;
+using TanPms.Domain.Operations;
+
+namespace TanPms.Application.WorkOrders;
+
+// Shared validation so both persistence providers reject the same work order input.
+public static class WorkOrderRules
+{
+    // TaxProfile.ChargeCategoryCode for tenant repair charges; VatIncluded when no active profile exists.
+    public const string RepairChargeCategory = "REPAIR_CHARGE";
+
+    public static Error? ValidateCreate(CreateWorkOrderRequest request, out WorkOrderPriority priority)
+    {
+        priority = WorkOrderPriority.Normal;
+        if (request.UnitId == Guid.Empty || string.IsNullOrWhiteSpace(request.IssueSummary))
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, "UnitId and IssueSummary are required.");
+        }
+
+        if (request.IssueSummary.Trim().Length > 200)
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, "IssueSummary cannot exceed 200 characters.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Priority)
+            && (!Enum.TryParse(request.Priority, ignoreCase: true, out priority) || !Enum.IsDefined(priority)))
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, $"Invalid WorkOrderPriority '{request.Priority}'.");
+        }
+
+        return null;
+    }
+
+    public static Error? ValidateResolve(ResolveWorkOrderRequest request) =>
+        request.RepairCostAmount < 0m
+            ? new Error(DomainErrorCodes.ValidationFailed, "RepairCostAmount cannot be negative.")
+            : request.ChargeToTenant && request.RepairCostAmount <= 0m
+                ? new Error(DomainErrorCodes.ValidationFailed, "RepairCostAmount must be greater than zero to charge the tenant.")
+                : null;
+
+    public static Error? ParseStatus(string? status, out WorkOrderStatus? parsed)
+    {
+        parsed = null;
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return null;
+        }
+
+        if (!Enum.TryParse<WorkOrderStatus>(status, ignoreCase: true, out var value) || !Enum.IsDefined(value))
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, $"Invalid WorkOrderStatus '{status}'.");
+        }
+
+        parsed = value;
+        return null;
+    }
+
+    public static WorkOrder Build(Guid propertyId, string documentNumber, CreateWorkOrderRequest request, WorkOrderPriority priority, Guid? reportedByCustomerId) => new()
+    {
+        PropertyId = propertyId,
+        DocumentNumber = documentNumber,
+        UnitId = request.UnitId,
+        ReportedByCustomerId = reportedByCustomerId,
+        IssueSummary = request.IssueSummary.Trim(),
+        Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+        Priority = priority,
+        BeforePhotoFileKey = string.IsNullOrWhiteSpace(request.BeforePhotoFileKey) ? null : request.BeforePhotoFileKey.Trim()
+    };
+}

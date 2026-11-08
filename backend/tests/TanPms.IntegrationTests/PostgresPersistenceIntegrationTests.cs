@@ -11,12 +11,15 @@ using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Customers;
+using TanPms.Application.Housekeeping;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
+using TanPms.Application.Parcels;
 using TanPms.Application.Payments;
 using TanPms.Application.Rack;
 using TanPms.Application.Stays;
+using TanPms.Application.WorkOrders;
 using TanPms.Domain.Common;
 using TanPms.Domain.DocumentNumbering;
 using TanPms.Domain.Identity;
@@ -389,6 +392,52 @@ public sealed class PostgresPersistenceIntegrationTests
             Assert.Equal(createdLease.DocumentNumber, settledLedger.OwnerDocumentNumber);
             Assert.Equal(0m, settledLedger.CurrentBalance);
             Assert.Equal(3, settledLedger.Transactions.Count);
+
+            // 8. PM-09 housekeeping, work orders and parcels through EfCorePmsStore + PostgreSQL
+            using var opsClient = factory.CreateClient();
+            opsClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            opsClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+            opsClient.DefaultRequestHeaders.Add(
+                "X-TanPms-Permissions",
+                string.Join(",", PermissionKeys.AdminHousekeepingUpdate, PermissionKeys.AdminWorkOrdersManage, PermissionKeys.AdminParcelsManage));
+
+            // Step 4 checked out A-101 and step 5 moved out of A-102: both left Pending housekeeping tasks.
+            var hkTasks = await opsClient.GetFromJsonAsync<HousekeepingTaskListResponse>($"{bkkUrl}/housekeeping/tasks?status=Pending");
+            var a101Task = hkTasks!.Items.First(t => t.Unit.Id == PmsSeedConstants.CleanUnitA101Id);
+            Assert.Equal("Cleaning", (await (await opsClient.PostAsync($"{bkkUrl}/housekeeping/tasks/{a101Task.Id}/start", null))
+                .Content.ReadFromJsonAsync<HousekeepingTaskDto>())!.Status);
+            var cleanTask = await (await opsClient.PostAsJsonAsync(
+                $"{bkkUrl}/housekeeping/tasks/{a101Task.Id}/complete", new CompleteHousekeepingTaskRequest(SkipInspection: true)))
+                .Content.ReadFromJsonAsync<HousekeepingTaskDto>();
+            Assert.Equal("Completed", cleanTask!.Status);
+            Assert.Equal("Clean", cleanTask.UnitConditionStatus);
+
+            // Repair on the seeded A-201 lease is appended to a Draft invoice (the 2026-10 one from step 6 is Issued).
+            var woCreated = await (await opsClient.PostAsJsonAsync(
+                $"{bkkUrl}/work-orders", new CreateWorkOrderRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Door hinge", null, "Urgent")))
+                .Content.ReadFromJsonAsync<WorkOrderItemDto>();
+            Assert.StartsWith("BKK01-WKO-", woCreated!.DocumentNumber, StringComparison.Ordinal);
+            Assert.Equal(HttpStatusCode.OK, (await opsClient.PostAsJsonAsync(
+                $"{bkkUrl}/work-orders/{woCreated.Id}/assign", new AssignWorkOrderRequest("tech-pg"))).StatusCode);
+            var woResolved = await (await opsClient.PostAsJsonAsync(
+                $"{bkkUrl}/work-orders/{woCreated.Id}/resolve", new ResolveWorkOrderRequest("Hinge replaced", "wo/after.jpg", 535m, true)))
+                .Content.ReadFromJsonAsync<WorkOrderItemDto>();
+            Assert.Equal("Completed", woResolved!.Status);
+            var repairDrafts = await billingClient.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices?status=Draft");
+            var repairDraft = Assert.Single(repairDrafts!.Items, i => i.DocumentNumber == woResolved.ChargeDocumentNumber);
+            Assert.Equal(535m, repairDraft.TotalAmount);
+
+            var pgParcel = await (await opsClient.PostAsJsonAsync(
+                $"{bkkUrl}/parcels", new ReceiveParcelRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Kerry", "KEX-PG")))
+                .Content.ReadFromJsonAsync<ParcelItemDto>();
+            Assert.Equal(PmsSeedConstants.PrimaryCustomerId, pgParcel!.Customer.Id);
+            Assert.NotEqual("BKK01-PCL-2611-0001", pgParcel.DocumentNumber);
+            var pgClientParcels = await clientApp.GetFromJsonAsync<ParcelListResponse>("/api/v1/client/parcels?status=Arrived");
+            Assert.Contains(pgClientParcels!.Items, p => p.Id == pgParcel.Id);
+            var pickedUp = await (await opsClient.PostAsJsonAsync(
+                $"{bkkUrl}/parcels/{pgParcel.Id}/pickup", new PickUpParcelRequest("Somchai")))
+                .Content.ReadFromJsonAsync<ParcelItemDto>();
+            Assert.Equal("PickedUp", pickedUp!.Status);
         }
         finally
         {

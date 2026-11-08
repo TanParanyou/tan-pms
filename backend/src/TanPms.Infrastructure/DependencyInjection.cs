@@ -6,16 +6,19 @@ using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Customers;
+using TanPms.Application.Housekeeping;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
 using TanPms.Application.Meters;
 using TanPms.Application.Notifications;
+using TanPms.Application.Parcels;
 using TanPms.Application.Payments;
 using TanPms.Application.Properties;
 using TanPms.Application.Rack;
 using TanPms.Application.Rates;
 using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
+using TanPms.Application.WorkOrders;
 using TanPms.Infrastructure.Persistence;
 using TanPms.Infrastructure.Services;
 
@@ -59,6 +62,9 @@ public static class DependencyInjection
             services.AddSingleton<ICashierShiftStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IDepositLedgerStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IPaymentSlipStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<IHousekeepingStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<IWorkOrderStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<IParcelStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IRoomRackStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IClientDashboardStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IDocumentNumberService>(sp => sp.GetRequiredService<InMemoryOperationalService>());
@@ -85,6 +91,9 @@ public static class DependencyInjection
             services.AddScoped<ICashierShiftStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IDepositLedgerStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IPaymentSlipStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<IHousekeepingStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<IWorkOrderStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<IParcelStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IRoomRackStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IClientDashboardStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
         }

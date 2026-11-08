@@ -1085,6 +1085,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RecipientName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -1102,6 +1106,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("PropertyId", "Status");
+
                     b.ToTable("Parcels");
                 });
 
@@ -1114,7 +1122,13 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<string>("AfterPhotoFileKey")
                         .HasColumnType("text");
 
+                    b.Property<string>("AssignedTechnicianUserId")
+                        .HasColumnType("text");
+
                     b.Property<string>("BeforePhotoFileKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ChargeDocumentNumber")
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -1130,6 +1144,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<string>("DocumentNumber")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1139,13 +1157,21 @@ namespace TanPms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("IssueSummary")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("ReportedByCustomerId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -1164,6 +1190,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReportedByCustomerId");
+
+                    b.HasIndex("PropertyId", "Status");
 
                     b.ToTable("WorkOrders");
                 });
