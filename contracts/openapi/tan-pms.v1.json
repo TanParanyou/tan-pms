@@ -6899,6 +6899,1171 @@
           }
         }
       }
+    },
+    "/api/v1/admin/properties/{propertyId}/lease-intents": {
+      "get": {
+        "operationId": "getAdminLeaseIntents",
+        "tags": [
+          "AdminLeases"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseIntentListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/lease-intents/{intentId}/approve": {
+      "post": {
+        "operationId": "approveAdminLeaseIntent",
+        "tags": [
+          "AdminLeases"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "intentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseIntentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/lease-intents/{intentId}/reject": {
+      "post": {
+        "operationId": "rejectAdminLeaseIntent",
+        "tags": [
+          "AdminLeases"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "intentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseIntentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/analytics/occupancy": {
+      "get": {
+        "operationId": "getAdminOccupancyReport",
+        "tags": [
+          "AdminAnalytics"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OccupancyReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/analytics/revpar": {
+      "get": {
+        "operationId": "getAdminRevParReport",
+        "tags": [
+          "AdminAnalytics"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevParReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/analytics/receivables-aging": {
+      "get": {
+        "operationId": "getAdminAgingReport",
+        "tags": [
+          "AdminAnalytics"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgingReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/analytics/cashier-shifts": {
+      "get": {
+        "operationId": "getAdminCashierShiftSummaryReport",
+        "tags": [
+          "AdminAnalytics"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashierShiftSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/analytics/deposits": {
+      "get": {
+        "operationId": "getAdminDepositSummaryReport",
+        "tags": [
+          "AdminAnalytics"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/leases": {
+      "get": {
+        "operationId": "getClientLeases",
+        "tags": [
+          "ClientLeases"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/leases/{leaseId}": {
+      "get": {
+        "operationId": "getClientLease",
+        "tags": [
+          "ClientLeases"
+        ],
+        "parameters": [
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/leases/{leaseId}/intents": {
+      "post": {
+        "operationId": "createClientLeaseIntent",
+        "tags": [
+          "ClientLeases"
+        ],
+        "parameters": [
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeaseIntentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseIntentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/lease-intents": {
+      "get": {
+        "operationId": "getClientLeaseIntents",
+        "tags": [
+          "ClientLeases"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseIntentListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/lease-intents/{intentId}": {
+      "put": {
+        "operationId": "updateClientLeaseIntent",
+        "tags": [
+          "ClientLeases"
+        ],
+        "parameters": [
+          {
+            "name": "intentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaseIntentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseIntentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "withdrawClientLeaseIntent",
+        "tags": [
+          "ClientLeases"
+        ],
+        "parameters": [
+          {
+            "name": "intentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseIntentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/invoices": {
+      "get": {
+        "operationId": "getClientInvoices",
+        "tags": [
+          "ClientBilling"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientInvoiceListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/invoices/{invoiceId}": {
+      "get": {
+        "operationId": "getClientInvoice",
+        "tags": [
+          "ClientBilling"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientInvoiceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/utility-usage": {
+      "get": {
+        "operationId": "getClientUtilityUsage",
+        "tags": [
+          "ClientMeters"
+        ],
+        "parameters": [
+          {
+            "name": "leaseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "nullable": true
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientUtilityUsageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/payment-slips": {
+      "get": {
+        "operationId": "getClientPaymentSlips",
+        "tags": [
+          "ClientPayments"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientPaymentSlipListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/reservations/{reservationId}": {
+      "get": {
+        "operationId": "getClientReservation",
+        "tags": [
+          "ClientReservations"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/reservations/{reservationId}/cancel": {
+      "post": {
+        "operationId": "cancelClientReservation",
+        "tags": [
+          "ClientReservations"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11477,6 +12642,627 @@
           },
           "invoice": {
             "$ref": "#/components/schemas/InvoiceItemDto"
+          }
+        }
+      },
+      "LeaseIntentListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaseIntentDto"
+            }
+          }
+        }
+      },
+      "UpdateLeaseIntentRequest": {
+        "type": "object",
+        "required": [
+          "desiredDate"
+        ],
+        "properties": {
+          "desiredDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateLeaseIntentRequest": {
+        "type": "object",
+        "required": [
+          "intentType",
+          "desiredDate"
+        ],
+        "properties": {
+          "intentType": {
+            "type": "string"
+          },
+          "desiredDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "LeaseIntentDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "propertyId",
+          "leaseId",
+          "leaseDocumentNumber",
+          "unit",
+          "customer",
+          "intentType",
+          "desiredDate",
+          "status",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaseDocumentNumber": {
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/UnitRefDto"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "intentType": {
+            "type": "string"
+          },
+          "desiredDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "reviewedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserRefDto"
+              }
+            ],
+            "nullable": true
+          },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "rejectReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UtilityUsageMonthDto": {
+        "type": "object",
+        "required": [
+          "period"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "waterUsageUnits": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "waterChargeAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "electricUsageUnits": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "electricChargeAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        }
+      },
+      "ClientUtilityUsageResponse": {
+        "type": "object",
+        "required": [
+          "leaseId",
+          "leaseDocumentNumber",
+          "months"
+        ],
+        "properties": {
+          "leaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaseDocumentNumber": {
+            "type": "string"
+          },
+          "months": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UtilityUsageMonthDto"
+            }
+          }
+        }
+      },
+      "ClientInvoiceDto": {
+        "type": "object",
+        "required": [
+          "invoice",
+          "paidAmount",
+          "outstandingAmount",
+          "receipts",
+          "slips"
+        ],
+        "properties": {
+          "invoice": {
+            "$ref": "#/components/schemas/InvoiceItemDto"
+          },
+          "paidAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "outstandingAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptItemDto"
+            }
+          },
+          "slips": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientPaymentSlipDto"
+            }
+          }
+        }
+      },
+      "ClientInvoiceListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientInvoiceDto"
+            }
+          }
+        }
+      },
+      "OccupancyByStayModeDto": {
+        "type": "object",
+        "required": [
+          "stayMode",
+          "occupiedUnitNights",
+          "occupancyRate"
+        ],
+        "properties": {
+          "stayMode": {
+            "type": "string"
+          },
+          "occupiedUnitNights": {
+            "type": "integer"
+          },
+          "occupancyRate": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "RevParReportDto": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "availableUnitNights",
+          "folioRoomRevenue",
+          "leaseRentRevenue",
+          "roomRevenue",
+          "revPar"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "availableUnitNights": {
+            "type": "integer"
+          },
+          "folioRoomRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "leaseRentRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "roomRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "revPar": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "AgingReportDto": {
+        "type": "object",
+        "required": [
+          "asOf",
+          "totals",
+          "customers"
+        ],
+        "properties": {
+          "asOf": {
+            "type": "string",
+            "format": "date"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/AgingBucketsDto"
+          },
+          "customers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgingCustomerRowDto"
+            }
+          }
+        }
+      },
+      "CashierShiftSummaryDto": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "shiftCount",
+          "openCount",
+          "closedCount",
+          "reconciledCount",
+          "cancelledCount",
+          "cashReceiptsTotal",
+          "depositsReceivedTotal",
+          "depositsRefundedTotal",
+          "varianceTotal",
+          "shiftsWithVariance",
+          "receiptCount",
+          "receiptNetTotal",
+          "cashiers"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "shiftCount": {
+            "type": "integer"
+          },
+          "openCount": {
+            "type": "integer"
+          },
+          "closedCount": {
+            "type": "integer"
+          },
+          "reconciledCount": {
+            "type": "integer"
+          },
+          "cancelledCount": {
+            "type": "integer"
+          },
+          "cashReceiptsTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositsReceivedTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositsRefundedTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "varianceTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "shiftsWithVariance": {
+            "type": "integer"
+          },
+          "receiptCount": {
+            "type": "integer"
+          },
+          "receiptNetTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "cashiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CashierShiftSummaryRowDto"
+            }
+          }
+        }
+      },
+      "OccupancyByBuildingDto": {
+        "type": "object",
+        "required": [
+          "buildingId",
+          "buildingName",
+          "units",
+          "availableUnitNights",
+          "occupiedUnitNights",
+          "occupancyRate"
+        ],
+        "properties": {
+          "buildingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "buildingName": {
+            "$ref": "#/components/schemas/LocalizedTextDto"
+          },
+          "units": {
+            "type": "integer"
+          },
+          "availableUnitNights": {
+            "type": "integer"
+          },
+          "occupiedUnitNights": {
+            "type": "integer"
+          },
+          "occupancyRate": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OccupancyReportDto": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "nights",
+          "totalUnits",
+          "availableUnitNights",
+          "occupiedUnitNights",
+          "occupancyRate",
+          "byStayMode",
+          "byBuilding"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "nights": {
+            "type": "integer"
+          },
+          "totalUnits": {
+            "type": "integer"
+          },
+          "availableUnitNights": {
+            "type": "integer"
+          },
+          "occupiedUnitNights": {
+            "type": "integer"
+          },
+          "occupancyRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "byStayMode": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OccupancyByStayModeDto"
+            }
+          },
+          "byBuilding": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OccupancyByBuildingDto"
+            }
+          }
+        }
+      },
+      "AgingBucketsDto": {
+        "type": "object",
+        "required": [
+          "current",
+          "days1To30",
+          "days31To60",
+          "days61To90",
+          "days90Plus",
+          "total"
+        ],
+        "properties": {
+          "current": {
+            "type": "number",
+            "format": "double"
+          },
+          "days1To30": {
+            "type": "number",
+            "format": "double"
+          },
+          "days31To60": {
+            "type": "number",
+            "format": "double"
+          },
+          "days61To90": {
+            "type": "number",
+            "format": "double"
+          },
+          "days90Plus": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "DepositSummaryDto": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "classification",
+          "totalHeldBalance",
+          "byType"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "classification": {
+            "type": "string"
+          },
+          "totalHeldBalance": {
+            "type": "number",
+            "format": "double"
+          },
+          "byType": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepositTypeSummaryDto"
+            }
+          }
+        }
+      },
+      "DepositTypeSummaryDto": {
+        "type": "object",
+        "required": [
+          "depositType",
+          "ledgerCount",
+          "heldBalance",
+          "receivedInPeriod",
+          "deductedInPeriod",
+          "refundedInPeriod"
+        ],
+        "properties": {
+          "depositType": {
+            "type": "string"
+          },
+          "ledgerCount": {
+            "type": "integer"
+          },
+          "heldBalance": {
+            "type": "number",
+            "format": "double"
+          },
+          "receivedInPeriod": {
+            "type": "number",
+            "format": "double"
+          },
+          "deductedInPeriod": {
+            "type": "number",
+            "format": "double"
+          },
+          "refundedInPeriod": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "AgingCustomerRowDto": {
+        "type": "object",
+        "required": [
+          "customer",
+          "invoiceCount",
+          "buckets"
+        ],
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "invoiceCount": {
+            "type": "integer"
+          },
+          "buckets": {
+            "$ref": "#/components/schemas/AgingBucketsDto"
+          }
+        }
+      },
+      "CashierShiftSummaryRowDto": {
+        "type": "object",
+        "required": [
+          "cashier",
+          "shiftCount",
+          "cashReceiptsTotal",
+          "varianceTotal"
+        ],
+        "properties": {
+          "cashier": {
+            "$ref": "#/components/schemas/UserRefDto"
+          },
+          "shiftCount": {
+            "type": "integer"
+          },
+          "cashReceiptsTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "varianceTotal": {
+            "type": "number",
+            "format": "double"
           }
         }
       }
