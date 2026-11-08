@@ -1835,7 +1835,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getClientPaymentSlips"];
+        get: operations["getClientAllPaymentSlips"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8748,7 +8748,7 @@ export interface operations {
             };
         };
     };
-    getClientPaymentSlips: {
+    getClientAllPaymentSlips: {
         parameters: {
             query?: never;
             header?: never;

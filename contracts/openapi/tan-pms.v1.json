@@ -7914,7 +7914,7 @@
     },
     "/api/v1/client/payment-slips": {
       "get": {
-        "operationId": "getClientPaymentSlips",
+        "operationId": "getClientAllPaymentSlips",
         "tags": [
           "ClientPayments"
         ],
