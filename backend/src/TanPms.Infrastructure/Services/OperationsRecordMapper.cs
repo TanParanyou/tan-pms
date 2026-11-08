@@ -35,7 +35,7 @@ internal static class OperationsRecordMapper
     internal static Error ClientRecordNotFound(string entity) =>
         new(DomainErrorCodes.PermissionDenied, $"{entity} was not found for the current customer.");
 
-    internal static HousekeepingTaskDto MapHousekeepingTask(HousekeepingTask task, UnitRefDto unitRef, Unit unit) => new(
+    internal static HousekeepingTaskDto MapHousekeepingTask(HousekeepingTask task, UnitRefDto unitRef, Unit unit, Func<string?, UserRefDto?> users) => new(
         task.Id,
         unitRef,
         task.SourceDocumentNumber,
@@ -44,9 +44,10 @@ internal static class OperationsRecordMapper
         task.AssignedStaffUserId,
         task.Note,
         task.CreatedAt,
-        task.UpdatedAt);
+        task.UpdatedAt,
+        users(task.AssignedStaffUserId));
 
-    internal static WorkOrderItemDto MapWorkOrder(WorkOrder workOrder, UnitRefDto unitRef, Customer? reporter, bool unmaskPii) => new(
+    internal static WorkOrderItemDto MapWorkOrder(WorkOrder workOrder, UnitRefDto unitRef, Customer? reporter, bool unmaskPii, Func<string?, UserRefDto?> users) => new(
         workOrder.Id,
         workOrder.PropertyId,
         workOrder.DocumentNumber,
@@ -64,7 +65,8 @@ internal static class OperationsRecordMapper
         workOrder.ChargeDocumentNumber,
         workOrder.CancelReason,
         workOrder.CreatedAt,
-        workOrder.UpdatedAt);
+        workOrder.UpdatedAt,
+        users(workOrder.AssignedTechnicianUserId));
 
     internal static ParcelItemDto MapParcel(Parcel parcel, UnitRefDto unitRef, Customer customer, bool unmaskPii) => new(
         parcel.Id,
@@ -78,7 +80,8 @@ internal static class OperationsRecordMapper
         parcel.ParcelPhotoFileKey,
         parcel.ArrivedAt,
         parcel.PickedUpAt,
-        parcel.RecipientName);
+        parcel.RecipientName,
+        parcel.VoidReason);
 
     internal static NotificationMessage BuildParcelNotification(Parcel parcel, string unitNumber) => new()
     {

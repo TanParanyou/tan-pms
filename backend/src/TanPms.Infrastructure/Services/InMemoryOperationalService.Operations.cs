@@ -41,7 +41,7 @@ public sealed partial class InMemoryOperationalService
                 .ThenBy(x => _floors.TryGetValue(x.Unit.FloorId, out var f) ? f.FloorNumber : 0)
                 .ThenBy(x => x.Unit.UnitNumber, StringComparer.Ordinal)
                 .ThenBy(x => x.Task.CreatedAt)
-                .Select(x => OperationsRecordMapper.MapHousekeepingTask(x.Task, _unitRefs[x.Unit.Id], x.Unit))
+                .Select(x => OperationsRecordMapper.MapHousekeepingTask(x.Task, _unitRefs[x.Unit.Id], x.Unit, UserRefsLocked()))
                 .ToList();
             return Result<HousekeepingTaskListResponse>.Success(new HousekeepingTaskListResponse(items));
         }
@@ -272,7 +272,7 @@ public sealed partial class InMemoryOperationalService
 
             var task = OperationsRecordMapper.BuildManualHousekeepingTask(propertyId, request);
             _housekeepingTasks.Add(task);
-            return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, _unitRefs[unit.Id], unit));
+            return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, _unitRefs[unit.Id], unit, UserRefsLocked()));
         }
     }
 
@@ -401,7 +401,7 @@ public sealed partial class InMemoryOperationalService
 
             try
             {
-                parcel.EnsureArrived();
+                parcel.Void(request.Reason);
                 var dto = MapParcelLocked(parcel, unmaskPii: false);
                 _parcels.Remove(parcel);
                 return Result<ParcelItemDto>.Success(dto);
@@ -455,7 +455,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 mutate(task, unit);
-                return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, _unitRefs[unit.Id], unit));
+                return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, _unitRefs[unit.Id], unit, UserRefsLocked()));
             }
             catch (DomainRuleException ex)
             {
@@ -529,7 +529,8 @@ public sealed partial class InMemoryOperationalService
             workOrder,
             _unitRefs[workOrder.UnitId],
             workOrder.ReportedByCustomerId is { } reporterId ? _customers[reporterId] : null,
-            unmaskPii);
+            unmaskPii,
+            UserRefsLocked());
 
     private ParcelItemDto MapParcelLocked(Parcel parcel, bool unmaskPii) =>
         OperationsRecordMapper.MapParcel(parcel, _unitRefs[parcel.UnitId], _customers[parcel.CustomerId], unmaskPii);

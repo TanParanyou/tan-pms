@@ -1,6 +1,8 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
+using TanPms.Application.Files;
+using TanPms.Domain.Files;
 using TanPms.Domain.Identity;
 
 namespace TanPms.Application.Parcels;
@@ -9,6 +11,7 @@ public sealed class ReceiveAdminParcelHandler
 {
     private readonly IParcelStore _store;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IStoredFileStore _files;
     private readonly IAuditLogger _auditLogger;
     private readonly INotificationSender _notificationSender;
 
@@ -16,10 +19,11 @@ public sealed class ReceiveAdminParcelHandler
         IParcelStore store,
         ICurrentUserContext currentUser,
         IAuditLogger auditLogger,
-        INotificationSender notificationSender)
+        INotificationSender notificationSender, IStoredFileStore files)
     {
         _store = store;
         _currentUser = currentUser;
+        _files = files;
         _auditLogger = auditLogger;
         _notificationSender = notificationSender;
     }
@@ -32,6 +36,11 @@ public sealed class ReceiveAdminParcelHandler
             PermissionKeys.AdminParcelsManage) is { } authError)
         {
             return Result<ParcelItemDto>.Failure(authError);
+        }
+
+        if (StoredFileRules.ValidateAttachments(_files, StoredFilePurpose.ParcelPhoto, command.PropertyId, null, command.Request.PhotoFileKey) is { } fileError)
+        {
+            return Result<ParcelItemDto>.Failure(fileError);
         }
 
         var result = _store.ReceiveAdminParcel(command.PropertyId, command.Request);

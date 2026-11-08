@@ -16,4 +16,5 @@ public sealed record LeaseItemDto(
     decimal InitialWaterMeterReading,
     decimal InitialElectricMeterReading,
     IReadOnlyList<LeaseOccupantDto> Occupants,
-    IReadOnlyList<LeaseVehicleDto> Vehicles);
+    IReadOnlyList<LeaseVehicleDto> Vehicles,
+    string? CancelReason);

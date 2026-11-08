@@ -47,7 +47,7 @@ public sealed partial class InMemoryOperationalService
                 OpeningFloatCash = decimal.Round(request.OpeningFloatCash, 2, MidpointRounding.AwayFromZero)
             };
             _cashierShifts.Add(shift);
-            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
         }
     }
 
@@ -57,7 +57,7 @@ public sealed partial class InMemoryOperationalService
         {
             var shift = FindOpenShiftLocked(propertyId, cashierUserId);
             return Result<CurrentCashierShiftResponse>.Success(new CurrentCashierShiftResponse(
-                shift is null ? null : CashierRecordMapper.MapShift(shift)));
+                shift is null ? null : CashierRecordMapper.MapShift(shift, UserRefsLocked())));
         }
     }
 
@@ -73,7 +73,7 @@ public sealed partial class InMemoryOperationalService
             var items = _cashierShifts
                 .Where(s => s.PropertyId == propertyId && (!statusFilter.HasValue || s.Status == statusFilter.Value))
                 .OrderByDescending(s => s.DocumentNumber, StringComparer.Ordinal)
-                .Select(CashierRecordMapper.MapShift)
+                .Select(s => CashierRecordMapper.MapShift(s, UserRefsLocked()))
                 .ToList();
             return Result<CashierShiftListResponse>.Success(new CashierShiftListResponse(items));
         }
@@ -106,7 +106,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 shift.CloseShift(request.ActualCashCounted, request.VarianceRemark?.Trim());
-                return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+                return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
             }
             catch (DomainRuleException ex)
             {
@@ -128,7 +128,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 shift.MarkReconciled();
-                return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+                return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
             }
             catch (DomainRuleException ex)
             {
@@ -144,7 +144,7 @@ public sealed partial class InMemoryOperationalService
             var shift = _cashierShifts.FirstOrDefault(s => s.Id == shiftId && s.PropertyId == propertyId);
             return shift is null
                 ? Result<CashierShiftDto>.Failure(CashierRecordMapper.ShiftNotFound(propertyId, shiftId))
-                : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+                : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
         }
     }
 
@@ -166,7 +166,7 @@ public sealed partial class InMemoryOperationalService
                 return CashierRecordMapper.ShiftHasReceipts(shift.DocumentNumber);
             }
 
-            shift.Cancel();
+            shift.Cancel(request.Reason);
             return null;
         });
     }
@@ -201,7 +201,7 @@ public sealed partial class InMemoryOperationalService
             {
                 return mutate(shift) is { } error
                     ? Result<CashierShiftDto>.Failure(error)
-                    : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+                    : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
             }
             catch (DomainRuleException ex)
             {
@@ -476,6 +476,11 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
+    private Func<string?, UserRefDto?> UserRefsLocked() => UserRefMapper.Build(_adminUsers);
+
+    private CashierShift? FindOpenShiftForCashLocked(Guid propertyId, string? cashierUserId) =>
+        string.IsNullOrWhiteSpace(cashierUserId) ? null : FindOpenShiftLocked(propertyId, cashierUserId);
+
     private CashierShift? FindOpenShiftLocked(Guid propertyId, string cashierUserId) =>
         _cashierShifts.FirstOrDefault(s =>
             s.PropertyId == propertyId && s.CashierUserId == cashierUserId && s.Status == CashierShiftStatus.Open);
@@ -493,7 +498,8 @@ public sealed partial class InMemoryOperationalService
             _customers[slip.CustomerId],
             MapInvoiceLocked(invoice, unmaskPii: false).Unit,
             _receipts.FirstOrDefault(r => r.PaymentSlipId == slip.Id)?.DocumentNumber,
-            unmaskPii);
+            unmaskPii,
+            UserRefsLocked());
     }
 
     private (string? OwnerDocumentNumber, Guid? UnitId) ResolveLedgerOwnerLocked(DepositLedger ledger)

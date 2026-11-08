@@ -28,7 +28,7 @@ public sealed class CancelAdminLeaseHandler
             return Result<LeaseSettlementDto>.Failure(authError);
         }
 
-        var result = _store.CancelAdminLease(command.PropertyId, command.LeaseId, command.Request);
+        var result = _store.CancelAdminLease(command.PropertyId, command.LeaseId, command.Request, cashierUserId: _currentUser.UserId);
         if (result.IsSuccess && result.Value is not null)
         {
             _auditLogger.RecordMutation(

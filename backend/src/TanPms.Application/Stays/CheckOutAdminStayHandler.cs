@@ -32,14 +32,14 @@ public sealed class CheckOutAdminStayHandler
             return Result<StayDetailDto>.Failure(authError);
         }
 
-        if (!_currentUser.HasOpenCashierShift)
+        if (!_currentUser.HasOpenCashierShiftIn(command.PropertyId))
         {
             return Result<StayDetailDto>.Failure(new Error(
                 DomainErrorCodes.ShiftNotOpen,
                 "Cashier must have an Open CashierShift before completing check-out and deposit settlement."));
         }
 
-        var result = _store.CheckOutAdminStay(command.PropertyId, command.StayId, command.Request);
+        var result = _store.CheckOutAdminStay(command.PropertyId, command.StayId, command.Request, cashierUserId: _currentUser.UserId);
         if (result.IsSuccess && result.Value is not null)
         {
             _auditLogger.RecordMutation(

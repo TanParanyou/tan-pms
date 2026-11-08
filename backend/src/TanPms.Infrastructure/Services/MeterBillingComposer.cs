@@ -307,7 +307,8 @@ internal static class MeterBillingComposer
                 l.NetAmount)).ToList(),
             SubTotal: invoice.SubTotal,
             TotalVatAmount: invoice.TotalVatAmount,
-            TotalAmount: invoice.TotalAmount);
+            TotalAmount: invoice.TotalAmount,
+            VoidReason: invoice.VoidReason);
 
     // Unlocked periods need only the record permission; a locked period needs the override permission plus a reason.
     internal static Error? CheckDeletable(LeaseMeterContext? context, int readingCount, string? overrideReason, bool callerCanOverrideLocked)

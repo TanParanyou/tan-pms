@@ -54,14 +54,14 @@ public sealed partial class EfCorePmsStore
             return Result<CashierShiftDto>.Failure(CashierRecordMapper.ShiftAlreadyOpen());
         }
 
-        return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+        return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefs()));
     }
 
     public Result<CurrentCashierShiftResponse> GetCurrentAdminCashierShift(Guid propertyId, string cashierUserId)
     {
         var shift = FindOpenShift(propertyId, cashierUserId);
         return Result<CurrentCashierShiftResponse>.Success(new CurrentCashierShiftResponse(
-            shift is null ? null : CashierRecordMapper.MapShift(shift)));
+            shift is null ? null : CashierRecordMapper.MapShift(shift, UserRefs())));
     }
 
     public Result<CashierShiftListResponse> GetAdminCashierShifts(Guid propertyId, string? status)
@@ -77,10 +77,11 @@ public sealed partial class EfCorePmsStore
             query = query.Where(s => s.Status == statusFilter.Value);
         }
 
+        var users = UserRefs();
         var items = query
             .OrderByDescending(s => s.DocumentNumber)
             .ToList()
-            .Select(CashierRecordMapper.MapShift)
+            .Select(s => CashierRecordMapper.MapShift(s, users))
             .ToList();
         return Result<CashierShiftListResponse>.Success(new CashierShiftListResponse(items));
     }
@@ -111,7 +112,7 @@ public sealed partial class EfCorePmsStore
         {
             shift.CloseShift(request.ActualCashCounted, request.VarianceRemark?.Trim());
             _dbContext.SaveChanges();
-            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefs()));
         }
         catch (DomainRuleException ex)
         {
@@ -131,7 +132,7 @@ public sealed partial class EfCorePmsStore
         {
             shift.MarkReconciled();
             _dbContext.SaveChanges();
-            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefs()));
         }
         catch (DomainRuleException ex)
         {
@@ -144,7 +145,7 @@ public sealed partial class EfCorePmsStore
         var shift = _dbContext.CashierShifts.AsNoTracking().FirstOrDefault(s => s.Id == shiftId && s.PropertyId == propertyId);
         return shift is null
             ? Result<CashierShiftDto>.Failure(CashierRecordMapper.ShiftNotFound(propertyId, shiftId))
-            : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+            : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefs()));
     }
 
     public Result<CashierShiftDto> CancelAdminCashierShift(
@@ -165,7 +166,7 @@ public sealed partial class EfCorePmsStore
                 return CashierRecordMapper.ShiftHasReceipts(shift.DocumentNumber);
             }
 
-            shift.Cancel();
+            shift.Cancel(request.Reason);
             return null;
         });
     }
@@ -202,7 +203,7 @@ public sealed partial class EfCorePmsStore
             }
 
             _dbContext.SaveChanges();
-            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefs()));
         }
         catch (DomainRuleException ex)
         {
@@ -517,6 +518,7 @@ public sealed partial class EfCorePmsStore
         var receipts = _dbContext.Receipts.AsNoTracking().Where(r => invoiceIds.Contains(r.InvoiceId)).ToList();
         var customerIds = slips.Select(s => s.CustomerId).Distinct().ToList();
         var customers = _dbContext.Customers.AsNoTracking().Where(c => customerIds.Contains(c.Id)).ToDictionary(c => c.Id);
+        var users = UserRefs();
 
         return slips.Select(slip =>
         {
@@ -528,7 +530,8 @@ public sealed partial class EfCorePmsStore
                 customers[slip.CustomerId],
                 invoiceDtos[invoice.Id].Unit,
                 receipts.FirstOrDefault(r => r.PaymentSlipId == slip.Id)?.DocumentNumber,
-                unmaskPii);
+                unmaskPii,
+                users);
         }).ToList();
     }
 
@@ -549,6 +552,16 @@ public sealed partial class EfCorePmsStore
                 $"SELECT 1 FROM \"Invoices\" WHERE \"Id\" = {invoiceId} FOR UPDATE");
         }
     }
+
+    // Tracked so cash recorded during the same SaveChanges updates the caller's Open drawer.
+    private CashierShift? FindTrackedOpenShift(Guid propertyId, string? cashierUserId) =>
+        string.IsNullOrWhiteSpace(cashierUserId)
+            ? null
+            : _dbContext.CashierShifts.FirstOrDefault(s =>
+                s.PropertyId == propertyId && s.CashierUserId == cashierUserId && s.Status == CashierShiftStatus.Open);
+
+    private Func<string?, UserRefDto?> UserRefs() =>
+        UserRefMapper.Build(_dbContext.AdminUsers.AsNoTracking().ToList());
 
     private static bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is PostgresException { SqlState: "23505" };

@@ -293,6 +293,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<decimal>("CashDepositsReceivedInShift")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -673,6 +677,68 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.ToTable("document_sequences", (string)null);
                 });
 
+            modelBuilder.Entity("TanPms.Domain.Files.StoredFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FileKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("PropertyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UploadedByCustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UploadedByUserId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileKey")
+                        .IsUnique();
+
+                    b.ToTable("StoredFiles");
+                });
+
             modelBuilder.Entity("TanPms.Domain.Identity.AdminUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -742,6 +808,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1111,6 +1181,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.HasKey("Id");
 

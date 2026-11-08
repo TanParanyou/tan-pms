@@ -1,6 +1,8 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
+using TanPms.Application.Files;
+using TanPms.Domain.Files;
 using TanPms.Domain.Identity;
 
 namespace TanPms.Application.WorkOrders;
@@ -9,12 +11,14 @@ public sealed class UpdateAdminWorkOrderHandler
 {
     private readonly IWorkOrderStore _store;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IStoredFileStore _files;
     private readonly IAuditLogger _auditLogger;
 
-    public UpdateAdminWorkOrderHandler(IWorkOrderStore store, ICurrentUserContext currentUser, IAuditLogger auditLogger)
+    public UpdateAdminWorkOrderHandler(IWorkOrderStore store, ICurrentUserContext currentUser, IAuditLogger auditLogger, IStoredFileStore files)
     {
         _store = store;
         _currentUser = currentUser;
+        _files = files;
         _auditLogger = auditLogger;
     }
 
@@ -26,6 +30,11 @@ public sealed class UpdateAdminWorkOrderHandler
             PermissionKeys.AdminWorkOrdersManage) is { } authError)
         {
             return Result<WorkOrderItemDto>.Failure(authError);
+        }
+
+        if (StoredFileRules.ValidateAttachments(_files, StoredFilePurpose.WorkOrderPhoto, command.PropertyId, null, command.Request.BeforePhotoFileKey) is { } fileError)
+        {
+            return Result<WorkOrderItemDto>.Failure(fileError);
         }
 
         var result = _store.UpdateAdminWorkOrder(command.PropertyId, command.WorkOrderId, command.Request);

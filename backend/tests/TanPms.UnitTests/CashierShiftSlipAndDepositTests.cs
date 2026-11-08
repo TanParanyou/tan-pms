@@ -5,6 +5,7 @@ using TanPms.Application.Leases;
 using TanPms.Application.Payments;
 using TanPms.Application.Stays;
 using TanPms.Domain.Common;
+using TanPms.Domain.Files;
 using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
 using Xunit;
@@ -92,24 +93,25 @@ public sealed class CashierShiftSlipAndDepositTests
     {
         var store = new InMemoryOperationalService();
         var invoice = SeedInvoice(store, "BKK01-INV-2611-0002"); // customer2, Issued, 1,200.00
+        var slipKey = TestFiles.Client(store, StoredFilePurpose.PaymentSlip, PmsSeedConstants.SecondaryCustomerId);
         var customer2 = Client(PmsSeedConstants.SecondaryCustomerId);
         var verifier = Admin("verifier", PermissionKeys.AdminPaymentsVerifySlip);
 
-        var otherCustomer = new SubmitClientPaymentSlipHandler(store, Client(PmsSeedConstants.PrimaryCustomerId), store)
-            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(100m, "slips/x.jpg")));
+        var otherCustomer = new SubmitClientPaymentSlipHandler(store, Client(PmsSeedConstants.PrimaryCustomerId), store, store)
+            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(100m, TestFiles.Client(store, StoredFilePurpose.PaymentSlip, PmsSeedConstants.PrimaryCustomerId))));
         Assert.Equal(DomainErrorCodes.PermissionDenied, otherCustomer.Error!.Code);
         Assert.Equal(DomainErrorCodes.PermissionDenied, new GetClientInvoiceSlipsHandler(store, Client(PmsSeedConstants.PrimaryCustomerId))
             .Handle(new GetClientInvoiceSlipsQuery(invoice.Id)).Error!.Code);
 
-        var submitter = new SubmitClientPaymentSlipHandler(store, customer2, store);
+        var submitter = new SubmitClientPaymentSlipHandler(store, customer2, store, store);
         Assert.Equal(DomainErrorCodes.ValidationFailed, submitter
-            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(1200.01m, "slips/a.jpg"))).Error!.Code);
+            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(1200.01m, slipKey))).Error!.Code);
         Assert.Equal(DomainErrorCodes.ValidationFailed, submitter
-            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(0m, "slips/a.jpg"))).Error!.Code);
+            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(0m, slipKey))).Error!.Code);
 
         var partial = submitter.Handle(new SubmitClientPaymentSlipCommand(
             invoice.Id,
-            new SubmitPaymentSlipRequest(500m, "slips/a.jpg", "KBANK-123", new DateTimeOffset(2026, 11, 8, 9, 0, 0, TimeSpan.Zero))));
+            new SubmitPaymentSlipRequest(500m, slipKey, "KBANK-123", new DateTimeOffset(2026, 11, 8, 9, 0, 0, TimeSpan.Zero))));
         Assert.Equal("Pending", partial.Value!.Status);
 
         var queue = new GetAdminPaymentSlipsHandler(store, verifier).Handle(new GetAdminPaymentSlipsQuery(Bkk, "Pending"));
@@ -132,12 +134,12 @@ public sealed class CashierShiftSlipAndDepositTests
         Assert.Equal(DomainErrorCodes.ValidationFailed, doubleApprove.Error!.Code);
         Assert.Empty(store.GetAdminPaymentSlips(Bkk, "Pending").Value!.Items);
 
-        var rest = submitter.Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(700m, "slips/b.jpg")));
+        var rest = submitter.Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(700m, slipKey)));
         var paid = approver.Handle(new ApproveAdminPaymentSlipCommand(Bkk, rest.Value!.Id));
         Assert.Equal("Paid", paid.Value!.InvoiceStatus);
         Assert.Equal(0m, paid.Value.InvoiceOutstandingAmount);
 
-        var afterPaid = submitter.Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(1m, "slips/c.jpg")));
+        var afterPaid = submitter.Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(1m, slipKey)));
         Assert.Equal(DomainErrorCodes.InvoiceImmutableStatus, afterPaid.Error!.Code);
     }
 
@@ -146,8 +148,8 @@ public sealed class CashierShiftSlipAndDepositTests
     {
         var store = new InMemoryOperationalService();
         var invoice = SeedInvoice(store, "BKK01-INV-2611-0001"); // customer1, Issued
-        var slip = new SubmitClientPaymentSlipHandler(store, Client(PmsSeedConstants.PrimaryCustomerId), store)
-            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(100m, "slips/r.jpg"))).Value!;
+        var slip = new SubmitClientPaymentSlipHandler(store, Client(PmsSeedConstants.PrimaryCustomerId), store, store)
+            .Handle(new SubmitClientPaymentSlipCommand(invoice.Id, new SubmitPaymentSlipRequest(100m, TestFiles.Client(store, StoredFilePurpose.PaymentSlip, PmsSeedConstants.PrimaryCustomerId)))).Value!;
 
         var rejecter = new RejectAdminPaymentSlipHandler(store, Admin("verifier", PermissionKeys.AdminPaymentsVerifySlip), store);
         Assert.Equal(DomainErrorCodes.ValidationFailed, rejecter

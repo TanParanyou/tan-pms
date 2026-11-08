@@ -6,6 +6,7 @@ using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Customers;
+using TanPms.Application.Files;
 using TanPms.Application.Housekeeping;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
@@ -19,6 +20,7 @@ using TanPms.Application.Rates;
 using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
 using TanPms.Application.WorkOrders;
+using TanPms.Infrastructure.Pdf;
 using TanPms.Infrastructure.Persistence;
 using TanPms.Infrastructure.Services;
 
@@ -44,6 +46,12 @@ public static class DependencyInjection
                 .AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
         });
 
+        // Private local folder (never a public bucket); default lives under the git-ignored build output.
+        services.AddSingleton<IFileStorage>(new LocalDiskFileStorage(
+            configuration["Storage:RootPath"] ?? Path.Combine(AppContext.BaseDirectory, "App_Data", "files")));
+
+        services.AddSingleton<IPdfDocumentRenderer, QuestPdfDocumentRenderer>();
+
         var provider = configuration["Persistence:Provider"] ?? "Postgres";
         if (string.Equals(provider, "InMemory", StringComparison.OrdinalIgnoreCase))
         {
@@ -65,6 +73,8 @@ public static class DependencyInjection
             services.AddSingleton<IHousekeepingStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IWorkOrderStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IParcelStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<IStoredFileStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<IReceiptStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IRoomRackStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IClientDashboardStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IDocumentNumberService>(sp => sp.GetRequiredService<InMemoryOperationalService>());
@@ -94,6 +104,8 @@ public static class DependencyInjection
             services.AddScoped<IHousekeepingStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IWorkOrderStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IParcelStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<IStoredFileStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<IReceiptStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IRoomRackStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IClientDashboardStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
         }

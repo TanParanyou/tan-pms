@@ -35,14 +35,14 @@ public sealed class RecordAdminFolioPaymentHandler
         }
 
         if (string.Equals(command.Request.PaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase)
-            && !_currentUser.HasOpenCashierShift)
+            && !_currentUser.HasOpenCashierShiftIn(command.PropertyId))
         {
             return Result<StayDetailDto>.Failure(new Error(
                 DomainErrorCodes.ShiftNotOpen,
                 "Cashier must have an Open CashierShift before accepting Cash payments."));
         }
 
-        var result = _store.RecordAdminFolioPayment(command.PropertyId, command.StayId, command.Request);
+        var result = _store.RecordAdminFolioPayment(command.PropertyId, command.StayId, command.Request, cashierUserId: _currentUser.UserId);
         if (result.IsSuccess && result.Value is not null)
         {
             _auditLogger.RecordMutation(

@@ -75,10 +75,24 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
+    public Result<LeaseContractDto> GetAdminLeaseContract(Guid propertyId, Guid leaseId, bool unmaskPii = false)
+    {
+        lock (_syncRoot)
+        {
+            var lease = _leases.FirstOrDefault(l => l.Id == leaseId && l.PropertyId == propertyId);
+            return lease is null
+                ? Result<LeaseContractDto>.Failure(LeaseRecordMapper.LeaseNotFound(propertyId, leaseId))
+                : Result<LeaseContractDto>.Success(new LeaseContractDto(
+                    ReceiptRecordMapper.MapLetterhead(_properties[propertyId]),
+                    MapLeaseItemLocked(lease, unmaskPii)));
+        }
+    }
+
     public Result<LeaseItemDto> CreateAdminLease(
         Guid propertyId,
         CreateLeaseRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (LeaseRequestValidation.ValidateCreate(request) is { } validationError)
         {
@@ -162,7 +176,7 @@ public sealed partial class InMemoryOperationalService
                         property.Code,
                         DocumentTypeCode.DEP,
                         clockUtc).GetAwaiter().GetResult();
-                    ledger.RecordReceipt(depDocNo, lease.SecurityDepositAmount);
+                    ledger.RecordReceipt(depDocNo, lease.SecurityDepositAmount, FindOpenShiftForCashLocked(propertyId, cashierUserId));
                     _depositLedgers.Add(ledger);
                 }
 
@@ -363,7 +377,8 @@ public sealed partial class InMemoryOperationalService
         Guid propertyId,
         Guid leaseId,
         ReasonRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (request.Validate() is { } reasonError)
         {
@@ -387,7 +402,7 @@ public sealed partial class InMemoryOperationalService
 
             try
             {
-                lease.Cancel();
+                lease.Cancel(request.Reason);
                 var refunded = 0m;
                 var ledger = _depositLedgers.FirstOrDefault(l =>
                     l.LeaseId == lease.Id && l.DepositType == DepositType.LeaseSecurityDeposit);
@@ -396,7 +411,8 @@ public sealed partial class InMemoryOperationalService
                     var property = _properties[propertyId];
                     refunded = ledger.RefundRemainingBalance(
                         NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
-                        request.Reason.Trim()).Amount;
+                        request.Reason.Trim(),
+                        FindOpenShiftForCashLocked(propertyId, cashierUserId)).Amount;
                 }
 
                 _invoices.RemoveAll(i => i.LeaseId == lease.Id && i.Status == InvoiceStatus.Draft);
@@ -476,7 +492,8 @@ public sealed partial class InMemoryOperationalService
         Guid propertyId,
         Guid leaseId,
         SettleLeaseMoveOutRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (LeaseRequestValidation.ValidateSettle(request) is { } validationError)
         {
@@ -529,7 +546,8 @@ public sealed partial class InMemoryOperationalService
                 {
                     refunded = ledger.RefundRemainingBalance(
                         NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
-                        reason).Amount;
+                        reason,
+                        FindOpenShiftForCashLocked(propertyId, cashierUserId)).Amount;
                 }
             }
 
@@ -625,6 +643,7 @@ public sealed partial class InMemoryOperationalService
             Vehicles: _tenantVehicles
                 .Where(v => v.LeaseId == lease.Id)
                 .Select(LeaseRecordMapper.MapLeaseVehicle)
-                .ToList());
+                .ToList(),
+            CancelReason: lease.CancelReason);
     }
 }

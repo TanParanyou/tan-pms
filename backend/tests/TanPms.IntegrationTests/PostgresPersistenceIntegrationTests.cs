@@ -369,9 +369,9 @@ public sealed class PostgresPersistenceIntegrationTests
             pgCustomer2.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
             pgCustomer2.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.SecondaryCustomerId.ToString());
             Assert.Equal(HttpStatusCode.Forbidden, (await clientApp.PostAsJsonAsync(
-                $"/api/v1/client/invoices/{pgInvoice2.Id}/slips", new SubmitPaymentSlipRequest(10m, "slips/pg.jpg"))).StatusCode);
+                $"/api/v1/client/invoices/{pgInvoice2.Id}/slips", new SubmitPaymentSlipRequest(10m, await TestUploads.ClientAsync(clientApp, "PaymentSlip")))).StatusCode);
             var pgSlip = await (await pgCustomer2.PostAsJsonAsync(
-                $"/api/v1/client/invoices/{pgInvoice2.Id}/slips", new SubmitPaymentSlipRequest(1200m, "slips/pg.jpg", "BBL-1")))
+                $"/api/v1/client/invoices/{pgInvoice2.Id}/slips", new SubmitPaymentSlipRequest(1200m, await TestUploads.ClientAsync(pgCustomer2, "PaymentSlip"), "BBL-1")))
                 .Content.ReadFromJsonAsync<ClientPaymentSlipDto>();
 
             var approveRes = await cashierClient.PostAsync($"{bkkUrl}/payments/slips/{pgSlip!.Id}/approve", null);
@@ -420,7 +420,7 @@ public sealed class PostgresPersistenceIntegrationTests
             Assert.Equal(HttpStatusCode.OK, (await opsClient.PostAsJsonAsync(
                 $"{bkkUrl}/work-orders/{woCreated.Id}/assign", new AssignWorkOrderRequest("tech-pg"))).StatusCode);
             var woResolved = await (await opsClient.PostAsJsonAsync(
-                $"{bkkUrl}/work-orders/{woCreated.Id}/resolve", new ResolveWorkOrderRequest("Hinge replaced", "wo/after.jpg", 535m, true)))
+                $"{bkkUrl}/work-orders/{woCreated.Id}/resolve", new ResolveWorkOrderRequest("Hinge replaced", await TestUploads.AdminAsync(opsClient, "WorkOrderPhoto", PmsSeedConstants.BkkPropertyId), 535m, true)))
                 .Content.ReadFromJsonAsync<WorkOrderItemDto>();
             Assert.Equal("Completed", woResolved!.Status);
             var repairDrafts = await billingClient.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices?status=Draft");
@@ -571,10 +571,10 @@ public sealed class PostgresPersistenceIntegrationTests
             // Client edits then withdraws its own Pending slip; another customer gets 403; then the unpaid invoice is voided.
             var seededInvoice = (await billingClient.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices?period=2026-11"))!.Items.Single();
             var pendingSlip = await (await clientApp.PostAsJsonAsync(
-                $"/api/v1/client/invoices/{seededInvoice.Id}/slips", new SubmitPaymentSlipRequest(100m, "slips/pg-crud.jpg")))
+                $"/api/v1/client/invoices/{seededInvoice.Id}/slips", new SubmitPaymentSlipRequest(100m, await TestUploads.ClientAsync(clientApp, "PaymentSlip"))))
                 .Content.ReadFromJsonAsync<ClientPaymentSlipDto>();
             Assert.Equal(200m, (await (await clientApp.PutAsJsonAsync(
-                $"/api/v1/client/invoices/{seededInvoice.Id}/slips/{pendingSlip!.Id}", new SubmitPaymentSlipRequest(200m, "slips/pg-crud-2.jpg")))
+                $"/api/v1/client/invoices/{seededInvoice.Id}/slips/{pendingSlip!.Id}", new SubmitPaymentSlipRequest(200m, await TestUploads.ClientAsync(clientApp, "PaymentSlip"))))
                 .Content.ReadFromJsonAsync<ClientPaymentSlipDto>())!.Amount);
             Assert.Equal(HttpStatusCode.Forbidden, (await pgCustomer2.DeleteAsync($"/api/v1/client/invoices/{seededInvoice.Id}/slips/{pendingSlip.Id}")).StatusCode);
             Assert.Equal(HttpStatusCode.Conflict, (await crudClient.PostAsJsonAsync($"{bkkUrl}/invoices/{seededInvoice.Id}/void", new ReasonRequest("x"))).StatusCode);
@@ -583,6 +583,96 @@ public sealed class PostgresPersistenceIntegrationTests
                 $"{bkkUrl}/invoices/{seededInvoice.Id}/void", new ReasonRequest("Re-billed under corrected lease")))
                 .Content.ReadFromJsonAsync<InvoiceItemDto>();
             Assert.Equal("Voided", voidedInvoice!.Status);
+
+            // 10. Round B1: reasons, user names, files, PDFs, cash-to-shift binding and seed self-healing on PostgreSQL
+            Assert.Equal("Tenant withdrew before move-in", (await crudClient.GetFromJsonAsync<LeaseItemDto>($"{leasesUrl}/{crudLease.Id}"))!.CancelReason);
+            Assert.Equal("Opened by mistake", (await crudClient.GetFromJsonAsync<CashierShiftDto>($"{bkkUrl}/cashier/shifts/{crudShift.Id}"))!.CancelReason);
+            Assert.Equal("Re-billed under corrected lease", voidedInvoice.VoidReason);
+            Assert.Equal("tech-pg", woResolved.AssignedTechnician!.Id);
+            Assert.Equal("pg-cashier", approvedSlip.ReviewedBy!.Id);
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<TanPmsDbContext>();
+                var voidedParcel = await db.Parcels.IgnoreQueryFilters().AsNoTracking().SingleAsync(p => p.Id == crudParcel.Id);
+                Assert.True(voidedParcel.IsDeleted);
+                Assert.Equal("Logged twice", voidedParcel.VoidReason);
+            }
+
+            // Files: magic-byte validation, purpose rules, authorized download and traversal-proof keys.
+            var parcelPhoto = await TestUploads.AdminAsync(crudClient, "ParcelPhoto", PmsSeedConstants.BkkPropertyId);
+            Assert.Equal(HttpStatusCode.BadRequest, (await TestUploads.PostAsync(
+                crudClient, "/api/v1/admin/files", "ParcelPhoto", PmsSeedConstants.BkkPropertyId, "not an image"u8.ToArray())).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await TestUploads.PostAsync(clientApp, "/api/v1/client/files", "MeterPhoto")).StatusCode);
+            Assert.Equal(TestUploads.Png, await crudClient.GetByteArrayAsync($"/api/v1/admin/files/{parcelPhoto}"));
+            using var cnxAdmin = factory.CreateClient();
+            cnxAdmin.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            cnxAdmin.DefaultRequestHeaders.Add("X-TanPms-User-Id", "cnx-admin");
+            cnxAdmin.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.CnxPropertyId.ToString());
+            Assert.Equal(HttpStatusCode.Forbidden, (await cnxAdmin.GetAsync($"/api/v1/admin/files/{parcelPhoto}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await clientApp.GetAsync($"/api/v1/client/files/{parcelPhoto}")).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await crudClient.GetAsync("/api/v1/admin/files/..%2F..%2Fappsettings.json")).StatusCode);
+            Assert.Equal(HttpStatusCode.Created, (await crudClient.PostAsJsonAsync($"{bkkUrl}/parcels",
+                new ReceiveParcelRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "J&T", null, parcelPhoto))).StatusCode);
+            // Attached to the tenant's own parcel, so the tenant may now download it.
+            Assert.Equal(HttpStatusCode.OK, (await clientApp.GetAsync($"/api/v1/client/files/{parcelPhoto}")).StatusCode);
+
+            // Receipts + PDFs (Sarabun-embedded QuestPDF output).
+            var receiptList = await cashierClient.GetFromJsonAsync<ReceiptListResponse>($"{bkkUrl}/receipts?invoiceId={pgInvoice2.Id}");
+            var pgReceipt = Assert.Single(receiptList!.Items);
+            var receiptPdf = await cashierClient.GetAsync($"{bkkUrl}/receipts/{pgReceipt.Id}/pdf");
+            Assert.Equal("application/pdf", receiptPdf.Content.Headers.ContentType!.MediaType);
+            Assert.StartsWith("%PDF", System.Text.Encoding.ASCII.GetString((await receiptPdf.Content.ReadAsByteArrayAsync())[..4]), StringComparison.Ordinal);
+            Assert.Contains((await pgCustomer2.GetFromJsonAsync<ReceiptListResponse>("/api/v1/client/receipts"))!.Items, r => r.Id == pgReceipt.Id);
+            Assert.Equal(HttpStatusCode.OK, (await pgCustomer2.GetAsync($"/api/v1/client/receipts/{pgReceipt.Id}/pdf")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await clientApp.GetAsync($"/api/v1/client/receipts/{pgReceipt.Id}/pdf")).StatusCode);
+            var contractPdf = await crudClient.GetByteArrayAsync($"{leasesUrl}/{crudLease.Id}/contract.pdf");
+            Assert.StartsWith("%PDF", System.Text.Encoding.ASCII.GetString(contractPdf[..4]), StringComparison.Ordinal);
+            Assert.Equal(HttpStatusCode.Forbidden, (await billingClient.GetAsync($"{leasesUrl}/{crudLease.Id}/contract.pdf")).StatusCode);
+
+            // Cash binding: key deposit, cash folio payment and deposit refund land on the caller's Open shift in this property.
+            using var cashClient = factory.CreateClient();
+            cashClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            cashClient.DefaultRequestHeaders.Add("X-TanPms-User-Id", "pimchanok.bkk");
+            cashClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", $"{PmsSeedConstants.BkkPropertyId},{PmsSeedConstants.CnxPropertyId}");
+            cashClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", string.Join(",",
+                PermissionKeys.AdminStayCheckIn, PermissionKeys.AdminStayCheckOut, PermissionKeys.AdminCashierOperateShift));
+            var cashCheckIn = new CheckInStayRequest(
+                PmsSeedConstants.BkkPropertyId, PmsSeedConstants.CleanUnitA101Id, PmsSeedConstants.PrimaryCustomerId, "Hourly", 300m,
+                InitialRoomChargeAmount: 500m);
+            // A shift open in another property does not count (property-scoped check).
+            Assert.Equal(HttpStatusCode.Created, (await cashClient.PostAsJsonAsync(
+                $"/api/v1/admin/properties/{PmsSeedConstants.CnxPropertyId}/cashier/shifts/open", new OpenCashierShiftRequest(0m))).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await cashClient.PostAsJsonAsync("/api/v1/admin/stays/check-in", cashCheckIn)).StatusCode);
+            var cashShift = await (await cashClient.PostAsJsonAsync($"{bkkUrl}/cashier/shifts/open", new OpenCashierShiftRequest(1000m)))
+                .Content.ReadFromJsonAsync<CashierShiftDto>();
+            Assert.Equal("Pimchanok Srisawat", cashShift!.Cashier.FullName);
+            var cashStay = await (await cashClient.PostAsJsonAsync("/api/v1/admin/stays/check-in", cashCheckIn))
+                .Content.ReadFromJsonAsync<StaySummaryDto>();
+            Assert.Equal(HttpStatusCode.OK, (await cashClient.PostAsJsonAsync(
+                $"{bkkUrl}/stays/{cashStay!.Id}/folio/payments", new RecordFolioPaymentRequest(500m, "Cash"))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await cashClient.PostAsJsonAsync(
+                $"{bkkUrl}/stays/{cashStay.Id}/check-out", new CheckOutStayRequest(0m, "Key returned"))).StatusCode);
+            var boundShift = await cashClient.GetFromJsonAsync<CashierShiftDto>($"{bkkUrl}/cashier/shifts/{cashShift.Id}");
+            Assert.Equal(500m, boundShift!.CashReceiptsInShift);
+            Assert.Equal(300m, boundShift.CashDepositsReceivedInShift);
+            Assert.Equal(300m, boundShift.CashDepositsRefundedInShift);
+
+            // Seed self-healing: remove utility tax profiles and rewind a sequence, then re-run the idempotent upgrade.
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<TanPmsDbContext>();
+                await db.Database.ExecuteSqlRawAsync("DELETE FROM \"TaxProfiles\" WHERE \"ChargeCategoryCode\" IN ('UTILITY_WATER', 'UTILITY_ELECTRIC')");
+                await db.Database.ExecuteSqlRawAsync("UPDATE document_sequences SET last_sequence = 0 WHERE document_type = 'INV'");
+                await PmsDatabaseInitializer.ApplySeedUpgradesAsync(db);
+                await PmsDatabaseInitializer.ApplySeedUpgradesAsync(db);
+                Assert.Equal(2, await db.TaxProfiles.CountAsync(p =>
+                    p.PropertyId == PmsSeedConstants.BkkPropertyId && (p.ChargeCategoryCode == "UTILITY_WATER" || p.ChargeCategoryCode == "UTILITY_ELECTRIC")));
+                var docService = scope.ServiceProvider.GetRequiredService<IDocumentNumberService>();
+                var existingInvoiceNumbers = await db.Invoices.IgnoreQueryFilters().Select(i => i.DocumentNumber).ToListAsync();
+                var nextInvoiceNumber = await docService.NextDocumentNumberAsync(
+                    PmsSeedConstants.BkkPropertyId, "BKK01", DocumentTypeCode.INV, new DateTimeOffset(2026, 11, 8, 0, 0, 0, TimeSpan.Zero));
+                Assert.DoesNotContain(nextInvoiceNumber, existingInvoiceNumbers);
+            }
         }
         finally
         {

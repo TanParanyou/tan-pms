@@ -15,6 +15,7 @@ public sealed class Lease : AuditableEntity
     public decimal InitialWaterMeterReading { get; set; }
     public decimal InitialElectricMeterReading { get; set; }
     public LeaseStatus Status { get; private set; } = LeaseStatus.Draft;
+    public string? CancelReason { get; private set; }
 
     public bool BlocksUnitAvailability => Status is LeaseStatus.Active or LeaseStatus.MoveOutNotice;
 
@@ -100,13 +101,19 @@ public sealed class Lease : AuditableEntity
     }
 
     // Active -> Cancelled; callers must first prove the lease has no billed (non-Draft, non-Voided) invoice.
-    public void Cancel()
+    public void Cancel(string reason)
     {
         if (Status != LeaseStatus.Active)
         {
             throw Invalid($"Only an Active lease can be cancelled (current: {Status}).");
         }
 
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw Invalid("Cancel reason is required.");
+        }
+
+        CancelReason = reason.Trim();
         Status = LeaseStatus.Cancelled;
     }
 

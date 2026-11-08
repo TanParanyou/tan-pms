@@ -14,4 +14,5 @@ public sealed record ParcelItemDto(
     string? PhotoFileKey,
     DateTimeOffset ArrivedAt,
     DateTimeOffset? PickedUpAt,
-    string? RecipientName);
+    string? RecipientName,
+    string? VoidReason);

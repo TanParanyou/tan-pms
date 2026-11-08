@@ -31,7 +31,7 @@ public sealed class SettleAdminLeaseMoveOutHandler
             return Result<LeaseSettlementDto>.Failure(authError);
         }
 
-        var result = _store.SettleAdminLeaseMoveOut(command.PropertyId, command.LeaseId, command.Request);
+        var result = _store.SettleAdminLeaseMoveOut(command.PropertyId, command.LeaseId, command.Request, cashierUserId: _currentUser.UserId);
         if (result.IsSuccess && result.Value is not null)
         {
             _auditLogger.RecordMutation(

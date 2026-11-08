@@ -150,6 +150,22 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
         }
     }
 
+    // X-TanPms-Open-Shift keeps overriding for dev/tests; otherwise the caller needs a real Open shift in this property.
+    public bool HasOpenCashierShiftIn(Guid propertyId)
+    {
+        var header = GetHeader("X-TanPms-Open-Shift");
+        if (!string.IsNullOrWhiteSpace(header) && bool.TryParse(header, out var parsed))
+        {
+            return parsed;
+        }
+
+        var services = _httpContextAccessor.HttpContext?.RequestServices;
+        return IsAdminScope
+            && AllowedPropertyIds.Contains(propertyId)
+            && services?.GetService(typeof(ICashierShiftStore)) is ICashierShiftStore shiftStore
+            && shiftStore.HasOpenCashierShift(UserId, new HashSet<Guid> { propertyId });
+    }
+
     private string? GetHeader(string name)
     {
         var context = _httpContextAccessor.HttpContext;

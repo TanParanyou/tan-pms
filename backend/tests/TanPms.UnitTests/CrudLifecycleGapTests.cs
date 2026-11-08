@@ -9,6 +9,7 @@ using TanPms.Application.Parcels;
 using TanPms.Application.Payments;
 using TanPms.Application.WorkOrders;
 using TanPms.Domain.Common;
+using TanPms.Domain.Files;
 using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
 using Xunit;
@@ -248,12 +249,13 @@ public sealed class CrudLifecycleGapTests
         var store = new InMemoryOperationalService();
         var invoice = store.GetAdminInvoices(Bkk, null, null).Value!.Items.Single(i => i.Customer.Id == PmsSeedConstants.SecondaryCustomerId);
         var owner = Client(PmsSeedConstants.SecondaryCustomerId);
+        var slipB = TestFiles.Client(store, StoredFilePurpose.PaymentSlip, PmsSeedConstants.SecondaryCustomerId);
         var slip = store.SubmitClientPaymentSlip(PmsSeedConstants.SecondaryCustomerId, invoice.Id, new SubmitPaymentSlipRequest(500m, "slips/a.jpg")).Value!;
 
-        var edited = new UpdateClientPaymentSlipHandler(store, owner, store)
-            .Handle(new UpdateClientPaymentSlipCommand(invoice.Id, slip.Id, new SubmitPaymentSlipRequest(1200m, "slips/b.jpg", "KBANK-9")));
+        var edited = new UpdateClientPaymentSlipHandler(store, owner, store, store)
+            .Handle(new UpdateClientPaymentSlipCommand(invoice.Id, slip.Id, new SubmitPaymentSlipRequest(1200m, slipB, "KBANK-9")));
         Assert.Equal(1200m, edited.Value!.Amount);
-        Assert.Equal("slips/b.jpg", edited.Value.SlipFileKey);
+        Assert.Equal(slipB, edited.Value.SlipFileKey);
         Assert.Equal(DomainErrorCodes.ValidationFailed, store.UpdateClientPaymentSlip(
             PmsSeedConstants.SecondaryCustomerId, invoice.Id, slip.Id, new SubmitPaymentSlipRequest(5000m, "slips/b.jpg")).Error!.Code);
 
@@ -290,7 +292,7 @@ public sealed class CrudLifecycleGapTests
 
         var tenant = Client(PmsSeedConstants.PrimaryCustomerId);
         var workOrder = store.CreateClientWorkOrder(PmsSeedConstants.PrimaryCustomerId, new CreateWorkOrderRequest(A201, "Leaky tap")).Value!;
-        var clientEdit = new UpdateClientWorkOrderHandler(store, tenant, store)
+        var clientEdit = new UpdateClientWorkOrderHandler(store, tenant, store, store)
             .Handle(new UpdateClientWorkOrderCommand(workOrder.Id, new UpdateWorkOrderRequest("Leaky kitchen tap", "Drips all night", "High")));
         Assert.Equal("High", clientEdit.Value!.Priority);
         Assert.Equal(DomainErrorCodes.PermissionDenied, new GetClientWorkOrderHandler(store, Client(PmsSeedConstants.SecondaryCustomerId))
@@ -311,7 +313,7 @@ public sealed class CrudLifecycleGapTests
 
         var parcels = Admin(PermissionKeys.AdminParcelsManage);
         var parcel = store.GetAdminParcels(Bkk, "Arrived").Value!.Items.First();
-        var editedParcel = new UpdateAdminParcelHandler(store, parcels, store)
+        var editedParcel = new UpdateAdminParcelHandler(store, parcels, store, store)
             .Handle(new UpdateAdminParcelCommand(Bkk, parcel.Id, new ReceiveParcelRequest(A201, "Flash Express", "FLA-1")));
         Assert.Equal("Flash Express", editedParcel.Value!.CarrierName);
         Assert.Equal(DomainErrorCodes.ValidationFailed, store.UpdateAdminParcel(Bkk, parcel.Id, new ReceiveParcelRequest(A102, "Flash")).Error!.Code);

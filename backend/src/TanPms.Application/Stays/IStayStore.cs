@@ -7,7 +7,8 @@ public interface IStayStore
     Result<StaySummaryDto> CheckInStay(
         CheckInStayCommand command,
         bool callerHasOverridePermission,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null);
 
     Result<StayListResponse> GetAdminStays(
         Guid propertyId,
@@ -32,13 +33,15 @@ public interface IStayStore
         Guid propertyId,
         Guid stayId,
         RecordFolioPaymentRequest request,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null);
 
     Result<StayDetailDto> CheckOutAdminStay(
         Guid propertyId,
         Guid stayId,
         CheckOutStayRequest request,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null);
 
     Result<RegulatoryExportResponse> GetAdminRegulatoryExport(
         Guid propertyId,

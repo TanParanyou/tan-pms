@@ -12,7 +12,7 @@ namespace TanPms.Infrastructure.Services;
 // Shared by the EF Core and in-memory stores so shift, slip and deposit projections stay identical.
 internal static class CashierRecordMapper
 {
-    internal static CashierShiftDto MapShift(CashierShift shift) => new(
+    internal static CashierShiftDto MapShift(CashierShift shift, Func<string?, UserRefDto?> users) => new(
         shift.Id,
         shift.DocumentNumber,
         shift.CashierUserId,
@@ -25,7 +25,9 @@ internal static class CashierRecordMapper
         shift.ActualCashCounted,
         shift.CashVariance,
         shift.VarianceRemark,
-        shift.CreatedAt);
+        shift.CreatedAt,
+        users(shift.CashierUserId)!,
+        shift.CancelReason);
 
     internal static ClientPaymentSlipDto MapClientSlip(PaymentSlip slip, string invoiceDocumentNumber) => new(
         slip.Id,
@@ -47,7 +49,8 @@ internal static class CashierRecordMapper
         Customer customer,
         UnitRefDto? unitRef,
         string? receiptDocumentNumber,
-        bool unmaskPii) => new(
+        bool unmaskPii,
+        Func<string?, UserRefDto?> users) => new(
         slip.Id,
         invoice.Id,
         invoice.DocumentNumber,
@@ -65,7 +68,8 @@ internal static class CashierRecordMapper
         slip.ReviewedByUserId,
         slip.ReviewedAt,
         slip.RejectReason,
-        receiptDocumentNumber);
+        receiptDocumentNumber,
+        users(slip.ReviewedByUserId));
 
     internal static DepositLedgerItemDto MapLedger(
         DepositLedger ledger,

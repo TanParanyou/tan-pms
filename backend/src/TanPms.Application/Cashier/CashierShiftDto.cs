@@ -1,3 +1,5 @@
+using TanPms.Application.Common.Contracts;
+
 namespace TanPms.Application.Cashier;
 
 public sealed record CashierShiftDto(
@@ -13,4 +15,6 @@ public sealed record CashierShiftDto(
     decimal? ActualCashCounted,
     decimal? CashVariance,
     string? VarianceRemark,
-    DateTimeOffset OpenedAt);
+    DateTimeOffset OpenedAt,
+    UserRefDto Cashier,
+    string? CancelReason);

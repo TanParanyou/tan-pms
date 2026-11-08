@@ -41,6 +41,7 @@ public static class PmsDatabaseInitializer
 
             await dbContext.Database.MigrateAsync(cancellationToken);
             await SeedIfEmptyAsync(dbContext, docNumberService, cancellationToken);
+            await ApplySeedUpgradesAsync(dbContext, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -48,6 +49,93 @@ public static class PmsDatabaseInitializer
                 ex,
                 "PostgreSQL auto-migration/seed skipped because the database was unreachable at startup.");
         }
+    }
+
+    // Idempotent self-healing for databases seeded by older builds:
+    // 1) adds UTILITY_WATER / UTILITY_ELECTRIC TaxProfiles to properties that already configure tax profiles but lack them
+    //    (a soft-deleted profile counts as present, so an admin's deliberate removal is respected);
+    // 2) advances document_sequences past the highest number already issued, so seeded/imported documents never collide.
+    public static async Task ApplySeedUpgradesAsync(TanPmsDbContext dbContext, CancellationToken cancellationToken = default)
+    {
+        var profiles = await dbContext.TaxProfiles.IgnoreQueryFilters().AsNoTracking()
+            .Select(p => new { p.PropertyId, p.ChargeCategoryCode })
+            .ToListAsync(cancellationToken);
+        foreach (var propertyId in profiles.Select(p => p.PropertyId).Distinct())
+        {
+            foreach (var code in new[] { "UTILITY_WATER", "UTILITY_ELECTRIC" })
+            {
+                if (!profiles.Any(p => p.PropertyId == propertyId && p.ChargeCategoryCode == code))
+                {
+                    var seededId = propertyId != PmsSeedConstants.BkkPropertyId
+                        ? (Guid?)null
+                        : code == "UTILITY_WATER" ? PmsSeedConstants.WaterUtilityTaxProfileId : PmsSeedConstants.ElectricUtilityTaxProfileId;
+                    dbContext.TaxProfiles.Add(BuildUtilityTaxProfile(propertyId, code, seededId));
+                }
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var propertyIdsByCode = await dbContext.Properties.IgnoreQueryFilters().AsNoTracking()
+            .ToDictionaryAsync(p => p.Code.ToUpperInvariant(), p => p.Id, cancellationToken);
+        var documentNumbers = new List<string>();
+        documentNumbers.AddRange(await dbContext.Leases.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.Invoices.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.Receipts.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.Stays.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.Reservations.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.CashierShifts.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.DepositTransactions.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.WorkOrders.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+        documentNumbers.AddRange(await dbContext.Parcels.IgnoreQueryFilters().Select(x => x.DocumentNumber).ToListAsync(cancellationToken));
+
+        // Format: {PROPERTY}-{TYPE}-{YYMM}-{SEQ}; parsed from the right so property codes may contain dashes.
+        var maxima = documentNumbers
+            .Select(n => n.Split('-'))
+            .Where(parts => parts.Length >= 4 && int.TryParse(parts[^1], out _) && parts[^2].Length == 4)
+            .Select(parts => (
+                PropertyCode: string.Join('-', parts[..^3]).ToUpperInvariant(),
+                Type: parts[^3],
+                Period: parts[^2],
+                Sequence: int.Parse(parts[^1], System.Globalization.CultureInfo.InvariantCulture)))
+            .Where(x => propertyIdsByCode.ContainsKey(x.PropertyCode))
+            .GroupBy(x => (PropertyId: propertyIdsByCode[x.PropertyCode], x.Type, x.Period))
+            .Select(g => (g.Key.PropertyId, g.Key.Type, g.Key.Period, Max: g.Max(x => x.Sequence)))
+            .ToList();
+        foreach (var (propertyId, type, period, max) in maxima)
+        {
+            await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO document_sequences (property_id, document_type, period_yymm, last_sequence, updated_at)
+                VALUES ({propertyId}, {type}, {period}, {max}, clock_timestamp())
+                ON CONFLICT (property_id, document_type, period_yymm)
+                DO UPDATE SET last_sequence = GREATEST(document_sequences.last_sequence, EXCLUDED.last_sequence),
+                              updated_at = clock_timestamp()
+                """, cancellationToken);
+        }
+    }
+
+    // Utilities resold to tenants are not pure room rent (docs/01-business/pricing-meter-and-tax-rules.md section 3),
+    // so they carry VAT 7%; VatIncluded keeps the tariff charge as the line total.
+    private static TaxProfile BuildUtilityTaxProfile(Guid propertyId, string chargeCategoryCode, Guid? id)
+    {
+        var name = chargeCategoryCode == "UTILITY_WATER"
+            ? LocalizedText.Create("ค่าน้ำประปาตามมิเตอร์ (รวม VAT 7%)", "Metered Water (VAT 7% Included)")
+            : LocalizedText.Create("ค่าไฟฟ้าตามมิเตอร์ (รวม VAT 7%)", "Metered Electricity (VAT 7% Included)");
+        var profile = new TaxProfile
+        {
+            Id = id ?? Guid.CreateVersion7(),
+            PropertyId = propertyId,
+            ChargeCategoryCode = chargeCategoryCode,
+            Name = name
+        };
+        profile.UpdateProfile(
+            chargeCategoryCode: chargeCategoryCode,
+            name: name,
+            taxMode: TaxMode.VatIncluded,
+            vatRatePercent: 7.00m,
+            defaultWithholdingTaxPercent: 0.00m,
+            isActive: true);
+        return profile;
     }
 
     public static async Task SeedIfEmptyAsync(
@@ -536,37 +624,8 @@ public static class PmsDatabaseInitializer
             defaultWithholdingTaxPercent: 5.00m,
             isActive: true);
 
-        // Utilities resold to tenants are not pure room rent (docs/01-business/pricing-meter-and-tax-rules.md section 3),
-        // so they carry VAT 7%; VatIncluded keeps the tariff charge as the line total.
-        var waterTax = new TaxProfile
-        {
-            Id = PmsSeedConstants.WaterUtilityTaxProfileId,
-            PropertyId = bkk.Id,
-            ChargeCategoryCode = "UTILITY_WATER",
-            Name = LocalizedText.Create("ค่าน้ำประปาตามมิเตอร์ (รวม VAT 7%)", "Metered Water (VAT 7% Included)")
-        };
-        waterTax.UpdateProfile(
-            chargeCategoryCode: "UTILITY_WATER",
-            name: waterTax.Name,
-            taxMode: TaxMode.VatIncluded,
-            vatRatePercent: 7.00m,
-            defaultWithholdingTaxPercent: 0.00m,
-            isActive: true);
-
-        var electricTax = new TaxProfile
-        {
-            Id = PmsSeedConstants.ElectricUtilityTaxProfileId,
-            PropertyId = bkk.Id,
-            ChargeCategoryCode = "UTILITY_ELECTRIC",
-            Name = LocalizedText.Create("ค่าไฟฟ้าตามมิเตอร์ (รวม VAT 7%)", "Metered Electricity (VAT 7% Included)")
-        };
-        electricTax.UpdateProfile(
-            chargeCategoryCode: "UTILITY_ELECTRIC",
-            name: electricTax.Name,
-            taxMode: TaxMode.VatIncluded,
-            vatRatePercent: 7.00m,
-            defaultWithholdingTaxPercent: 0.00m,
-            isActive: true);
+        var waterTax = BuildUtilityTaxProfile(bkk.Id, "UTILITY_WATER", PmsSeedConstants.WaterUtilityTaxProfileId);
+        var electricTax = BuildUtilityTaxProfile(bkk.Id, "UTILITY_ELECTRIC", PmsSeedConstants.ElectricUtilityTaxProfileId);
 
         dbContext.TaxProfiles.AddRange(monthlyRentTax, shortStayTax, furnitureTax, waterTax, electricTax);
 

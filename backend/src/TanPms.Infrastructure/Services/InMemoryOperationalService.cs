@@ -1780,7 +1780,8 @@ public sealed partial class InMemoryOperationalService
     public Result<StaySummaryDto> CheckInStay(
         CheckInStayCommand command,
         bool callerHasOverridePermission,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (!Enum.TryParse<StayMode>(command.StayMode, ignoreCase: true, out var stayMode)
             || stayMode == StayMode.Monthly)
@@ -1943,7 +1944,7 @@ public sealed partial class InMemoryOperationalService
                     property.Code,
                     DocumentTypeCode.DEP,
                     clockUtc).GetAwaiter().GetResult();
-                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount);
+                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount, FindOpenShiftForCashLocked(command.PropertyId, cashierUserId));
                 _depositLedgers.Add(ledger);
             }
 
@@ -2238,7 +2239,8 @@ public sealed partial class InMemoryOperationalService
         Guid propertyId,
         Guid stayId,
         RecordFolioPaymentRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (request.Amount <= 0m)
         {
@@ -2283,6 +2285,11 @@ public sealed partial class InMemoryOperationalService
                 clockUtc).GetAwaiter().GetResult();
 
             folio.RecordPayment(roundedAmount);
+        if (request.PaymentMethod == "Cash")
+        {
+            // Cash lands in the caller's Open drawer; transfers/PromptPay do not touch the shift.
+            FindOpenShiftForCashLocked(propertyId, cashierUserId)?.RecordCashReceipt(roundedAmount);
+        }
             return Result<StayDetailDto>.Success(MapStayDetailDtoLocked(stay, clockUtc, unmaskPii: false));
         }
     }
@@ -2291,7 +2298,8 @@ public sealed partial class InMemoryOperationalService
         Guid propertyId,
         Guid stayId,
         CheckOutStayRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (request.KeyDepositDeductionAmount < 0m)
         {
@@ -2356,7 +2364,7 @@ public sealed partial class InMemoryOperationalService
                             property.Code,
                             DocumentTypeCode.DEP,
                             clockUtc).GetAwaiter().GetResult();
-                        ledger.RefundRemainingBalance(refundDocNo, reason);
+                        ledger.RefundRemainingBalance(refundDocNo, reason, FindOpenShiftForCashLocked(propertyId, cashierUserId));
                     }
                 }
 

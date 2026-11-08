@@ -4,6 +4,7 @@ using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Customers;
+using TanPms.Application.Files;
 using TanPms.Application.Housekeeping;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
@@ -17,6 +18,7 @@ using TanPms.Application.Rates;
 using TanPms.Application.Reservations;
 using TanPms.Application.Stays;
 using TanPms.Application.WorkOrders;
+using Microsoft.AspNetCore.Mvc;
 using TanPms.Infrastructure;
 using TanPms.Infrastructure.Services;
 using TanPms.WebApi.ErrorHandling;
@@ -116,6 +118,15 @@ builder.Services.AddScoped<RenewAdminLeaseHandler>();
 builder.Services.AddScoped<GiveAdminLeaseMoveOutNoticeHandler>();
 builder.Services.AddScoped<SettleAdminLeaseMoveOutHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
+builder.Services.AddScoped<UploadAdminFileHandler>();
+builder.Services.AddScoped<UploadClientFileHandler>();
+builder.Services.AddScoped<GetAdminFileHandler>();
+builder.Services.AddScoped<GetClientFileHandler>();
+builder.Services.AddScoped<GetAdminLeaseContractPdfHandler>();
+builder.Services.AddScoped<GetAdminReceiptsHandler>();
+builder.Services.AddScoped<GetClientReceiptsHandler>();
+builder.Services.AddScoped<GetAdminReceiptPdfHandler>();
+builder.Services.AddScoped<GetClientReceiptPdfHandler>();
 builder.Services.AddScoped<UpdateAdminLeaseHandler>();
 builder.Services.AddScoped<UpdateAdminLeaseOccupantHandler>();
 builder.Services.AddScoped<DeleteAdminLeaseOccupantHandler>();
@@ -1307,6 +1318,68 @@ adminGroup.MapPost("/properties/{propertyId:guid}/parcels/{parcelId:guid}/void",
         : Results.Ok(result.Value);
 });
 
+// Multipart upload; API callers authenticate with headers/tokens (no cookies), so antiforgery does not apply.
+adminGroup.MapPost("/files", (
+    [FromForm] Guid propertyId,
+    [FromForm] string purpose,
+    IFormFile file,
+    UploadAdminFileHandler handler,
+    HttpContext httpContext) =>
+{
+    using var content = file.OpenReadStream();
+    var result = handler.Handle(new UploadAdminFileCommand(propertyId, purpose, content));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/admin/files/{result.Value!.FileKey}", result.Value);
+}).DisableAntiforgery();
+
+adminGroup.MapGet("/files/{fileKey}", (
+    string fileKey,
+    GetAdminFileHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminFileQuery(fileKey));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.File(result.Value!.Content, result.Value.ContentType, result.Value.FileKey);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/leases/{leaseId:guid}/contract.pdf", (
+    Guid propertyId,
+    Guid leaseId,
+    GetAdminLeaseContractPdfHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminLeaseContractPdfQuery(propertyId, leaseId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.File(result.Value!.Content, "application/pdf", result.Value.FileName);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/receipts", (
+    Guid propertyId,
+    Guid? invoiceId,
+    GetAdminReceiptsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminReceiptsQuery(propertyId, invoiceId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/receipts/{receiptId:guid}/pdf", (
+    Guid propertyId,
+    Guid receiptId,
+    GetAdminReceiptPdfHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminReceiptPdfQuery(propertyId, receiptId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.File(result.Value!.Content, "application/pdf", result.Value.FileName);
+});
+
 var clientGroup = app.MapGroup("/api/v1/client");
 
 clientGroup.MapPost("/invoices/{invoiceId:guid}/slips", (
@@ -1434,6 +1507,51 @@ clientGroup.MapGet("/parcels/{parcelId:guid}", (
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
+});
+
+clientGroup.MapPost("/files", (
+    [FromForm] string purpose,
+    IFormFile file,
+    UploadClientFileHandler handler,
+    HttpContext httpContext) =>
+{
+    using var content = file.OpenReadStream();
+    var result = handler.Handle(new UploadClientFileCommand(purpose, content));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/client/files/{result.Value!.FileKey}", result.Value);
+}).DisableAntiforgery();
+
+clientGroup.MapGet("/files/{fileKey}", (
+    string fileKey,
+    GetClientFileHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientFileQuery(fileKey));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.File(result.Value!.Content, result.Value.ContentType, result.Value.FileKey);
+});
+
+clientGroup.MapGet("/receipts", (
+    GetClientReceiptsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientReceiptsQuery());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/receipts/{receiptId:guid}/pdf", (
+    Guid receiptId,
+    GetClientReceiptPdfHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientReceiptPdfQuery(receiptId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.File(result.Value!.Content, "application/pdf", result.Value.FileName);
 });
 
 clientGroup.MapGet("/dashboard", (

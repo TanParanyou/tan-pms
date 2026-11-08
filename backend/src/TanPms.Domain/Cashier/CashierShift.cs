@@ -15,6 +15,7 @@ public sealed class CashierShift : AuditableEntity
     public decimal? ExpectedDrawerCash { get; private set; }
     public decimal? CashVariance { get; private set; }
     public string? VarianceRemark { get; private set; }
+    public string? CancelReason { get; private set; }
     public CashierShiftStatus Status { get; private set; } = CashierShiftStatus.Open;
 
     public void EnsureOpen()
@@ -64,9 +65,14 @@ public sealed class CashierShift : AuditableEntity
         CashReceiptsInShift != 0m || CashDepositsReceivedInShift != 0m || CashDepositsRefundedInShift != 0m;
 
     // Open -> Cancelled for a shift opened by mistake; frees the one-open-shift slot. Callers also check linked receipts.
-    public void Cancel()
+    public void Cancel(string reason)
     {
         EnsureOpen();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainRuleException(DomainErrorCodes.ValidationFailed, "Cancel reason is required.", httpStatus: 400);
+        }
+
         if (HasActivity)
         {
             throw new DomainRuleException(
@@ -75,6 +81,7 @@ public sealed class CashierShift : AuditableEntity
                 httpStatus: 400);
         }
 
+        CancelReason = reason.Trim();
         Status = CashierShiftStatus.Cancelled;
     }
 

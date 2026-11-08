@@ -81,10 +81,25 @@ public sealed partial class EfCorePmsStore
             : Result<LeaseItemDto>.Success(MapLeaseItemDto(lease, unmaskPii));
     }
 
+    public Result<LeaseContractDto> GetAdminLeaseContract(Guid propertyId, Guid leaseId, bool unmaskPii = false)
+    {
+        var lease = _dbContext.Leases.AsNoTracking().FirstOrDefault(l => l.Id == leaseId && l.PropertyId == propertyId);
+        if (lease is null)
+        {
+            return Result<LeaseContractDto>.Failure(LeaseRecordMapper.LeaseNotFound(propertyId, leaseId));
+        }
+
+        var property = _dbContext.Properties.AsNoTracking().First(p => p.Id == propertyId);
+        return Result<LeaseContractDto>.Success(new LeaseContractDto(
+            ReceiptRecordMapper.MapLetterhead(property),
+            MapLeaseItemDto(lease, unmaskPii)));
+    }
+
     public Result<LeaseItemDto> CreateAdminLease(
         Guid propertyId,
         CreateLeaseRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (LeaseRequestValidation.ValidateCreate(request) is { } validationError)
         {
@@ -176,7 +191,7 @@ public sealed partial class EfCorePmsStore
                     property.Code,
                     DocumentTypeCode.DEP,
                     clockUtc).GetAwaiter().GetResult();
-                ledger.RecordReceipt(depDocNo, lease.SecurityDepositAmount);
+                ledger.RecordReceipt(depDocNo, lease.SecurityDepositAmount, FindTrackedOpenShift(propertyId, cashierUserId));
                 _dbContext.DepositLedgers.Add(ledger);
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions);
             }
@@ -381,7 +396,8 @@ public sealed partial class EfCorePmsStore
         Guid propertyId,
         Guid leaseId,
         ReasonRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (request.Validate() is { } reasonError)
         {
@@ -409,7 +425,7 @@ public sealed partial class EfCorePmsStore
 
         try
         {
-            lease.Cancel();
+            lease.Cancel(request.Reason);
             var reason = request.Reason.Trim();
             var refunded = 0m;
             var ledger = _dbContext.DepositLedgers
@@ -421,7 +437,7 @@ public sealed partial class EfCorePmsStore
                 var property = _dbContext.Properties.AsNoTracking().First(p => p.Id == propertyId);
                 refunded = ledger.RefundRemainingBalance(
                     _documentNumberService.NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
-                    reason).Amount;
+                    reason, FindTrackedOpenShift(propertyId, cashierUserId)).Amount;
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)));
             }
 
@@ -515,7 +531,8 @@ public sealed partial class EfCorePmsStore
         Guid propertyId,
         Guid leaseId,
         SettleLeaseMoveOutRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (LeaseRequestValidation.ValidateSettle(request) is { } validationError)
         {
@@ -579,7 +596,7 @@ public sealed partial class EfCorePmsStore
                 {
                     refunded = ledger.RefundRemainingBalance(
                         _documentNumberService.NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
-                        reason).Amount;
+                        reason, FindTrackedOpenShift(propertyId, cashierUserId)).Amount;
                 }
 
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)));
@@ -708,6 +725,7 @@ public sealed partial class EfCorePmsStore
                 .Where(v => v.LeaseId == lease.Id)
                 .ToList()
                 .Select(LeaseRecordMapper.MapLeaseVehicle)
-                .ToList());
+                .ToList(),
+            CancelReason: lease.CancelReason);
     }
 }

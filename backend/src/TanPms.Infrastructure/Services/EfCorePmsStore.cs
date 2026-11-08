@@ -1721,7 +1721,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
     public Result<StaySummaryDto> CheckInStay(
         CheckInStayCommand command,
         bool callerHasOverridePermission,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (!Enum.TryParse<StayMode>(command.StayMode, ignoreCase: true, out var stayMode)
             || stayMode == StayMode.Monthly)
@@ -1886,7 +1887,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                     property.Code,
                     DocumentTypeCode.DEP,
                     clockUtc).GetAwaiter().GetResult();
-                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount);
+                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount, FindTrackedOpenShift(command.PropertyId, cashierUserId));
                 _dbContext.DepositLedgers.Add(ledger);
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions);
             }
@@ -2229,7 +2230,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         Guid propertyId,
         Guid stayId,
         RecordFolioPaymentRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (request.Amount <= 0m)
         {
@@ -2275,6 +2277,11 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             clockUtc).GetAwaiter().GetResult();
 
         folio.RecordPayment(roundedAmount);
+        if (request.PaymentMethod == "Cash")
+        {
+            // Cash lands in the caller's Open drawer; transfers/PromptPay do not touch the shift.
+            FindTrackedOpenShift(propertyId, cashierUserId)?.RecordCashReceipt(roundedAmount);
+        }
         _dbContext.SaveChanges();
 
         return Result<StayDetailDto>.Success(MapStayDetailDto(stay, clockUtc, unmaskPii: false));
@@ -2284,7 +2291,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         Guid propertyId,
         Guid stayId,
         CheckOutStayRequest request,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null)
     {
         if (request.KeyDepositDeductionAmount < 0m)
         {
@@ -2355,7 +2363,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                         property.Code,
                         DocumentTypeCode.DEP,
                         clockUtc).GetAwaiter().GetResult();
-                    ledger.RefundRemainingBalance(refundDocNo, reason);
+                    ledger.RefundRemainingBalance(refundDocNo, reason, FindTrackedOpenShift(propertyId, cashierUserId));
                 }
 
                 foreach (var newTx in ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)))

@@ -31,7 +31,7 @@ public sealed class CreateAdminLeaseHandler
             return Result<LeaseItemDto>.Failure(authError);
         }
 
-        var result = _store.CreateAdminLease(command.PropertyId, command.Request);
+        var result = _store.CreateAdminLease(command.PropertyId, command.Request, cashierUserId: _currentUser.UserId);
         if (result.IsSuccess && result.Value is not null)
         {
             _auditLogger.RecordMutation(

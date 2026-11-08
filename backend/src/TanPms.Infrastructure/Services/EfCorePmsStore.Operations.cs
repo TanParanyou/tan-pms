@@ -45,6 +45,7 @@ public sealed partial class EfCorePmsStore
         var buildingCodes = _dbContext.Buildings.AsNoTracking().Where(b => b.PropertyId == propertyId).ToDictionary(b => b.Id, b => b.Code);
         var floorNumbers = _dbContext.Floors.AsNoTracking().Where(f => f.PropertyId == propertyId).ToDictionary(f => f.Id, f => f.FloorNumber);
 
+        var users = UserRefs();
         var items = tasks
             .Select(t => (Task: t, Unit: units[t.UnitId]))
             .Where(x => !buildingId.HasValue || x.Unit.BuildingId == buildingId.Value)
@@ -52,7 +53,7 @@ public sealed partial class EfCorePmsStore
             .ThenBy(x => floorNumbers.GetValueOrDefault(x.Unit.FloorId))
             .ThenBy(x => x.Unit.UnitNumber, StringComparer.Ordinal)
             .ThenBy(x => x.Task.CreatedAt)
-            .Select(x => OperationsRecordMapper.MapHousekeepingTask(x.Task, unitRefs[x.Unit.Id], x.Unit))
+            .Select(x => OperationsRecordMapper.MapHousekeepingTask(x.Task, unitRefs[x.Unit.Id], x.Unit, users))
             .ToList();
         return Result<HousekeepingTaskListResponse>.Success(new HousekeepingTaskListResponse(items));
     }
@@ -280,7 +281,7 @@ public sealed partial class EfCorePmsStore
         var task = OperationsRecordMapper.BuildManualHousekeepingTask(propertyId, request);
         _dbContext.HousekeepingTasks.Add(task);
         _dbContext.SaveChanges();
-        return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, BuildSingleUnitRef(unit), unit));
+        return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, BuildSingleUnitRef(unit), unit, UserRefs()));
     }
 
     public Result<HousekeepingTaskDto> UpdateAdminHousekeepingTask(Guid propertyId, Guid taskId, UpdateHousekeepingTaskRequest request) =>
@@ -426,7 +427,7 @@ public sealed partial class EfCorePmsStore
 
         try
         {
-            parcel.EnsureArrived();
+            parcel.Void(request.Reason);
             var dto = MapParcels([parcel], unmaskPii: false)[0];
             // ParcelStatus has no Cancelled value, so a mistaken entry is soft-deleted by AuditableEntityInterceptor.
             _dbContext.Parcels.Remove(parcel);
@@ -469,7 +470,7 @@ public sealed partial class EfCorePmsStore
         {
             mutate(task, unit);
             _dbContext.SaveChanges();
-            return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, BuildSingleUnitRef(unit), unit));
+            return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, BuildSingleUnitRef(unit), unit, UserRefs()));
         }
         catch (DomainRuleException ex)
         {
@@ -543,11 +544,13 @@ public sealed partial class EfCorePmsStore
             .ToDictionary(u => u.Id, BuildSingleUnitRef);
         var reporterIds = workOrders.Where(w => w.ReportedByCustomerId.HasValue).Select(w => w.ReportedByCustomerId!.Value).Distinct().ToList();
         var reporters = _dbContext.Customers.AsNoTracking().Where(c => reporterIds.Contains(c.Id)).ToDictionary(c => c.Id);
+        var users = UserRefs();
         return workOrders.Select(w => OperationsRecordMapper.MapWorkOrder(
             w,
             unitRefs[w.UnitId],
             w.ReportedByCustomerId is { } reporterId ? reporters[reporterId] : null,
-            unmaskPii)).ToList();
+            unmaskPii,
+            users)).ToList();
     }
 
     private List<ParcelItemDto> MapParcels(IReadOnlyList<Parcel> parcels, bool unmaskPii)

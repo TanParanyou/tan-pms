@@ -431,13 +431,19 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         customer1.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
         customer1.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.PrimaryCustomerId.ToString());
         Assert.Equal(HttpStatusCode.Forbidden, (await customer1.PostAsJsonAsync(
-            $"/api/v1/client/invoices/{invoice2.Id}/slips", new SubmitPaymentSlipRequest(100m, "slips/it.jpg"))).StatusCode);
+            $"/api/v1/client/invoices/{invoice2.Id}/slips",
+            new SubmitPaymentSlipRequest(100m, await TestUploads.ClientAsync(customer1, "PaymentSlip")))).StatusCode);
 
         using var customer2 = _factory.CreateClient();
         customer2.DefaultRequestHeaders.Add("X-TanPms-Scope", "client");
         customer2.DefaultRequestHeaders.Add("X-TanPms-Customer-Id", PmsSeedConstants.SecondaryCustomerId.ToString());
+        // A key uploaded by another customer is rejected before the slip is created.
+        var foreignKey = await TestUploads.ClientAsync(customer1, "PaymentSlip");
+        Assert.Equal(HttpStatusCode.Forbidden, (await customer2.PostAsJsonAsync(
+            $"/api/v1/client/invoices/{invoice2.Id}/slips", new SubmitPaymentSlipRequest(100m, foreignKey))).StatusCode);
         var submitRes = await customer2.PostAsJsonAsync(
-            $"/api/v1/client/invoices/{invoice2.Id}/slips", new SubmitPaymentSlipRequest(100m, "slips/it.jpg", "SCB-777"));
+            $"/api/v1/client/invoices/{invoice2.Id}/slips",
+            new SubmitPaymentSlipRequest(100m, await TestUploads.ClientAsync(customer2, "PaymentSlip"), "SCB-777"));
         Assert.Equal(HttpStatusCode.Created, submitRes.StatusCode);
         var slip = await submitRes.Content.ReadFromJsonAsync<ClientPaymentSlipDto>();
 
@@ -478,7 +484,7 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
 
         var woRes = await customer1.PostAsJsonAsync(
             "/api/v1/client/work-orders",
-            new CreateWorkOrderRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Air-con noisy", null, null, "wo/ac.jpg"));
+            new CreateWorkOrderRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Air-con noisy", null, null, await TestUploads.ClientAsync(customer1, "WorkOrderPhoto")));
         Assert.Equal(HttpStatusCode.Created, woRes.StatusCode);
         var wo = await woRes.Content.ReadFromJsonAsync<WorkOrderItemDto>();
         Assert.Equal(HttpStatusCode.Forbidden, (await customer2.PostAsJsonAsync(
@@ -783,18 +789,19 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
 
         var crossCustomerSlipRes = await customer2Client.PostAsJsonAsync(
             $"/api/v1/client/reservations/{createdHold.Id}/slip",
-            new SubmitReservationSlipRequest("uploads/slips/spoofed.png"));
+            new SubmitReservationSlipRequest(await TestUploads.ClientAsync(customer2Client, "PaymentSlip")));
         Assert.Equal(HttpStatusCode.Forbidden, crossCustomerSlipRes.StatusCode);
 
         // PrimaryCustomer attaches slip -> PendingVerification
+        var reservationSlipKey = await TestUploads.ClientAsync(customer1Client, "PaymentSlip");
         var validSlipRes = await customer1Client.PostAsJsonAsync(
             $"/api/v1/client/reservations/{createdHold.Id}/slip",
-            new SubmitReservationSlipRequest("uploads/slips/scb-slip-001.png"));
+            new SubmitReservationSlipRequest(reservationSlipKey));
         Assert.Equal(HttpStatusCode.OK, validSlipRes.StatusCode);
         var pendingVerification = await validSlipRes.Content.ReadFromJsonAsync<ReservationItemDto>();
         Assert.NotNull(pendingVerification);
         Assert.Equal("PendingVerification", pendingVerification.Status);
-        Assert.Equal("uploads/slips/scb-slip-001.png", pendingVerification.PaymentSlipFileKey);
+        Assert.Equal(reservationSlipKey, pendingVerification.PaymentSlipFileKey);
 
         // Admin assigns specific unit, confirms slip, and later marks NoShow with mandatory reason
         using var adminClient = _factory.CreateClient();

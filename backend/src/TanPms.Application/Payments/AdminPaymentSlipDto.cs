@@ -20,4 +20,5 @@ public sealed record AdminPaymentSlipDto(
     string? ReviewedByUserId,
     DateTimeOffset? ReviewedAt,
     string? RejectReason,
-    string? ReceiptDocumentNumber);
+    string? ReceiptDocumentNumber,
+    UserRefDto? ReviewedBy);

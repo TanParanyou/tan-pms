@@ -1,6 +1,8 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
+using TanPms.Application.Files;
+using TanPms.Domain.Files;
 
 namespace TanPms.Application.Payments;
 
@@ -8,12 +10,14 @@ public sealed class SubmitClientPaymentSlipHandler
 {
     private readonly IPaymentSlipStore _store;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IStoredFileStore _files;
     private readonly IAuditLogger _auditLogger;
 
-    public SubmitClientPaymentSlipHandler(IPaymentSlipStore store, ICurrentUserContext currentUser, IAuditLogger auditLogger)
+    public SubmitClientPaymentSlipHandler(IPaymentSlipStore store, ICurrentUserContext currentUser, IAuditLogger auditLogger, IStoredFileStore files)
     {
         _store = store;
         _currentUser = currentUser;
+        _files = files;
         _auditLogger = auditLogger;
     }
 
@@ -22,6 +26,11 @@ public sealed class SubmitClientPaymentSlipHandler
         if (ScopeAuthorizationGuard.CheckClientScope(_currentUser, out var customerId) is { } authError)
         {
             return Result<ClientPaymentSlipDto>.Failure(authError);
+        }
+
+        if (StoredFileRules.ValidateAttachments(_files, StoredFilePurpose.PaymentSlip, null, customerId, command.Request.SlipFileKey) is { } fileError)
+        {
+            return Result<ClientPaymentSlipDto>.Failure(fileError);
         }
 
         var result = _store.SubmitClientPaymentSlip(customerId, command.InvoiceId, command.Request);

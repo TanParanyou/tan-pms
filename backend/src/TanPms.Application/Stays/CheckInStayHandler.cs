@@ -24,7 +24,7 @@ public sealed class CheckInStayHandler
             return Result<StaySummaryDto>.Failure(authError);
         }
 
-        if (!_currentUser.HasOpenCashierShift)
+        if (!_currentUser.HasOpenCashierShiftIn(command.PropertyId))
         {
             return Result<StaySummaryDto>.Failure(new Error(
                 DomainErrorCodes.ShiftNotOpen,
@@ -32,6 +32,6 @@ public sealed class CheckInStayHandler
         }
 
         var hasOverridePerm = _currentUser.Permissions.Contains(PermissionKeys.AdminStayOverrideDirtyCheckIn);
-        return _store.CheckInStay(command, hasOverridePerm);
+        return _store.CheckInStay(command, hasOverridePerm, cashierUserId: _currentUser.UserId);
     }
 }

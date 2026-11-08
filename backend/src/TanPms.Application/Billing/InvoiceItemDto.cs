@@ -13,4 +13,5 @@ public sealed record InvoiceItemDto(
     IReadOnlyList<InvoiceLineDto> Lines,
     decimal SubTotal,
     decimal TotalVatAmount,
-    decimal TotalAmount);
+    decimal TotalAmount,
+    string? VoidReason);

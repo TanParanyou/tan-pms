@@ -16,10 +16,16 @@ public interface ILeaseStore
         Guid leaseId,
         bool unmaskPii = false);
 
+    Result<LeaseContractDto> GetAdminLeaseContract(
+        Guid propertyId,
+        Guid leaseId,
+        bool unmaskPii = false);
+
     Result<LeaseItemDto> CreateAdminLease(
         Guid propertyId,
         CreateLeaseRequest request,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null);
 
     Result<LeaseItemDto> AddAdminLeaseOccupant(
         Guid propertyId,
@@ -62,7 +68,8 @@ public interface ILeaseStore
         Guid propertyId,
         Guid leaseId,
         ReasonRequest request,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null);
 
     Result<LeaseItemDto> RenewAdminLease(
         Guid propertyId,
@@ -78,5 +85,6 @@ public interface ILeaseStore
         Guid propertyId,
         Guid leaseId,
         SettleLeaseMoveOutRequest request,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        string? cashierUserId = null);
 }

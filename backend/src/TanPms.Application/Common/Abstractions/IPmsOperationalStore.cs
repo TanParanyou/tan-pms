@@ -2,6 +2,7 @@ using TanPms.Application.Billing;
 using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Customers;
+using TanPms.Application.Files;
 using TanPms.Application.Housekeeping;
 using TanPms.Application.Identity;
 using TanPms.Application.Leases;
@@ -35,5 +36,7 @@ public interface IPmsOperationalStore
       IHousekeepingStore,
       IWorkOrderStore,
       IParcelStore,
+      IStoredFileStore,
+      IReceiptStore,
       IRoomRackStore,
       IClientDashboardStore;

@@ -13,8 +13,8 @@ public sealed class MeterReadingAndBatchBillingTests
     private static readonly Guid Bkk = PmsSeedConstants.BkkPropertyId;
     private static readonly Guid A201 = PmsSeedConstants.OccupiedMonthlyUnitA201Id;
 
-    private static SaveMeterReadingsRequest Save(string period, decimal water, decimal electric, bool waterRollover = false, string? reason = null) =>
-        new(period, [new MeterReadingInputDto(A201, water, electric, waterRollover, false, "meters/a201-water.jpg")], reason);
+    private static SaveMeterReadingsRequest Save(string period, decimal water, decimal electric, bool waterRollover = false, string? reason = null, string? photo = "meters/a201-water.jpg") =>
+        new(period, [new MeterReadingInputDto(A201, water, electric, waterRollover, false, photo)], reason);
 
     private static TestCurrentUserContext Admin(params string[] permissions) => new()
     {
@@ -91,16 +91,16 @@ public sealed class MeterReadingAndBatchBillingTests
         // Seed invoice BKK01-INV-2611-0001 is Issued for the A-201 lease in 2026-11.
         Assert.True(Assert.Single(store.GetAdminMeterReadingSheet(Bkk, "2026-11", null).Value!.Rows).IsLocked);
 
-        var recorder = new SaveAdminMeterReadingsHandler(store, Admin(PermissionKeys.AdminMetersRecord), store);
-        var denied = recorder.Handle(new SaveAdminMeterReadingsCommand(Bkk, Save("2026-11", 10m, 20m)));
+        var recorder = new SaveAdminMeterReadingsHandler(store, Admin(PermissionKeys.AdminMetersRecord), store, store);
+        var denied = recorder.Handle(new SaveAdminMeterReadingsCommand(Bkk, Save("2026-11", 10m, 20m, photo: null)));
         Assert.Contains(denied.Value!.Rows[0].Errors, e => e.Code == MeterReadingIssueCodes.PeriodLocked);
 
         var overrider = new SaveAdminMeterReadingsHandler(
-            store, Admin(PermissionKeys.AdminMetersRecord, PermissionKeys.AdminMetersOverrideLocked), store);
-        var noReason = overrider.Handle(new SaveAdminMeterReadingsCommand(Bkk, Save("2026-11", 10m, 20m)));
+            store, Admin(PermissionKeys.AdminMetersRecord, PermissionKeys.AdminMetersOverrideLocked), store, store);
+        var noReason = overrider.Handle(new SaveAdminMeterReadingsCommand(Bkk, Save("2026-11", 10m, 20m, photo: null)));
         Assert.Contains(noReason.Value!.Rows[0].Errors, e => e.Code == MeterReadingIssueCodes.OverrideReasonRequired);
 
-        var overridden = overrider.Handle(new SaveAdminMeterReadingsCommand(Bkk, Save("2026-11", 10m, 20m, reason: "Meter re-read after tenant dispute")));
+        var overridden = overrider.Handle(new SaveAdminMeterReadingsCommand(Bkk, Save("2026-11", 10m, 20m, reason: "Meter re-read after tenant dispute", photo: null)));
         Assert.True(overridden.Value!.IsSaved);
         Assert.True(overridden.Value.Rows[0].IsLockedOverride);
         Assert.Contains(store.AuditEvents, e =>
@@ -186,7 +186,7 @@ public sealed class MeterReadingAndBatchBillingTests
         var meterOnly = Admin(PermissionKeys.AdminMetersRecord);
         Assert.Equal(DomainErrorCodes.PermissionDenied, new RunAdminBatchInvoicesHandler(store, meterOnly, store)
             .Handle(new RunAdminBatchInvoicesCommand(Bkk, new BatchInvoiceRunRequest("2026-10"))).Error!.Code);
-        Assert.Equal(DomainErrorCodes.PermissionDenied, new SaveAdminMeterReadingsHandler(store, Admin(PermissionKeys.AdminBillingIssueBatch), store)
+        Assert.Equal(DomainErrorCodes.PermissionDenied, new SaveAdminMeterReadingsHandler(store, Admin(PermissionKeys.AdminBillingIssueBatch), store, store)
             .Handle(new SaveAdminMeterReadingsCommand(Bkk, Save("2026-10", 1m, 1m))).Error!.Code);
 
         var masked = new GetAdminInvoicesHandler(store, Admin(PermissionKeys.AdminBillingIssueBatch))

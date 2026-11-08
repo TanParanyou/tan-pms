@@ -5,6 +5,7 @@ using TanPms.Domain.Cashier;
 using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
 using TanPms.Domain.DocumentNumbering;
+using TanPms.Domain.Files;
 using TanPms.Domain.Identity;
 using TanPms.Domain.Leases;
 using TanPms.Domain.Meters;
@@ -53,6 +54,7 @@ public sealed class TanPmsDbContext : DbContext
     public DbSet<HousekeepingTask> HousekeepingTasks => Set<HousekeepingTask>();
     public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
     public DbSet<Parcel> Parcels => Set<Parcel>();
+    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -211,11 +213,30 @@ public sealed class TanPmsDbContext : DbContext
             b.HasIndex(x => x.ReportedByCustomerId);
         });
 
+        modelBuilder.Entity<Lease>(b =>
+        {
+            b.Property(x => x.CancelReason).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<CashierShift>(b =>
+        {
+            b.Property(x => x.CancelReason).HasMaxLength(2000);
+        });
+
         modelBuilder.Entity<Parcel>(b =>
         {
             b.Property(x => x.RecipientName).HasMaxLength(200);
+            b.Property(x => x.VoidReason).HasMaxLength(2000);
             b.HasIndex(x => new { x.PropertyId, x.Status });
             b.HasIndex(x => x.CustomerId);
+        });
+
+        modelBuilder.Entity<StoredFile>(b =>
+        {
+            b.Property(x => x.FileKey).HasMaxLength(32);
+            b.Property(x => x.ContentType).HasMaxLength(64);
+            b.Property(x => x.UploadedByUserId).HasMaxLength(128);
+            b.HasIndex(x => x.FileKey).IsUnique();
         });
 
         modelBuilder.Entity<HousekeepingTask>(b =>

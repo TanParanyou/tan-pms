@@ -11,4 +11,5 @@ public sealed record HousekeepingTaskDto(
     string? AssignedStaffUserId,
     string? Note,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    UserRefDto? AssignedStaff);

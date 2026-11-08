@@ -4,6 +4,7 @@ using TanPms.Application.Parcels;
 using TanPms.Application.Stays;
 using TanPms.Application.WorkOrders;
 using TanPms.Domain.Common;
+using TanPms.Domain.Files;
 using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
 using Xunit;
@@ -83,14 +84,14 @@ public sealed class HousekeepingWorkOrderAndParcelTests
         var stay = CheckInA101(store);
         var manager = Admin(PermissionKeys.AdminWorkOrdersManage);
 
-        var created = new CreateAdminWorkOrderHandler(store, manager, store)
-            .Handle(new CreateAdminWorkOrderCommand(Bkk, new CreateWorkOrderRequest(A101, "Broken lamp", "Bedside lamp shattered", "High", "wo/before.jpg")));
+        var created = new CreateAdminWorkOrderHandler(store, manager, store, store)
+            .Handle(new CreateAdminWorkOrderCommand(Bkk, new CreateWorkOrderRequest(A101, "Broken lamp", "Bedside lamp shattered", "High", TestFiles.Admin(store, StoredFilePurpose.WorkOrderPhoto, Bkk))));
         Assert.True(created.IsSuccess, created.Error?.Message);
         Assert.StartsWith("BKK01-WKO-", created.Value!.DocumentNumber, StringComparison.Ordinal);
         Assert.Equal("Open", created.Value.Status);
         Assert.Equal("High", created.Value.Priority);
 
-        var resolver = new ResolveAdminWorkOrderHandler(store, manager, store);
+        var resolver = new ResolveAdminWorkOrderHandler(store, manager, store, store);
         var tooEarly = resolver.Handle(new ResolveAdminWorkOrderCommand(Bkk, created.Value.Id, new ResolveWorkOrderRequest("Replaced lamp")));
         Assert.Equal(DomainErrorCodes.ValidationFailed, tooEarly.Error!.Code);
 
@@ -101,13 +102,14 @@ public sealed class HousekeepingWorkOrderAndParcelTests
         Assert.Equal(DomainErrorCodes.ValidationFailed, resolver
             .Handle(new ResolveAdminWorkOrderCommand(Bkk, created.Value.Id, new ResolveWorkOrderRequest("x", null, 0m, ChargeToTenant: true))).Error!.Code);
 
+        var afterKey = TestFiles.Admin(store, StoredFilePurpose.WorkOrderPhoto, Bkk);
         var resolved = resolver.Handle(new ResolveAdminWorkOrderCommand(
-            Bkk, created.Value.Id, new ResolveWorkOrderRequest("Replaced lamp", "wo/after.jpg", 350m, ChargeToTenant: true)));
+            Bkk, created.Value.Id, new ResolveWorkOrderRequest("Replaced lamp", afterKey, 350m, ChargeToTenant: true)));
         Assert.True(resolved.IsSuccess, resolved.Error?.Message);
         Assert.Equal("Completed", resolved.Value!.Status);
         Assert.Equal(stay.DocumentNumber, resolved.Value.ChargeDocumentNumber);
         Assert.Equal(350m, resolved.Value.TenantChargeAmount);
-        Assert.Equal("wo/after.jpg", resolved.Value.AfterPhotoFileKey);
+        Assert.Equal(afterKey, resolved.Value.AfterPhotoFileKey);
 
         var folio = store.GetAdminStays(Bkk, "Active", null).Value!.Items.Single(s => s.Id == stay.Id).Folio;
         Assert.Equal(850m, folio.TotalCharges); // 500 base package + 350 repair
@@ -149,13 +151,13 @@ public sealed class HousekeepingWorkOrderAndParcelTests
         var store = new InMemoryOperationalService();
         var customer1 = Client(PmsSeedConstants.PrimaryCustomerId); // tenant of A-201
 
-        var own = new CreateClientWorkOrderHandler(store, customer1, store)
-            .Handle(new CreateClientWorkOrderCommand(new CreateWorkOrderRequest(A201, "Leaking tap", null, null, "wo/tap.jpg")));
+        var own = new CreateClientWorkOrderHandler(store, customer1, store, store)
+            .Handle(new CreateClientWorkOrderCommand(new CreateWorkOrderRequest(A201, "Leaking tap", null, null, TestFiles.Client(store, StoredFilePurpose.WorkOrderPhoto, PmsSeedConstants.PrimaryCustomerId))));
         Assert.True(own.IsSuccess, own.Error?.Message);
         Assert.Equal(PmsSeedConstants.PrimaryCustomerId, own.Value!.ReportedByCustomer!.Id);
         Assert.Equal("1-xxxx-xxxxx-12-3", own.Value.ReportedByCustomer.MaskedNationalId);
 
-        var notTenant = new CreateClientWorkOrderHandler(store, customer1, store)
+        var notTenant = new CreateClientWorkOrderHandler(store, customer1, store, store)
             .Handle(new CreateClientWorkOrderCommand(new CreateWorkOrderRequest(A101, "Not my room")));
         Assert.Equal(DomainErrorCodes.PermissionDenied, notTenant.Error!.Code);
 
@@ -187,8 +189,8 @@ public sealed class HousekeepingWorkOrderAndParcelTests
         var desk = Admin(PermissionKeys.AdminParcelsManage);
         var notificationsBefore = store.GetClientNotifications(PmsSeedConstants.PrimaryCustomerId).Value!.Items.Count;
 
-        var received = new ReceiveAdminParcelHandler(store, desk, store, store)
-            .Handle(new ReceiveAdminParcelCommand(Bkk, new ReceiveParcelRequest(A201, "Flash Express", "FLX-1", "parcels/box.jpg")));
+        var received = new ReceiveAdminParcelHandler(store, desk, store, store, store)
+            .Handle(new ReceiveAdminParcelCommand(Bkk, new ReceiveParcelRequest(A201, "Flash Express", "FLX-1", TestFiles.Admin(store, StoredFilePurpose.ParcelPhoto, Bkk))));
         Assert.True(received.IsSuccess, received.Error?.Message);
         Assert.StartsWith("BKK01-PCL-", received.Value!.DocumentNumber, StringComparison.Ordinal);
         Assert.NotEqual("BKK01-PCL-2611-0001", received.Value.DocumentNumber); // seeded parcel number is reserved

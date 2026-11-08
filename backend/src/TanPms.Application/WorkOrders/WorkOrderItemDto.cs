@@ -20,4 +20,5 @@ public sealed record WorkOrderItemDto(
     string? ChargeDocumentNumber,
     string? CancelReason,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    UserRefDto? AssignedTechnician);

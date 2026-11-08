@@ -15,6 +15,7 @@ public sealed class Parcel : AuditableEntity
     public DateTimeOffset? PickedUpAt { get; private set; }
     public ParcelStatus Status { get; private set; } = ParcelStatus.Arrived;
     public string? RecipientName { get; private set; }
+    public string? VoidReason { get; private set; }
 
     // Unit change re-resolves the tenant, so the caller passes the current occupant's CustomerId.
     public void UpdateDetails(Guid unitId, Guid customerId, string carrierName, string? trackingNumber, string? parcelPhotoFileKey)
@@ -30,6 +31,18 @@ public sealed class Parcel : AuditableEntity
         CarrierName = carrierName.Trim();
         TrackingNumber = string.IsNullOrWhiteSpace(trackingNumber) ? null : trackingNumber.Trim();
         ParcelPhotoFileKey = string.IsNullOrWhiteSpace(parcelPhotoFileKey) ? ParcelPhotoFileKey : parcelPhotoFileKey.Trim();
+    }
+
+    // Records why an Arrived parcel entry was voided; the caller then soft-deletes it (ParcelStatus has no Cancelled value).
+    public void Void(string reason)
+    {
+        EnsureArrived();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainRuleException(DomainErrorCodes.ValidationFailed, "Void reason is required.", httpStatus: 400);
+        }
+
+        VoidReason = reason.Trim();
     }
 
     public void EnsureArrived()
