@@ -8,6 +8,8 @@ namespace TanPms.Application.Payments;
 public static class PaymentSlipRules
 {
     public const string ClientSubmitActionKey = "client.payments.submit_slip";
+    public const string ClientUpdateActionKey = "client.payments.update_slip";
+    public const string ClientWithdrawActionKey = "client.payments.withdraw_slip";
 
     public static Error? ValidateSubmit(SubmitPaymentSlipRequest request) =>
         request.Amount <= 0m
@@ -35,6 +37,12 @@ public static class PaymentSlipRules
             ? new Error(DomainErrorCodes.ValidationFailed, $"Slip amount cannot exceed outstanding balance ({outstanding:0.00}).")
             : null;
     }
+
+    // Clients may only touch their own slip on the invoice in the route; anything else is reported as not found (403).
+    public static Error? CheckClientOwnsSlip(PaymentSlip? slip, Guid customerId, Guid invoiceId) =>
+        slip is null || slip.CustomerId != customerId || slip.InvoiceId != invoiceId
+            ? new Error(DomainErrorCodes.PermissionDenied, "Payment slip was not found for the current customer.")
+            : null;
 
     public static decimal Outstanding(Invoice invoice, IEnumerable<Receipt> invoiceReceipts) =>
         Math.Max(0m, invoice.TotalAmount - invoiceReceipts.Sum(r => r.NetPayableAmount));

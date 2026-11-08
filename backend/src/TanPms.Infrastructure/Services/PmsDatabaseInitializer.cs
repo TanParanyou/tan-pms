@@ -536,7 +536,39 @@ public static class PmsDatabaseInitializer
             defaultWithholdingTaxPercent: 5.00m,
             isActive: true);
 
-        dbContext.TaxProfiles.AddRange(monthlyRentTax, shortStayTax, furnitureTax);
+        // Utilities resold to tenants are not pure room rent (docs/01-business/pricing-meter-and-tax-rules.md section 3),
+        // so they carry VAT 7%; VatIncluded keeps the tariff charge as the line total.
+        var waterTax = new TaxProfile
+        {
+            Id = PmsSeedConstants.WaterUtilityTaxProfileId,
+            PropertyId = bkk.Id,
+            ChargeCategoryCode = "UTILITY_WATER",
+            Name = LocalizedText.Create("ค่าน้ำประปาตามมิเตอร์ (รวม VAT 7%)", "Metered Water (VAT 7% Included)")
+        };
+        waterTax.UpdateProfile(
+            chargeCategoryCode: "UTILITY_WATER",
+            name: waterTax.Name,
+            taxMode: TaxMode.VatIncluded,
+            vatRatePercent: 7.00m,
+            defaultWithholdingTaxPercent: 0.00m,
+            isActive: true);
+
+        var electricTax = new TaxProfile
+        {
+            Id = PmsSeedConstants.ElectricUtilityTaxProfileId,
+            PropertyId = bkk.Id,
+            ChargeCategoryCode = "UTILITY_ELECTRIC",
+            Name = LocalizedText.Create("ค่าไฟฟ้าตามมิเตอร์ (รวม VAT 7%)", "Metered Electricity (VAT 7% Included)")
+        };
+        electricTax.UpdateProfile(
+            chargeCategoryCode: "UTILITY_ELECTRIC",
+            name: electricTax.Name,
+            taxMode: TaxMode.VatIncluded,
+            vatRatePercent: 7.00m,
+            defaultWithholdingTaxPercent: 0.00m,
+            isActive: true);
+
+        dbContext.TaxProfiles.AddRange(monthlyRentTax, shortStayTax, furnitureTax, waterTax, electricTax);
 
         var seedNowUtc = DateTimeOffset.UtcNow;
         var sampleHoldDocNo = await documentNumberService.NextDocumentNumberAsync(

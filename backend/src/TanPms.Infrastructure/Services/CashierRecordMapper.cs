@@ -122,6 +122,12 @@ internal static class CashierRecordMapper
     internal static Error ShiftOwnedByAnotherCashier() =>
         new(DomainErrorCodes.PermissionDenied, "Only the cashier who opened the shift can close it.");
 
+    internal static Error LedgerNotFound(Guid propertyId, Guid ledgerId) =>
+        new(DomainErrorCodes.ValidationFailed, $"Deposit ledger '{ledgerId}' was not found in property '{propertyId}'.");
+
+    internal static Error ShiftHasReceipts(string documentNumber) =>
+        new(DomainErrorCodes.ValidationFailed, $"CashierShift {documentNumber} has receipts and must be closed instead of cancelled.");
+
     internal static Error ShiftAlreadyOpen() =>
         new(DomainErrorCodes.ValidationFailed, "Cashier already has an Open shift in this property.");
 

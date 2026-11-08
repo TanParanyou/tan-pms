@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Leases;
+using TanPms.Domain.Billing;
 using TanPms.Domain.Cashier;
 using TanPms.Domain.Common;
 using TanPms.Domain.DocumentNumbering;
@@ -240,6 +241,217 @@ public sealed partial class EfCorePmsStore
         _dbContext.TenantVehicles.Add(LeaseRecordMapper.BuildTenantVehicle(lease!, request));
         _dbContext.SaveChanges();
         return Result<LeaseItemDto>.Success(MapLeaseItemDto(lease!, unmaskPii: false));
+    }
+
+    public Result<LeaseItemDto> UpdateAdminLease(Guid propertyId, Guid leaseId, UpdateLeaseRequest request)
+    {
+        if (LeaseRequestValidation.ValidateUpdate(request) is { } validationError)
+        {
+            return Result<LeaseItemDto>.Failure(validationError);
+        }
+
+        var lease = _dbContext.Leases.FirstOrDefault(l => l.Id == leaseId && l.PropertyId == propertyId);
+        if (lease is null)
+        {
+            return Result<LeaseItemDto>.Failure(LeaseRecordMapper.LeaseNotFound(propertyId, leaseId));
+        }
+
+        if (request.InitialWaterMeterReading.HasValue || request.InitialElectricMeterReading.HasValue)
+        {
+            var startPeriod = LeaseRecordMapper.LeaseStartPeriod(lease);
+            var hasReadings = _dbContext.MeterReadings.AsNoTracking()
+                .Where(r => r.UnitId == lease.UnitId)
+                .Select(r => r.BillingPeriodYearMonth)
+                .ToList()
+                .Any(p => string.CompareOrdinal(p, startPeriod) >= 0);
+            if (hasReadings)
+            {
+                return Result<LeaseItemDto>.Failure(LeaseRequestValidation.InitialReadingsLocked(lease.DocumentNumber));
+            }
+        }
+
+        try
+        {
+            lease.UpdateTerms(request.MonthlyRentAmount, request.InitialWaterMeterReading, request.InitialElectricMeterReading);
+            _dbContext.SaveChanges();
+            return Result<LeaseItemDto>.Success(MapLeaseItemDto(lease, unmaskPii: false));
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<LeaseItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
+    }
+
+    public Result<LeaseItemDto> UpdateAdminLeaseOccupant(
+        Guid propertyId,
+        Guid leaseId,
+        Guid occupantId,
+        UpdateLeaseOccupantRequest request)
+    {
+        if (LeaseRequestValidation.ValidateOccupantUpdate(request) is { } validationError)
+        {
+            return Result<LeaseItemDto>.Failure(validationError);
+        }
+
+        if (FindBlockingLease(propertyId, leaseId, out var lease) is { } leaseError)
+        {
+            return Result<LeaseItemDto>.Failure(leaseError);
+        }
+
+        var occupants = _dbContext.Occupants.Where(o => o.LeaseId == leaseId).ToList();
+        if (LeaseRecordMapper.ApplyOccupantUpdate(occupants, occupantId, request) is { } updateError)
+        {
+            return Result<LeaseItemDto>.Failure(updateError);
+        }
+
+        _dbContext.SaveChanges();
+        return Result<LeaseItemDto>.Success(MapLeaseItemDto(lease!, unmaskPii: false));
+    }
+
+    public Result<LeaseItemDto> DeleteAdminLeaseOccupant(Guid propertyId, Guid leaseId, Guid occupantId)
+    {
+        if (FindBlockingLease(propertyId, leaseId, out var lease) is { } leaseError)
+        {
+            return Result<LeaseItemDto>.Failure(leaseError);
+        }
+
+        var occupants = _dbContext.Occupants.Where(o => o.LeaseId == leaseId).ToList();
+        if (LeaseRecordMapper.CheckOccupantDelete(occupants, occupantId, out var occupant) is { } deleteError)
+        {
+            return Result<LeaseItemDto>.Failure(deleteError);
+        }
+
+        _dbContext.Occupants.Remove(occupant!);
+        _dbContext.SaveChanges();
+        return Result<LeaseItemDto>.Success(MapLeaseItemDto(lease!, unmaskPii: false));
+    }
+
+    public Result<LeaseItemDto> UpdateAdminLeaseVehicle(
+        Guid propertyId,
+        Guid leaseId,
+        Guid vehicleId,
+        LeaseVehicleRequest request)
+    {
+        if (LeaseRequestValidation.ValidateVehicle(request) is { } validationError)
+        {
+            return Result<LeaseItemDto>.Failure(validationError);
+        }
+
+        if (FindBlockingLease(propertyId, leaseId, out var lease) is { } leaseError)
+        {
+            return Result<LeaseItemDto>.Failure(leaseError);
+        }
+
+        var vehicle = _dbContext.TenantVehicles.FirstOrDefault(v => v.Id == vehicleId && v.LeaseId == leaseId);
+        if (vehicle is null)
+        {
+            return Result<LeaseItemDto>.Failure(LeaseRequestValidation.VehicleNotFound(vehicleId));
+        }
+
+        if (LicensePlateNormalizer.Normalize(vehicle.LicensePlate) != LicensePlateNormalizer.Normalize(request.LicensePlate)
+            && FindActiveVehiclePlateConflict(propertyId, [request]) is { } plateError)
+        {
+            return Result<LeaseItemDto>.Failure(plateError);
+        }
+
+        LeaseRecordMapper.ApplyVehicleUpdate(vehicle, request);
+        _dbContext.SaveChanges();
+        return Result<LeaseItemDto>.Success(MapLeaseItemDto(lease!, unmaskPii: false));
+    }
+
+    public Result<LeaseItemDto> DeleteAdminLeaseVehicle(Guid propertyId, Guid leaseId, Guid vehicleId)
+    {
+        if (FindBlockingLease(propertyId, leaseId, out var lease) is { } leaseError)
+        {
+            return Result<LeaseItemDto>.Failure(leaseError);
+        }
+
+        var vehicle = _dbContext.TenantVehicles.FirstOrDefault(v => v.Id == vehicleId && v.LeaseId == leaseId);
+        if (vehicle is null)
+        {
+            return Result<LeaseItemDto>.Failure(LeaseRequestValidation.VehicleNotFound(vehicleId));
+        }
+
+        _dbContext.TenantVehicles.Remove(vehicle);
+        _dbContext.SaveChanges();
+        return Result<LeaseItemDto>.Success(MapLeaseItemDto(lease!, unmaskPii: false));
+    }
+
+    public Result<LeaseSettlementDto> CancelAdminLease(
+        Guid propertyId,
+        Guid leaseId,
+        ReasonRequest request,
+        DateTimeOffset? nowUtc = null)
+    {
+        if (request.Validate() is { } reasonError)
+        {
+            return Result<LeaseSettlementDto>.Failure(reasonError);
+        }
+
+        var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
+        using var tx = BeginTransactionIfNeeded();
+
+        var lease = _dbContext.Leases.FirstOrDefault(l => l.Id == leaseId && l.PropertyId == propertyId);
+        if (lease is null)
+        {
+            return Result<LeaseSettlementDto>.Failure(LeaseRecordMapper.LeaseNotFound(propertyId, leaseId));
+        }
+
+        // Same unit-row serialization as move-out settlement so a double submit cannot refund twice.
+        LockUnitRow(lease.UnitId);
+        _dbContext.Entry(lease).Reload();
+
+        var invoices = _dbContext.Invoices.Include(i => i.Lines).Where(i => i.LeaseId == lease.Id).ToList();
+        if (invoices.Any(i => i.Status is not (InvoiceStatus.Draft or InvoiceStatus.Voided)))
+        {
+            return Result<LeaseSettlementDto>.Failure(LeaseRequestValidation.CancelBlockedByBilling(lease.DocumentNumber));
+        }
+
+        try
+        {
+            lease.Cancel();
+            var reason = request.Reason.Trim();
+            var refunded = 0m;
+            var ledger = _dbContext.DepositLedgers
+                .Include(l => l.Transactions)
+                .FirstOrDefault(l => l.LeaseId == lease.Id && l.DepositType == DepositType.LeaseSecurityDeposit);
+            if (ledger is { CurrentBalance: > 0m })
+            {
+                var existingTxIds = ledger.Transactions.Select(t => t.Id).ToHashSet();
+                var property = _dbContext.Properties.AsNoTracking().First(p => p.Id == propertyId);
+                refunded = ledger.RefundRemainingBalance(
+                    _documentNumberService.NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
+                    reason).Amount;
+                _dbContext.DepositTransactions.AddRange(ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)));
+            }
+
+            // Drafts carry no financial effect; soft-delete them (keeping their lines) with the cancelled lease.
+            foreach (var draft in invoices.Where(i => i.Status == InvoiceStatus.Draft))
+            {
+                _dbContext.Invoices.Remove(draft);
+                foreach (var line in draft.Lines)
+                {
+                    _dbContext.Entry(line).State = EntityState.Unchanged;
+                }
+            }
+
+            var unit = _dbContext.Units.First(u => u.Id == lease.UnitId);
+            var housekeepingTask = unit.MarkCheckedOutOrMovedOut(lease.DocumentNumber);
+            _dbContext.HousekeepingTasks.Add(housekeepingTask);
+
+            _dbContext.SaveChanges();
+            tx?.Commit();
+
+            return Result<LeaseSettlementDto>.Success(new LeaseSettlementDto(
+                Lease: MapLeaseItemDto(lease, unmaskPii: false),
+                DeductedAmount: 0m,
+                RefundedAmount: refunded,
+                GeneratedHousekeepingTaskStatus: housekeepingTask.Status.ToString()));
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<LeaseSettlementDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
     }
 
     public Result<LeaseItemDto> RenewAdminLease(

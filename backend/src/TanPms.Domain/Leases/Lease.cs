@@ -77,6 +77,39 @@ public sealed class Lease : AuditableEntity
         Status = LeaseStatus.MoveOutNotice;
     }
 
+    // Only monthly rent (applies to invoices drafted from now on) and move-in meter readings are editable on an Active lease.
+    public void UpdateTerms(decimal? monthlyRentAmount, decimal? initialWaterMeterReading, decimal? initialElectricMeterReading)
+    {
+        if (Status != LeaseStatus.Active)
+        {
+            throw Invalid($"Lease {DocumentNumber} must be Active to edit its terms (current: {Status}).");
+        }
+
+        if (monthlyRentAmount is < 0m || initialWaterMeterReading is < 0m || initialElectricMeterReading is < 0m)
+        {
+            throw Invalid("Monthly rent and initial meter readings cannot be negative.");
+        }
+
+        if (monthlyRentAmount.HasValue)
+        {
+            MonthlyRentAmount = decimal.Round(monthlyRentAmount.Value, 2, MidpointRounding.AwayFromZero);
+        }
+
+        InitialWaterMeterReading = initialWaterMeterReading ?? InitialWaterMeterReading;
+        InitialElectricMeterReading = initialElectricMeterReading ?? InitialElectricMeterReading;
+    }
+
+    // Active -> Cancelled; callers must first prove the lease has no billed (non-Draft, non-Voided) invoice.
+    public void Cancel()
+    {
+        if (Status != LeaseStatus.Active)
+        {
+            throw Invalid($"Only an Active lease can be cancelled (current: {Status}).");
+        }
+
+        Status = LeaseStatus.Cancelled;
+    }
+
     public void CompleteMoveOut()
     {
         if (Status != LeaseStatus.MoveOutNotice)
@@ -89,4 +122,7 @@ public sealed class Lease : AuditableEntity
 
         Status = LeaseStatus.MovedOut;
     }
+
+    private static DomainRuleException Invalid(string message) =>
+        new(DomainErrorCodes.ValidationFailed, message, httpStatus: 400);
 }

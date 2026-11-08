@@ -1,5 +1,6 @@
 using TanPms.Application.Common.Results;
 using TanPms.Application.Leases;
+using TanPms.Application.Meters;
 using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
 using TanPms.Domain.Leases;
@@ -51,6 +52,60 @@ internal static class LeaseRecordMapper
         vehicle.LicensePlate,
         vehicle.Province,
         vehicle.VehicleBrandModel);
+
+    internal static string LeaseStartPeriod(Lease lease) =>
+        BillingPeriod.Format(new DateOnly(lease.StartDate.Year, lease.StartDate.Month, 1));
+
+    // Shared occupant-edit rule: a lease always keeps exactly one primary occupant.
+    internal static Error? ApplyOccupantUpdate(List<Occupant> leaseOccupants, Guid occupantId, UpdateLeaseOccupantRequest request)
+    {
+        var occupant = leaseOccupants.FirstOrDefault(o => o.Id == occupantId);
+        if (occupant is null)
+        {
+            return LeaseRequestValidation.OccupantNotFound(occupantId);
+        }
+
+        if (occupant.IsPrimaryOccupant && !request.IsPrimaryOccupant)
+        {
+            return LeaseRequestValidation.PrimaryOccupantRequired();
+        }
+
+        occupant.FullName = request.FullName.Trim();
+        occupant.NationalityCode = string.IsNullOrWhiteSpace(request.NationalityCode)
+            ? occupant.NationalityCode
+            : request.NationalityCode.Trim().ToUpperInvariant();
+        // Blank keeps the stored number, so a client holding only the masked value cannot overwrite it.
+        occupant.IdentityNumber = string.IsNullOrWhiteSpace(request.IdentityNumber) ? occupant.IdentityNumber : request.IdentityNumber.Trim();
+        if (request.IsPrimaryOccupant)
+        {
+            foreach (var other in leaseOccupants)
+            {
+                other.IsPrimaryOccupant = other.Id == occupant.Id;
+            }
+        }
+
+        return null;
+    }
+
+    internal static Error? CheckOccupantDelete(IReadOnlyList<Occupant> leaseOccupants, Guid occupantId, out Occupant? occupant)
+    {
+        occupant = leaseOccupants.FirstOrDefault(o => o.Id == occupantId);
+        if (occupant is null)
+        {
+            return LeaseRequestValidation.OccupantNotFound(occupantId);
+        }
+
+        return occupant.IsPrimaryOccupant || leaseOccupants.Count <= 1
+            ? LeaseRequestValidation.PrimaryOccupantRequired()
+            : null;
+    }
+
+    internal static void ApplyVehicleUpdate(TenantVehicle vehicle, LeaseVehicleRequest request)
+    {
+        vehicle.LicensePlate = request.LicensePlate.Trim();
+        vehicle.Province = request.Province?.Trim() ?? string.Empty;
+        vehicle.VehicleBrandModel = request.VehicleBrandModel?.Trim() ?? string.Empty;
+    }
 
     internal static Error LeaseNotFound(Guid propertyId, Guid leaseId) => new(
         DomainErrorCodes.ValidationFailed,

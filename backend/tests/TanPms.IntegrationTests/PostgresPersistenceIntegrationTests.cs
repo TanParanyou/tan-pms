@@ -438,6 +438,151 @@ public sealed class PostgresPersistenceIntegrationTests
                 $"{bkkUrl}/parcels/{pgParcel.Id}/pickup", new PickUpParcelRequest("Somchai")))
                 .Content.ReadFromJsonAsync<ParcelItemDto>();
             Assert.Equal("PickedUp", pickedUp!.Status);
+
+            // 9. Edit / delete / cancel / void flows through EfCorePmsStore + PostgreSQL
+            using var crudClient = factory.CreateClient();
+            crudClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            crudClient.DefaultRequestHeaders.Add("X-TanPms-User-Id", "pg-crud");
+            crudClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+            crudClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", string.Join(",",
+                PermissionKeys.AdminLeasesManage,
+                PermissionKeys.AdminLeasesSettleMoveOut,
+                PermissionKeys.AdminMetersRecord,
+                PermissionKeys.AdminBillingIssueBatch,
+                PermissionKeys.AdminInvoicesVoid,
+                PermissionKeys.AdminCashierOperateShift,
+                PermissionKeys.AdminHousekeepingUpdate,
+                PermissionKeys.AdminWorkOrdersManage,
+                PermissionKeys.AdminParcelsManage));
+
+            var crudLease = await (await crudClient.PostAsJsonAsync(leasesUrl, new CreateLeaseRequest(
+                PmsSeedConstants.DirtyUnitA102Id,
+                PmsSeedConstants.SecondaryCustomerId,
+                new DateOnly(2026, 12, 10),
+                new DateOnly(2027, 12, 9),
+                6500m,
+                9000m,
+                0m,
+                0m,
+                [new LeaseOccupantRequest("Main Tenant", "THA", "3100500000033", true), new LeaseOccupantRequest("Room Mate", "THA", "3100500000044", false)],
+                [new LeaseVehicleRequest("3กข 5555", "Bangkok", "Toyota")]))).Content.ReadFromJsonAsync<LeaseItemDto>();
+            var mate = crudLease!.Occupants.Single(o => !o.IsPrimaryOccupant);
+            var promotedLease = await (await crudClient.PutAsJsonAsync(
+                $"{leasesUrl}/{crudLease.Id}/occupants/{mate.Id}", new UpdateLeaseOccupantRequest("Room Mate", "THA", null, true)))
+                .Content.ReadFromJsonAsync<LeaseItemDto>();
+            Assert.True(promotedLease!.Occupants.Single(o => o.Id == mate.Id).IsPrimaryOccupant);
+            var oldPrimary = promotedLease.Occupants.Single(o => o.Id != mate.Id);
+            Assert.Single((await (await crudClient.DeleteAsync($"{leasesUrl}/{crudLease.Id}/occupants/{oldPrimary.Id}"))
+                .Content.ReadFromJsonAsync<LeaseItemDto>())!.Occupants);
+            Assert.Equal(HttpStatusCode.BadRequest, (await crudClient.DeleteAsync($"{leasesUrl}/{crudLease.Id}/occupants/{mate.Id}")).StatusCode);
+            var vehicleId = crudLease.Vehicles.Single().Id;
+            Assert.Equal(HttpStatusCode.OK, (await crudClient.PutAsJsonAsync(
+                $"{leasesUrl}/{crudLease.Id}/vehicles/{vehicleId}", new LeaseVehicleRequest("3กข 5556", "Bangkok", "Toyota"))).StatusCode);
+            Assert.Empty((await (await crudClient.DeleteAsync($"{leasesUrl}/{crudLease.Id}/vehicles/{vehicleId}"))
+                .Content.ReadFromJsonAsync<LeaseItemDto>())!.Vehicles);
+            Assert.Equal(7000m, (await (await crudClient.PutAsJsonAsync(
+                $"{leasesUrl}/{crudLease.Id}", new UpdateLeaseRequest(7000m, null, null, "Rent agreed before move-in")))
+                .Content.ReadFromJsonAsync<LeaseItemDto>())!.MonthlyRentAmount);
+
+            Assert.True((await (await crudClient.PutAsJsonAsync($"{bkkUrl}/meter-readings", new SaveMeterReadingsRequest(
+                "2026-12", [new MeterReadingInputDto(PmsSeedConstants.DirtyUnitA102Id, 10m, 20m)])))
+                .Content.ReadFromJsonAsync<SaveMeterReadingsResponse>())!.IsSaved);
+            var decRun = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/billing/batch-invoice-runs", new BatchInvoiceRunRequest("2026-12")))
+                .Content.ReadFromJsonAsync<BatchInvoiceRunResponse>();
+            var decDraft = Assert.Single(decRun!.Created);
+            Assert.Equal(4967.74m, decDraft.Lines[0].LineAmount); // 7000 x 22 / 31 days
+
+            Assert.True((await (await crudClient.PutAsJsonAsync($"{bkkUrl}/meter-readings", new SaveMeterReadingsRequest(
+                "2026-12", [new MeterReadingInputDto(PmsSeedConstants.DirtyUnitA102Id, 10m, 40m)])))
+                .Content.ReadFromJsonAsync<SaveMeterReadingsResponse>())!.IsSaved);
+            var decRerun = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/billing/batch-invoice-runs", new BatchInvoiceRunRequest("2026-12")))
+                .Content.ReadFromJsonAsync<BatchInvoiceRunResponse>();
+            var refreshedDraft = Assert.Single(decRerun!.Refreshed);
+            Assert.Equal(decDraft.Id, refreshedDraft.Id);
+            Assert.Equal(320m, refreshedDraft.Lines.Single(l => l.Description.En!.StartsWith("Electricity", StringComparison.Ordinal)).LineAmount); // 40 kWh x 8
+            Assert.Empty((await (await crudClient.PostAsJsonAsync($"{bkkUrl}/billing/batch-invoice-runs", new BatchInvoiceRunRequest("2026-12")))
+                .Content.ReadFromJsonAsync<BatchInvoiceRunResponse>())!.Refreshed);
+
+            var parkingLine = new InvoiceLineRequest(new LocalizedTextDto("ค่าที่จอดรถ", "Parking"), 500m, "VatIncluded");
+            var withParking = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/invoices/{decDraft.Id}/lines", parkingLine))
+                .Content.ReadFromJsonAsync<InvoiceItemDto>();
+            Assert.Equal(4, withParking!.Lines.Count);
+            // Line order from PostgreSQL is not guaranteed, so lines are located by description.
+            var parkingId = withParking.Lines.Single(l => l.Description.En == "Parking").Id;
+            var repriced = await (await crudClient.PutAsJsonAsync(
+                $"{bkkUrl}/invoices/{decDraft.Id}/lines/{parkingId}", parkingLine with { LineAmount = 650m }))
+                .Content.ReadFromJsonAsync<InvoiceItemDto>();
+            var repricedParking = repriced!.Lines.Single(l => l.Description.En == "Parking");
+            Assert.Equal(650m, repricedParking.LineAmount);
+            Assert.Equal(3, (await (await crudClient.DeleteAsync($"{bkkUrl}/invoices/{decDraft.Id}/lines/{repricedParking.Id}"))
+                .Content.ReadFromJsonAsync<InvoiceItemDto>())!.Lines.Count);
+            Assert.Equal(3, (await crudClient.GetFromJsonAsync<InvoiceItemDto>($"{bkkUrl}/invoices/{decDraft.Id}"))!.Lines.Count);
+
+            var deletedRow = await (await crudClient.DeleteAsync(
+                $"{bkkUrl}/meter-readings/units/{PmsSeedConstants.DirtyUnitA102Id}?period=2026-12"))
+                .Content.ReadFromJsonAsync<MeterReadingSheetRowDto>();
+            Assert.Null(deletedRow!.Electric.CurrentReading);
+
+            // Only a Draft invoice exists, so cancel is allowed: full deposit refund and the draft is soft-deleted.
+            var cancelledLease = await (await crudClient.PostAsJsonAsync(
+                $"{leasesUrl}/{crudLease.Id}/cancel", new ReasonRequest("Tenant withdrew before move-in")))
+                .Content.ReadFromJsonAsync<LeaseSettlementDto>();
+            Assert.Equal("Cancelled", cancelledLease!.Lease.Status);
+            Assert.Equal(9000m, cancelledLease.RefundedAmount);
+            Assert.Equal(HttpStatusCode.BadRequest, (await crudClient.GetAsync($"{bkkUrl}/invoices/{decDraft.Id}")).StatusCode);
+
+            var crudShift = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/cashier/shifts/open", new OpenCashierShiftRequest(200m)))
+                .Content.ReadFromJsonAsync<CashierShiftDto>();
+            Assert.Equal(HttpStatusCode.BadRequest, (await crudClient.PostAsJsonAsync(
+                $"{bkkUrl}/cashier/shifts/{crudShift!.Id}/cancel", new ReasonRequest(""))).StatusCode);
+            Assert.Equal("Cancelled", (await (await crudClient.PostAsJsonAsync(
+                $"{bkkUrl}/cashier/shifts/{crudShift.Id}/cancel", new ReasonRequest("Opened by mistake")))
+                .Content.ReadFromJsonAsync<CashierShiftDto>())!.Status);
+            Assert.Equal(HttpStatusCode.Created, (await crudClient.PostAsJsonAsync($"{bkkUrl}/cashier/shifts/open", new OpenCashierShiftRequest(200m))).StatusCode);
+            Assert.Equal("Cancelled", (await crudClient.GetFromJsonAsync<CashierShiftDto>($"{bkkUrl}/cashier/shifts/{crudShift.Id}"))!.Status);
+
+            var manualTask = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/housekeeping/tasks",
+                new CreateHousekeepingTaskRequest(PmsSeedConstants.CleanUnitA101Id, "Spot clean carpet")))
+                .Content.ReadFromJsonAsync<HousekeepingTaskDto>();
+            Assert.Equal("Bring vacuum", (await (await crudClient.PutAsJsonAsync($"{bkkUrl}/housekeeping/tasks/{manualTask!.Id}",
+                new UpdateHousekeepingTaskRequest("maid-pg", "Bring vacuum"))).Content.ReadFromJsonAsync<HousekeepingTaskDto>())!.Note);
+            Assert.Equal(HttpStatusCode.OK, (await crudClient.DeleteAsync($"{bkkUrl}/housekeeping/tasks/{manualTask.Id}")).StatusCode);
+
+            var crudWo = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/work-orders",
+                new CreateWorkOrderRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Aircon noise")))
+                .Content.ReadFromJsonAsync<WorkOrderItemDto>();
+            Assert.Equal("High", (await (await crudClient.PutAsJsonAsync($"{bkkUrl}/work-orders/{crudWo!.Id}",
+                new UpdateWorkOrderRequest("Aircon rattling", null, "High"))).Content.ReadFromJsonAsync<WorkOrderItemDto>())!.Priority);
+            var cancelledWo = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/work-orders/{crudWo.Id}/cancel", new ReasonRequest("Duplicate")))
+                .Content.ReadFromJsonAsync<WorkOrderItemDto>();
+            Assert.Equal("Cancelled", cancelledWo!.Status);
+            Assert.Equal("Duplicate", (await crudClient.GetFromJsonAsync<WorkOrderItemDto>($"{bkkUrl}/work-orders/{crudWo.Id}"))!.CancelReason);
+
+            var crudParcel = await (await crudClient.PostAsJsonAsync($"{bkkUrl}/parcels",
+                new ReceiveParcelRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Thai Post")))
+                .Content.ReadFromJsonAsync<ParcelItemDto>();
+            Assert.Equal("EMS-1", (await (await crudClient.PutAsJsonAsync($"{bkkUrl}/parcels/{crudParcel!.Id}",
+                new ReceiveParcelRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "Thai Post EMS", "EMS-1")))
+                .Content.ReadFromJsonAsync<ParcelItemDto>())!.TrackingNumber);
+            Assert.Equal(HttpStatusCode.OK, (await clientApp.GetAsync($"/api/v1/client/parcels/{crudParcel.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await crudClient.PostAsJsonAsync($"{bkkUrl}/parcels/{crudParcel.Id}/void", new ReasonRequest("Logged twice"))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await crudClient.GetAsync($"{bkkUrl}/parcels/{crudParcel.Id}")).StatusCode);
+
+            // Client edits then withdraws its own Pending slip; another customer gets 403; then the unpaid invoice is voided.
+            var seededInvoice = (await billingClient.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices?period=2026-11"))!.Items.Single();
+            var pendingSlip = await (await clientApp.PostAsJsonAsync(
+                $"/api/v1/client/invoices/{seededInvoice.Id}/slips", new SubmitPaymentSlipRequest(100m, "slips/pg-crud.jpg")))
+                .Content.ReadFromJsonAsync<ClientPaymentSlipDto>();
+            Assert.Equal(200m, (await (await clientApp.PutAsJsonAsync(
+                $"/api/v1/client/invoices/{seededInvoice.Id}/slips/{pendingSlip!.Id}", new SubmitPaymentSlipRequest(200m, "slips/pg-crud-2.jpg")))
+                .Content.ReadFromJsonAsync<ClientPaymentSlipDto>())!.Amount);
+            Assert.Equal(HttpStatusCode.Forbidden, (await pgCustomer2.DeleteAsync($"/api/v1/client/invoices/{seededInvoice.Id}/slips/{pendingSlip.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await crudClient.PostAsJsonAsync($"{bkkUrl}/invoices/{seededInvoice.Id}/void", new ReasonRequest("x"))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await clientApp.DeleteAsync($"/api/v1/client/invoices/{seededInvoice.Id}/slips/{pendingSlip.Id}")).StatusCode);
+            var voidedInvoice = await (await crudClient.PostAsJsonAsync(
+                $"{bkkUrl}/invoices/{seededInvoice.Id}/void", new ReasonRequest("Re-billed under corrected lease")))
+                .Content.ReadFromJsonAsync<InvoiceItemDto>();
+            Assert.Equal("Voided", voidedInvoice!.Status);
         }
         finally
         {

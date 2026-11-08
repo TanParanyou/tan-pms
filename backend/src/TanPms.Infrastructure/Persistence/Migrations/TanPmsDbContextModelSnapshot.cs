@@ -92,6 +92,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ChargeCategoryCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("jsonb");
@@ -1016,6 +1020,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");
 
@@ -1127,6 +1135,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("BeforePhotoFileKey")
                         .HasColumnType("text");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<string>("ChargeDocumentNumber")
                         .HasColumnType("text");

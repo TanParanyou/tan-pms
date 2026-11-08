@@ -139,6 +139,77 @@ public sealed partial class EfCorePmsStore
         }
     }
 
+    public Result<CashierShiftDto> GetAdminCashierShift(Guid propertyId, Guid shiftId)
+    {
+        var shift = _dbContext.CashierShifts.AsNoTracking().FirstOrDefault(s => s.Id == shiftId && s.PropertyId == propertyId);
+        return shift is null
+            ? Result<CashierShiftDto>.Failure(CashierRecordMapper.ShiftNotFound(propertyId, shiftId))
+            : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+    }
+
+    public Result<CashierShiftDto> CancelAdminCashierShift(
+        Guid propertyId,
+        Guid shiftId,
+        string? requiredOwnerUserId,
+        ReasonRequest request)
+    {
+        if (request.Validate() is { } reasonError)
+        {
+            return Result<CashierShiftDto>.Failure(reasonError);
+        }
+
+        return MutateShift(propertyId, shiftId, requiredOwnerUserId, shift =>
+        {
+            if (_dbContext.Receipts.AsNoTracking().Any(r => r.CashierShiftId == shift.Id))
+            {
+                return CashierRecordMapper.ShiftHasReceipts(shift.DocumentNumber);
+            }
+
+            shift.Cancel();
+            return null;
+        });
+    }
+
+    public Result<CashierShiftDto> UpdateAdminCashierShiftRemark(
+        Guid propertyId,
+        Guid shiftId,
+        string? requiredOwnerUserId,
+        UpdateCashierShiftRemarkRequest request) =>
+        MutateShift(propertyId, shiftId, requiredOwnerUserId, shift =>
+        {
+            shift.UpdateVarianceRemark(request.VarianceRemark);
+            return null;
+        });
+
+    private Result<CashierShiftDto> MutateShift(Guid propertyId, Guid shiftId, string? requiredOwnerUserId, Func<CashierShift, Error?> mutate)
+    {
+        var shift = _dbContext.CashierShifts.FirstOrDefault(s => s.Id == shiftId && s.PropertyId == propertyId);
+        if (shift is null)
+        {
+            return Result<CashierShiftDto>.Failure(CashierRecordMapper.ShiftNotFound(propertyId, shiftId));
+        }
+
+        if (requiredOwnerUserId is not null && shift.CashierUserId != requiredOwnerUserId)
+        {
+            return Result<CashierShiftDto>.Failure(CashierRecordMapper.ShiftOwnedByAnotherCashier());
+        }
+
+        try
+        {
+            if (mutate(shift) is { } error)
+            {
+                return Result<CashierShiftDto>.Failure(error);
+            }
+
+            _dbContext.SaveChanges();
+            return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift));
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<CashierShiftDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
+    }
+
     public bool HasOpenCashierShift(string cashierUserId, IReadOnlySet<Guid> propertyIds)
     {
         var ids = propertyIds.ToList();
@@ -164,7 +235,21 @@ public sealed partial class EfCorePmsStore
             query = query.Where(l => l.DepositType == typeFilter.Value);
         }
 
-        var ledgers = query.OrderByDescending(l => l.CreatedAt).ToList();
+        var items = MapLedgers(propertyId, query.OrderByDescending(l => l.CreatedAt).ToList(), unmaskPii);
+        return Result<DepositLedgerListResponse>.Success(new DepositLedgerListResponse(items, items.Sum(i => i.CurrentBalance)));
+    }
+
+    public Result<DepositLedgerItemDto> GetAdminDepositLedger(Guid propertyId, Guid ledgerId, bool unmaskPii = false)
+    {
+        var ledger = _dbContext.DepositLedgers.AsNoTracking().Include(l => l.Transactions)
+            .FirstOrDefault(l => l.Id == ledgerId && l.PropertyId == propertyId);
+        return ledger is null
+            ? Result<DepositLedgerItemDto>.Failure(CashierRecordMapper.LedgerNotFound(propertyId, ledgerId))
+            : Result<DepositLedgerItemDto>.Success(MapLedgers(propertyId, [ledger], unmaskPii)[0]);
+    }
+
+    private List<DepositLedgerItemDto> MapLedgers(Guid propertyId, IReadOnlyList<DepositLedger> ledgers, bool unmaskPii)
+    {
         var stayIds = ledgers.Where(l => l.StayId.HasValue).Select(l => l.StayId!.Value).ToList();
         var leaseIds = ledgers.Where(l => l.LeaseId.HasValue).Select(l => l.LeaseId!.Value).ToList();
         var reservationIds = ledgers.Where(l => l.ReservationId.HasValue).Select(l => l.ReservationId!.Value).ToList();
@@ -187,13 +272,12 @@ public sealed partial class EfCorePmsStore
         var unitIds = ledgers.Select(Owner).Where(o => o?.UnitId is not null).Select(o => o!.Value.UnitId!.Value).Distinct().ToList();
         var unitRefs = BuildUnitRefsForProperty(propertyId, _dbContext.Units.AsNoTracking().Where(u => unitIds.Contains(u.Id)).ToList());
 
-        var items = ledgers.Select(l =>
+        return ledgers.Select(l =>
         {
             var owner = Owner(l);
             UnitRefDto? unitRef = owner?.UnitId is { } unitId ? unitRefs[unitId] : null;
             return CashierRecordMapper.MapLedger(l, owner?.DocumentNumber, customers[l.CustomerId], unitRef, unmaskPii);
         }).ToList();
-        return Result<DepositLedgerListResponse>.Success(new DepositLedgerListResponse(items, items.Sum(i => i.CurrentBalance)));
     }
 
     public Result<ClientPaymentSlipDto> SubmitClientPaymentSlip(
@@ -237,6 +321,80 @@ public sealed partial class EfCorePmsStore
             .Select(s => CashierRecordMapper.MapClientSlip(s, invoice.DocumentNumber))
             .ToList();
         return Result<ClientPaymentSlipListResponse>.Success(new ClientPaymentSlipListResponse(items));
+    }
+
+    public Result<ClientPaymentSlipDto> UpdateClientPaymentSlip(
+        Guid customerId,
+        Guid invoiceId,
+        Guid slipId,
+        SubmitPaymentSlipRequest request)
+    {
+        if (PaymentSlipRules.ValidateSubmit(request) is { } validationError)
+        {
+            return Result<ClientPaymentSlipDto>.Failure(validationError);
+        }
+
+        using var tx = BeginTransactionIfNeeded();
+        LockPaymentSlipRow(slipId);
+        var slip = _dbContext.PaymentSlips.FirstOrDefault(s => s.Id == slipId);
+        if (PaymentSlipRules.CheckClientOwnsSlip(slip, customerId, invoiceId) is { } ownerError)
+        {
+            return Result<ClientPaymentSlipDto>.Failure(ownerError);
+        }
+
+        _dbContext.Entry(slip!).Reload();
+        var invoice = _dbContext.Invoices.AsNoTracking().Include(i => i.Lines).First(i => i.Id == invoiceId);
+        if (PaymentSlipRules.CheckSubmittable(invoice, customerId, Outstanding(invoice), request.Amount) is { } submitError)
+        {
+            return Result<ClientPaymentSlipDto>.Failure(submitError);
+        }
+
+        try
+        {
+            slip!.UpdatePending(request.Amount, request.SlipFileKey, request.TransferReference, request.TransferredAt);
+            _dbContext.SaveChanges();
+            tx?.Commit();
+            return Result<ClientPaymentSlipDto>.Success(CashierRecordMapper.MapClientSlip(slip, invoice.DocumentNumber));
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<ClientPaymentSlipDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
+    }
+
+    public Result<ClientPaymentSlipDto> WithdrawClientPaymentSlip(Guid customerId, Guid invoiceId, Guid slipId)
+    {
+        using var tx = BeginTransactionIfNeeded();
+        LockPaymentSlipRow(slipId);
+        var slip = _dbContext.PaymentSlips.FirstOrDefault(s => s.Id == slipId);
+        if (PaymentSlipRules.CheckClientOwnsSlip(slip, customerId, invoiceId) is { } ownerError)
+        {
+            return Result<ClientPaymentSlipDto>.Failure(ownerError);
+        }
+
+        _dbContext.Entry(slip!).Reload();
+        try
+        {
+            slip!.EnsureCanWithdraw();
+            var invoiceDocumentNumber = _dbContext.Invoices.AsNoTracking().Where(i => i.Id == invoiceId).Select(i => i.DocumentNumber).First();
+            // AuditableEntityInterceptor soft-deletes the slip.
+            _dbContext.PaymentSlips.Remove(slip);
+            _dbContext.SaveChanges();
+            tx?.Commit();
+            return Result<ClientPaymentSlipDto>.Success(CashierRecordMapper.MapClientSlip(slip, invoiceDocumentNumber));
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<ClientPaymentSlipDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
+    }
+
+    public Result<AdminPaymentSlipDto> GetAdminPaymentSlip(Guid propertyId, Guid slipId, bool unmaskPii = false)
+    {
+        var slip = _dbContext.PaymentSlips.AsNoTracking().FirstOrDefault(s => s.Id == slipId && s.PropertyId == propertyId);
+        return slip is null
+            ? Result<AdminPaymentSlipDto>.Failure(CashierRecordMapper.SlipNotFound(propertyId, slipId))
+            : Result<AdminPaymentSlipDto>.Success(MapAdminSlips(propertyId, [slip], unmaskPii)[0]);
     }
 
     public Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false)

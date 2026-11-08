@@ -15,6 +15,26 @@ namespace TanPms.Infrastructure.Services;
 // Shared by the EF Core and in-memory stores so housekeeping, work order and parcel projections stay identical.
 internal static class OperationsRecordMapper
 {
+    // SourceDocumentNumber of a task created by hand instead of from a check-out or move-out document.
+    internal const string ManualHousekeepingSource = "MANUAL";
+
+    internal static HousekeepingTask BuildManualHousekeepingTask(Guid propertyId, CreateHousekeepingTaskRequest request) => new()
+    {
+        PropertyId = propertyId,
+        UnitId = request.UnitId,
+        SourceDocumentNumber = ManualHousekeepingSource,
+        AssignedStaffUserId = string.IsNullOrWhiteSpace(request.AssignedStaffUserId) ? null : request.AssignedStaffUserId.Trim(),
+        Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim()
+    };
+
+    internal static Error? ValidateNote(string? note) =>
+        note is { Length: > 1000 }
+            ? new Error(DomainErrorCodes.ValidationFailed, "Note cannot exceed 1000 characters.")
+            : null;
+
+    internal static Error ClientRecordNotFound(string entity) =>
+        new(DomainErrorCodes.PermissionDenied, $"{entity} was not found for the current customer.");
+
     internal static HousekeepingTaskDto MapHousekeepingTask(HousekeepingTask task, UnitRefDto unitRef, Unit unit) => new(
         task.Id,
         unitRef,
@@ -22,6 +42,7 @@ internal static class OperationsRecordMapper
         task.Status.ToString(),
         unit.ConditionStatus.ToString(),
         task.AssignedStaffUserId,
+        task.Note,
         task.CreatedAt,
         task.UpdatedAt);
 
@@ -41,6 +62,7 @@ internal static class OperationsRecordMapper
         workOrder.ResolutionNotes,
         workOrder.TenantChargeAmount,
         workOrder.ChargeDocumentNumber,
+        workOrder.CancelReason,
         workOrder.CreatedAt,
         workOrder.UpdatedAt);
 

@@ -9,6 +9,7 @@ public sealed class HousekeepingTask : AuditableEntity
     public required Guid UnitId { get; set; }
     public required string SourceDocumentNumber { get; set; }
     public string? AssignedStaffUserId { get; set; }
+    public string? Note { get; set; }
     public HousekeepingTaskStatus Status { get; set; } = HousekeepingTaskStatus.Pending;
 
     public void AdvanceUnitCondition(Unit unit)
@@ -38,6 +39,26 @@ public sealed class HousekeepingTask : AuditableEntity
         }
 
         AssignedStaffUserId = staffUserId.Trim();
+    }
+
+    // Edits assignee/note on an unfinished task; a blank assignee clears the assignment.
+    public void UpdateDetails(string? assignedStaffUserId, string? note)
+    {
+        if (Status == HousekeepingTaskStatus.Completed)
+        {
+            throw Invalid("A Completed HousekeepingTask cannot be edited.");
+        }
+
+        AssignedStaffUserId = string.IsNullOrWhiteSpace(assignedStaffUserId) ? null : assignedStaffUserId.Trim();
+        Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+    }
+
+    public void EnsureCanDelete()
+    {
+        if (Status != HousekeepingTaskStatus.Pending)
+        {
+            throw Invalid($"Only a Pending HousekeepingTask can be deleted (current: {Status}).");
+        }
     }
 
     public void Start(Unit unit)

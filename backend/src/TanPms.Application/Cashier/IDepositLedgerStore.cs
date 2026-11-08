@@ -8,4 +8,6 @@ public interface IDepositLedgerStore
         Guid propertyId,
         string? depositType,
         bool unmaskPii = false);
+
+    Result<DepositLedgerItemDto> GetAdminDepositLedger(Guid propertyId, Guid ledgerId, bool unmaskPii = false);
 }

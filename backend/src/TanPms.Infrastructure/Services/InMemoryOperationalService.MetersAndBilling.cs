@@ -1,4 +1,5 @@
 using TanPms.Application.Billing;
+using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Meters;
 using TanPms.Domain.Billing;
@@ -108,20 +109,43 @@ public sealed partial class InMemoryOperationalService
 
             var profiles = _taxProfiles.Values.Where(p => p.PropertyId == propertyId).ToList();
             var created = new List<Invoice>();
+            var refreshed = new List<Invoice>();
             var skipped = new List<BatchInvoiceSkipDto>();
             foreach (var context in BuildLeaseMeterContextsLocked(propertyId, period, start, end, request.BuildingId))
             {
-                if (_invoices.Any(i => i.LeaseId == context.Lease.Id && i.BillingPeriodYearMonth == period && i.Status != InvoiceStatus.Voided))
+                var water = context.UnitReadings.FirstOrDefault(r => r.UtilityType == UtilityType.Water && r.BillingPeriodYearMonth == period);
+                var electric = context.UnitReadings.FirstOrDefault(r => r.UtilityType == UtilityType.Electric && r.BillingPeriodYearMonth == period);
+                var existing = _invoices.FirstOrDefault(i =>
+                    i.LeaseId == context.Lease.Id && i.BillingPeriodYearMonth == period && i.Status != InvoiceStatus.Voided);
+                if (water is null || electric is null)
                 {
-                    skipped.Add(new BatchInvoiceSkipDto(context.Lease.Id, context.Lease.DocumentNumber, context.UnitRef, BatchInvoiceSkipReasons.InvoiceAlreadyExists));
+                    skipped.Add(new BatchInvoiceSkipDto(
+                        context.Lease.Id,
+                        context.Lease.DocumentNumber,
+                        context.UnitRef,
+                        existing is not null && existing.Status != InvoiceStatus.Draft
+                            ? BatchInvoiceSkipReasons.InvoiceAlreadyExists
+                            : BatchInvoiceSkipReasons.MissingMeterReadings));
                     continue;
                 }
 
-                var water = context.UnitReadings.FirstOrDefault(r => r.UtilityType == UtilityType.Water && r.BillingPeriodYearMonth == period);
-                var electric = context.UnitReadings.FirstOrDefault(r => r.UtilityType == UtilityType.Electric && r.BillingPeriodYearMonth == period);
-                if (water is null || electric is null)
+                if (existing is not null)
                 {
-                    skipped.Add(new BatchInvoiceSkipDto(context.Lease.Id, context.Lease.DocumentNumber, context.UnitRef, BatchInvoiceSkipReasons.MissingMeterReadings));
+                    // Draft invoices of the period follow reading/lease changes; Issued (or later) are never touched.
+                    if (existing.Status == InvoiceStatus.Draft
+                        && MeterBillingComposer.RefreshDraftInvoice(
+                            existing,
+                            MeterBillingComposer.BuildAutoLines(context, period, water, electric, category => MeterBillingComposer.ResolveTaxMode(profiles, category)),
+                            [],
+                            []))
+                    {
+                        refreshed.Add(existing);
+                    }
+                    else
+                    {
+                        skipped.Add(new BatchInvoiceSkipDto(context.Lease.Id, context.Lease.DocumentNumber, context.UnitRef, BatchInvoiceSkipReasons.InvoiceAlreadyExists));
+                    }
+
                     continue;
                 }
 
@@ -139,6 +163,7 @@ public sealed partial class InMemoryOperationalService
             return Result<BatchInvoiceRunResponse>.Success(new BatchInvoiceRunResponse(
                 period,
                 created.Select(i => MapInvoiceLocked(i, unmaskPii: false)).ToList(),
+                refreshed.Select(i => MapInvoiceLocked(i, unmaskPii: false)).ToList(),
                 skipped));
         }
     }
@@ -257,6 +282,130 @@ public sealed partial class InMemoryOperationalService
                 var dto = MapInvoiceLocked(invoice, unmaskPii: false);
                 _invoices.Remove(invoice);
                 return Result<InvoiceItemDto>.Success(dto);
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<InvoiceItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    public Result<MeterReadingSheetRowDto> DeleteAdminMeterReading(
+        Guid propertyId,
+        Guid unitId,
+        string period,
+        string? overrideReason,
+        bool callerCanOverrideLocked)
+    {
+        if (BillingPeriod.Parse(period, out var start, out var end) is { } periodError)
+        {
+            return Result<MeterReadingSheetRowDto>.Failure(periodError);
+        }
+
+        var normalizedPeriod = BillingPeriod.Format(start);
+        lock (_syncRoot)
+        {
+            var context = BuildLeaseMeterContextsLocked(propertyId, normalizedPeriod, start, end, buildingId: null)
+                .FirstOrDefault(c => c.UnitRef.Id == unitId);
+            var readings = _meterReadings
+                .Where(r => r.PropertyId == propertyId && r.UnitId == unitId && r.BillingPeriodYearMonth == normalizedPeriod)
+                .ToList();
+            if (MeterBillingComposer.CheckDeletable(context, readings.Count, overrideReason, callerCanOverrideLocked) is { } deleteError)
+            {
+                return Result<MeterReadingSheetRowDto>.Failure(deleteError);
+            }
+
+            _meterReadings.RemoveAll(readings.Contains);
+            var refreshed = BuildLeaseMeterContextsLocked(propertyId, normalizedPeriod, start, end, buildingId: null).First(c => c.UnitRef.Id == unitId);
+            return Result<MeterReadingSheetRowDto>.Success(MeterBillingComposer.BuildSheetRow(
+                refreshed,
+                normalizedPeriod,
+                FindTariffLocked(propertyId, UtilityType.Water),
+                FindTariffLocked(propertyId, UtilityType.Electric)));
+        }
+    }
+
+    public Result<InvoiceItemDto> GetAdminInvoice(Guid propertyId, Guid invoiceId, bool unmaskPii = false)
+    {
+        lock (_syncRoot)
+        {
+            var invoice = _invoices.FirstOrDefault(i => i.Id == invoiceId && i.PropertyId == propertyId);
+            return invoice is null
+                ? Result<InvoiceItemDto>.Failure(MeterBillingComposer.InvoiceNotFound(propertyId, invoiceId))
+                : Result<InvoiceItemDto>.Success(MapInvoiceLocked(invoice, unmaskPii));
+        }
+    }
+
+    public Result<InvoiceItemDto> AddAdminInvoiceLine(Guid propertyId, Guid invoiceId, InvoiceLineRequest request) =>
+        MutateDraftInvoiceLinesLocked(propertyId, invoiceId, request, (invoice, description, taxMode) =>
+            invoice.AddLine(description, request.LineAmount, taxMode));
+
+    public Result<InvoiceItemDto> UpdateAdminInvoiceLine(Guid propertyId, Guid invoiceId, Guid lineId, InvoiceLineRequest request) =>
+        MutateDraftInvoiceLinesLocked(propertyId, invoiceId, request, (invoice, description, taxMode) =>
+            invoice.ReplaceLine(lineId, description, request.LineAmount, taxMode));
+
+    public Result<InvoiceItemDto> DeleteAdminInvoiceLine(Guid propertyId, Guid invoiceId, Guid lineId) =>
+        MutateDraftInvoiceLinesLocked(propertyId, invoiceId, request: null, (invoice, _, _) => invoice.RemoveLine(lineId));
+
+    public Result<InvoiceItemDto> VoidAdminInvoice(Guid propertyId, Guid invoiceId, ReasonRequest request)
+    {
+        if (request.Validate() is { } reasonError)
+        {
+            return Result<InvoiceItemDto>.Failure(reasonError);
+        }
+
+        lock (_syncRoot)
+        {
+            var invoice = _invoices.FirstOrDefault(i => i.Id == invoiceId && i.PropertyId == propertyId);
+            if (invoice is null)
+            {
+                return Result<InvoiceItemDto>.Failure(MeterBillingComposer.InvoiceNotFound(propertyId, invoiceId));
+            }
+
+            var hasReceipts = _receipts.Any(r => r.InvoiceId == invoice.Id);
+            var hasOpenSlips = _paymentSlips.Any(s => s.InvoiceId == invoice.Id && s.Status != PaymentSlipStatus.Rejected);
+            if (MeterBillingComposer.CheckVoidable(invoice, hasReceipts, hasOpenSlips) is { } voidError)
+            {
+                return Result<InvoiceItemDto>.Failure(voidError);
+            }
+
+            try
+            {
+                invoice.Void(request.Reason.Trim());
+                return Result<InvoiceItemDto>.Success(MapInvoiceLocked(invoice, unmaskPii: false));
+            }
+            catch (DomainRuleException ex)
+            {
+                return Result<InvoiceItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+            }
+        }
+    }
+
+    private Result<InvoiceItemDto> MutateDraftInvoiceLinesLocked(
+        Guid propertyId,
+        Guid invoiceId,
+        InvoiceLineRequest? request,
+        Action<Invoice, LocalizedText, TaxMode> mutate)
+    {
+        LocalizedText description = LocalizedText.Create("-");
+        var taxMode = TaxMode.Exempt;
+        if (request is not null && MeterBillingComposer.ParseLineRequest(request, out description, out taxMode) is { } requestError)
+        {
+            return Result<InvoiceItemDto>.Failure(requestError);
+        }
+
+        lock (_syncRoot)
+        {
+            var invoice = _invoices.FirstOrDefault(i => i.Id == invoiceId && i.PropertyId == propertyId);
+            if (invoice is null)
+            {
+                return Result<InvoiceItemDto>.Failure(MeterBillingComposer.InvoiceNotFound(propertyId, invoiceId));
+            }
+
+            try
+            {
+                mutate(invoice, description, taxMode);
+                return Result<InvoiceItemDto>.Success(MapInvoiceLocked(invoice, unmaskPii: false));
             }
             catch (DomainRuleException ex)
             {

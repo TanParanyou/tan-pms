@@ -29,14 +29,19 @@ public sealed class RunAdminBatchInvoicesHandler
         }
 
         var result = _store.RunAdminBatchInvoices(command.PropertyId, command.Request);
-        if (result.IsSuccess && result.Value is { Created.Count: > 0 } run)
+        if (result.IsSuccess && result.Value is { } run && (run.Created.Count > 0 || run.Refreshed.Count > 0))
         {
             _auditLogger.RecordMutation(
                 propertyId: command.PropertyId,
                 actionKey: PermissionKeys.AdminBillingIssueBatch,
                 entityId: command.PropertyId,
-                reason: $"Batch invoice run {run.Period}: {run.Created.Count} draft(s), {run.Skipped.Count} skipped",
-                afterState: new { run.Period, Created = run.Created.Select(i => i.DocumentNumber).ToList() });
+                reason: $"Batch invoice run {run.Period}: {run.Created.Count} draft(s), {run.Refreshed.Count} refreshed, {run.Skipped.Count} skipped",
+                afterState: new
+                {
+                    run.Period,
+                    Created = run.Created.Select(i => i.DocumentNumber).ToList(),
+                    Refreshed = run.Refreshed.Select(i => i.DocumentNumber).ToList()
+                });
         }
 
         return result;

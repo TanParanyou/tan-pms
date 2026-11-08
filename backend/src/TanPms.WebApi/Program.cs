@@ -2,6 +2,7 @@ using TanPms.Application.Billing;
 using TanPms.Application.Cashier;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Contracts;
 using TanPms.Application.Customers;
 using TanPms.Application.Housekeeping;
 using TanPms.Application.Identity;
@@ -115,6 +116,38 @@ builder.Services.AddScoped<RenewAdminLeaseHandler>();
 builder.Services.AddScoped<GiveAdminLeaseMoveOutNoticeHandler>();
 builder.Services.AddScoped<SettleAdminLeaseMoveOutHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
+builder.Services.AddScoped<UpdateAdminLeaseHandler>();
+builder.Services.AddScoped<UpdateAdminLeaseOccupantHandler>();
+builder.Services.AddScoped<DeleteAdminLeaseOccupantHandler>();
+builder.Services.AddScoped<UpdateAdminLeaseVehicleHandler>();
+builder.Services.AddScoped<DeleteAdminLeaseVehicleHandler>();
+builder.Services.AddScoped<CancelAdminLeaseHandler>();
+builder.Services.AddScoped<DeleteAdminMeterReadingHandler>();
+builder.Services.AddScoped<GetAdminInvoiceHandler>();
+builder.Services.AddScoped<AddAdminInvoiceLineHandler>();
+builder.Services.AddScoped<UpdateAdminInvoiceLineHandler>();
+builder.Services.AddScoped<DeleteAdminInvoiceLineHandler>();
+builder.Services.AddScoped<VoidAdminInvoiceHandler>();
+builder.Services.AddScoped<GetAdminCashierShiftHandler>();
+builder.Services.AddScoped<CancelAdminCashierShiftHandler>();
+builder.Services.AddScoped<UpdateAdminCashierShiftRemarkHandler>();
+builder.Services.AddScoped<GetAdminDepositLedgerHandler>();
+builder.Services.AddScoped<UpdateClientPaymentSlipHandler>();
+builder.Services.AddScoped<WithdrawClientPaymentSlipHandler>();
+builder.Services.AddScoped<GetAdminPaymentSlipHandler>();
+builder.Services.AddScoped<CreateAdminHousekeepingTaskHandler>();
+builder.Services.AddScoped<UpdateAdminHousekeepingTaskHandler>();
+builder.Services.AddScoped<DeleteAdminHousekeepingTaskHandler>();
+builder.Services.AddScoped<GetAdminWorkOrderHandler>();
+builder.Services.AddScoped<GetClientWorkOrderHandler>();
+builder.Services.AddScoped<UpdateAdminWorkOrderHandler>();
+builder.Services.AddScoped<UpdateClientWorkOrderHandler>();
+builder.Services.AddScoped<CancelAdminWorkOrderHandler>();
+builder.Services.AddScoped<CancelClientWorkOrderHandler>();
+builder.Services.AddScoped<GetAdminParcelHandler>();
+builder.Services.AddScoped<GetClientParcelHandler>();
+builder.Services.AddScoped<UpdateAdminParcelHandler>();
+builder.Services.AddScoped<VoidAdminParcelHandler>();
 
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -940,6 +973,340 @@ adminGroup.MapPost("/properties/{propertyId:guid}/parcels/{parcelId:guid}/pickup
         : Results.Ok(result.Value);
 });
 
+adminGroup.MapPut("/properties/{propertyId:guid}/leases/{leaseId:guid}", (
+    Guid propertyId,
+    Guid leaseId,
+    UpdateLeaseRequest request,
+    UpdateAdminLeaseHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminLeaseCommand(propertyId, leaseId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/cancel", (
+    Guid propertyId,
+    Guid leaseId,
+    ReasonRequest request,
+    CancelAdminLeaseHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CancelAdminLeaseCommand(propertyId, leaseId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/leases/{leaseId:guid}/occupants/{occupantId:guid}", (
+    Guid propertyId,
+    Guid leaseId,
+    Guid occupantId,
+    UpdateLeaseOccupantRequest request,
+    UpdateAdminLeaseOccupantHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminLeaseOccupantCommand(propertyId, leaseId, occupantId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/leases/{leaseId:guid}/occupants/{occupantId:guid}", (
+    Guid propertyId,
+    Guid leaseId,
+    Guid occupantId,
+    DeleteAdminLeaseOccupantHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminLeaseOccupantCommand(propertyId, leaseId, occupantId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/leases/{leaseId:guid}/vehicles/{vehicleId:guid}", (
+    Guid propertyId,
+    Guid leaseId,
+    Guid vehicleId,
+    LeaseVehicleRequest request,
+    UpdateAdminLeaseVehicleHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminLeaseVehicleCommand(propertyId, leaseId, vehicleId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/leases/{leaseId:guid}/vehicles/{vehicleId:guid}", (
+    Guid propertyId,
+    Guid leaseId,
+    Guid vehicleId,
+    DeleteAdminLeaseVehicleHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminLeaseVehicleCommand(propertyId, leaseId, vehicleId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/meter-readings/units/{unitId:guid}", (
+    Guid propertyId,
+    Guid unitId,
+    string period,
+    string? overrideReason,
+    DeleteAdminMeterReadingHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminMeterReadingCommand(propertyId, unitId, period, overrideReason));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/invoices/{invoiceId:guid}", (
+    Guid propertyId,
+    Guid invoiceId,
+    GetAdminInvoiceHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminInvoiceQuery(propertyId, invoiceId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/invoices/{invoiceId:guid}/lines", (
+    Guid propertyId,
+    Guid invoiceId,
+    InvoiceLineRequest request,
+    AddAdminInvoiceLineHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new AddAdminInvoiceLineCommand(propertyId, invoiceId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/invoices/{invoiceId:guid}/lines/{lineId:guid}", (
+    Guid propertyId,
+    Guid invoiceId,
+    Guid lineId,
+    InvoiceLineRequest request,
+    UpdateAdminInvoiceLineHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminInvoiceLineCommand(propertyId, invoiceId, lineId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/invoices/{invoiceId:guid}/lines/{lineId:guid}", (
+    Guid propertyId,
+    Guid invoiceId,
+    Guid lineId,
+    DeleteAdminInvoiceLineHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminInvoiceLineCommand(propertyId, invoiceId, lineId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/invoices/{invoiceId:guid}/void", (
+    Guid propertyId,
+    Guid invoiceId,
+    ReasonRequest request,
+    VoidAdminInvoiceHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new VoidAdminInvoiceCommand(propertyId, invoiceId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/cashier/shifts/{shiftId:guid}", (
+    Guid propertyId,
+    Guid shiftId,
+    GetAdminCashierShiftHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminCashierShiftQuery(propertyId, shiftId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/cashier/shifts/{shiftId:guid}/cancel", (
+    Guid propertyId,
+    Guid shiftId,
+    ReasonRequest request,
+    CancelAdminCashierShiftHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CancelAdminCashierShiftCommand(propertyId, shiftId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/cashier/shifts/{shiftId:guid}/variance-remark", (
+    Guid propertyId,
+    Guid shiftId,
+    UpdateCashierShiftRemarkRequest request,
+    UpdateAdminCashierShiftRemarkHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminCashierShiftRemarkCommand(propertyId, shiftId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/deposit-ledgers/{ledgerId:guid}", (
+    Guid propertyId,
+    Guid ledgerId,
+    GetAdminDepositLedgerHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminDepositLedgerQuery(propertyId, ledgerId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/payments/slips/{slipId:guid}", (
+    Guid propertyId,
+    Guid slipId,
+    GetAdminPaymentSlipHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminPaymentSlipQuery(propertyId, slipId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/housekeeping/tasks", (
+    Guid propertyId,
+    CreateHousekeepingTaskRequest request,
+    CreateAdminHousekeepingTaskHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CreateAdminHousekeepingTaskCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Created($"/api/v1/admin/properties/{propertyId}/housekeeping/tasks/{result.Value!.Id}", result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/housekeeping/tasks/{taskId:guid}", (
+    Guid propertyId,
+    Guid taskId,
+    UpdateHousekeepingTaskRequest request,
+    UpdateAdminHousekeepingTaskHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminHousekeepingTaskCommand(propertyId, taskId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/housekeeping/tasks/{taskId:guid}", (
+    Guid propertyId,
+    Guid taskId,
+    DeleteAdminHousekeepingTaskHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminHousekeepingTaskCommand(propertyId, taskId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/work-orders/{workOrderId:guid}", (
+    Guid propertyId,
+    Guid workOrderId,
+    GetAdminWorkOrderHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminWorkOrderQuery(propertyId, workOrderId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/work-orders/{workOrderId:guid}", (
+    Guid propertyId,
+    Guid workOrderId,
+    UpdateWorkOrderRequest request,
+    UpdateAdminWorkOrderHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminWorkOrderCommand(propertyId, workOrderId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/work-orders/{workOrderId:guid}/cancel", (
+    Guid propertyId,
+    Guid workOrderId,
+    ReasonRequest request,
+    CancelAdminWorkOrderHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CancelAdminWorkOrderCommand(propertyId, workOrderId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/parcels/{parcelId:guid}", (
+    Guid propertyId,
+    Guid parcelId,
+    GetAdminParcelHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminParcelQuery(propertyId, parcelId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/parcels/{parcelId:guid}", (
+    Guid propertyId,
+    Guid parcelId,
+    ReceiveParcelRequest request,
+    UpdateAdminParcelHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminParcelCommand(propertyId, parcelId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/parcels/{parcelId:guid}/void", (
+    Guid propertyId,
+    Guid parcelId,
+    ReasonRequest request,
+    VoidAdminParcelHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new VoidAdminParcelCommand(propertyId, parcelId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
 var clientGroup = app.MapGroup("/api/v1/client");
 
 clientGroup.MapPost("/invoices/{invoiceId:guid}/slips", (
@@ -993,6 +1360,77 @@ clientGroup.MapGet("/parcels", (
     HttpContext httpContext) =>
 {
     var result = handler.Handle(new GetClientParcelsQuery(status));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapPut("/invoices/{invoiceId:guid}/slips/{slipId:guid}", (
+    Guid invoiceId,
+    Guid slipId,
+    SubmitPaymentSlipRequest request,
+    UpdateClientPaymentSlipHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateClientPaymentSlipCommand(invoiceId, slipId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapDelete("/invoices/{invoiceId:guid}/slips/{slipId:guid}", (
+    Guid invoiceId,
+    Guid slipId,
+    WithdrawClientPaymentSlipHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new WithdrawClientPaymentSlipCommand(invoiceId, slipId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/work-orders/{workOrderId:guid}", (
+    Guid workOrderId,
+    GetClientWorkOrderHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientWorkOrderQuery(workOrderId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapPut("/work-orders/{workOrderId:guid}", (
+    Guid workOrderId,
+    UpdateWorkOrderRequest request,
+    UpdateClientWorkOrderHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateClientWorkOrderCommand(workOrderId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapPost("/work-orders/{workOrderId:guid}/cancel", (
+    Guid workOrderId,
+    ReasonRequest request,
+    CancelClientWorkOrderHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CancelClientWorkOrderCommand(workOrderId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+clientGroup.MapGet("/parcels/{parcelId:guid}", (
+    Guid parcelId,
+    GetClientParcelHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetClientParcelQuery(parcelId));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

@@ -9,5 +9,6 @@ public sealed record HousekeepingTaskDto(
     string Status,
     string UnitConditionStatus,
     string? AssignedStaffUserId,
+    string? Note,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);

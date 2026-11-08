@@ -42,6 +42,18 @@ public sealed class PaymentSlip : AuditableEntity
         RejectReason = reason.Trim();
     }
 
+    public void UpdatePending(decimal amount, string slipFileKey, string? transferReference, DateTimeOffset? transferredAt)
+    {
+        EnsurePending();
+        Amount = decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
+        SlipFileKey = slipFileKey.Trim();
+        TransferReference = string.IsNullOrWhiteSpace(transferReference) ? null : transferReference.Trim();
+        TransferredAt = transferredAt;
+    }
+
+    // Only a Pending slip may be withdrawn (soft-deleted) by its owner; reviewed slips are immutable.
+    public void EnsureCanWithdraw() => EnsurePending();
+
     private void EnsurePending()
     {
         if (Status != PaymentSlipStatus.Pending)

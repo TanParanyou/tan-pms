@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 
 namespace TanPms.Application.Cashier;
@@ -21,6 +22,21 @@ public interface ICashierShiftStore
         CloseCashierShiftRequest request);
 
     Result<CashierShiftDto> ReconcileAdminCashierShift(Guid propertyId, Guid shiftId);
+
+    Result<CashierShiftDto> GetAdminCashierShift(Guid propertyId, Guid shiftId);
+
+    // requiredOwnerUserId: null lets a supervisor act on any cashier's shift.
+    Result<CashierShiftDto> CancelAdminCashierShift(
+        Guid propertyId,
+        Guid shiftId,
+        string? requiredOwnerUserId,
+        ReasonRequest request);
+
+    Result<CashierShiftDto> UpdateAdminCashierShiftRemark(
+        Guid propertyId,
+        Guid shiftId,
+        string? requiredOwnerUserId,
+        UpdateCashierShiftRemarkRequest request);
 
     bool HasOpenCashierShift(string cashierUserId, IReadOnlySet<Guid> propertyIds);
 }

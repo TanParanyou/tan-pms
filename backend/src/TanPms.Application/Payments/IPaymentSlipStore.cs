@@ -12,6 +12,16 @@ public interface IPaymentSlipStore
 
     Result<ClientPaymentSlipListResponse> GetClientInvoiceSlips(Guid customerId, Guid invoiceId);
 
+    Result<ClientPaymentSlipDto> UpdateClientPaymentSlip(
+        Guid customerId,
+        Guid invoiceId,
+        Guid slipId,
+        SubmitPaymentSlipRequest request);
+
+    Result<ClientPaymentSlipDto> WithdrawClientPaymentSlip(Guid customerId, Guid invoiceId, Guid slipId);
+
+    Result<AdminPaymentSlipDto> GetAdminPaymentSlip(Guid propertyId, Guid slipId, bool unmaskPii = false);
+
     Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false);
 
     Result<AdminPaymentSlipDto> ApproveAdminPaymentSlip(

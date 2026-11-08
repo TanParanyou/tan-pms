@@ -13,4 +13,7 @@ public sealed class InvoiceLine
     public required decimal SubTotal { get; init; }
     public required decimal VatAmount { get; init; }
     public required decimal NetAmount { get; init; }
+
+    // TaxProfile charge category for lines the batch run generates; null for manually added lines.
+    public string? ChargeCategoryCode { get; init; }
 }

@@ -19,24 +19,35 @@ public sealed class Invoice : AuditableEntity
     public decimal TotalVatAmount => Lines.Sum(l => l.VatAmount);
     public decimal TotalAmount => Lines.Sum(l => l.NetAmount);
 
-    public void AddLine(LocalizedText description, decimal lineAmount, TaxMode taxMode)
+    public InvoiceLine AddLine(LocalizedText description, decimal lineAmount, TaxMode taxMode, string? chargeCategoryCode = null)
     {
         EnsureMutable();
-        var breakdown = ThaiTaxCalculator.CalculateLine(lineAmount, taxMode);
-        Lines.Add(new InvoiceLine
-        {
-            Description = description,
-            TaxMode = taxMode,
-            LineAmount = breakdown.LineAmount,
-            VatRate = breakdown.VatRate,
-            SubTotal = breakdown.SubTotal,
-            VatAmount = breakdown.VatAmount,
-            NetAmount = breakdown.TotalAmount
-        });
+        var line = BuildLine(description, lineAmount, taxMode, chargeCategoryCode);
+        Lines.Add(line);
+        return line;
     }
 
-    public void AddLine(string thaiDescription, decimal lineAmount, TaxMode taxMode, string? englishDescription = null) =>
-        AddLine(LocalizedText.Create(thaiDescription, englishDescription), lineAmount, taxMode);
+    // Replaces a Draft line in place (new line id, same position, same charge category).
+    public InvoiceLine ReplaceLine(Guid lineId, LocalizedText description, decimal lineAmount, TaxMode taxMode)
+    {
+        EnsureMutable();
+        var index = FindLineIndex(lineId);
+        var line = BuildLine(description, lineAmount, taxMode, Lines[index].ChargeCategoryCode);
+        Lines[index] = line;
+        return line;
+    }
+
+    public InvoiceLine RemoveLine(Guid lineId)
+    {
+        EnsureMutable();
+        var index = FindLineIndex(lineId);
+        var line = Lines[index];
+        Lines.RemoveAt(index);
+        return line;
+    }
+
+    public InvoiceLine AddLine(string thaiDescription, decimal lineAmount, TaxMode taxMode, string? englishDescription = null, string? chargeCategoryCode = null) =>
+        AddLine(LocalizedText.Create(thaiDescription, englishDescription), lineAmount, taxMode, chargeCategoryCode);
 
     public void Issue()
     {
@@ -111,6 +122,33 @@ public sealed class Invoice : AuditableEntity
             Reason = reason,
             BeforeStateJson = $"{{\"status\":\"{previousStatus}\"}}",
             AfterStateJson = "{\"status\":\"Voided\"}"
+        };
+    }
+
+    private int FindLineIndex(Guid lineId)
+    {
+        var index = Lines.FindIndex(l => l.Id == lineId);
+        return index >= 0
+            ? index
+            : throw new DomainRuleException(
+                DomainErrorCodes.ValidationFailed,
+                $"Invoice line '{lineId}' was not found on invoice {DocumentNumber}.",
+                httpStatus: 400);
+    }
+
+    private static InvoiceLine BuildLine(LocalizedText description, decimal lineAmount, TaxMode taxMode, string? chargeCategoryCode)
+    {
+        var breakdown = ThaiTaxCalculator.CalculateLine(lineAmount, taxMode);
+        return new InvoiceLine
+        {
+            Description = description,
+            TaxMode = taxMode,
+            LineAmount = breakdown.LineAmount,
+            VatRate = breakdown.VatRate,
+            SubTotal = breakdown.SubTotal,
+            VatAmount = breakdown.VatAmount,
+            NetAmount = breakdown.TotalAmount,
+            ChargeCategoryCode = chargeCategoryCode
         };
     }
 

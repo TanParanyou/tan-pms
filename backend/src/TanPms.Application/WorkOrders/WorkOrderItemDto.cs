@@ -18,5 +18,6 @@ public sealed record WorkOrderItemDto(
     string? ResolutionNotes,
     decimal TenantChargeAmount,
     string? ChargeDocumentNumber,
+    string? CancelReason,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);

@@ -20,6 +20,13 @@ internal sealed record LeaseMeterContext(
     IReadOnlyList<MeterReading> UnitReadings,
     bool IsLocked);
 
+// A batch-generated invoice line before it is attached to an Invoice.
+internal sealed record AutoInvoiceLine(
+    LocalizedText Description,
+    decimal Amount,
+    TaxMode TaxMode,
+    string ChargeCategoryCode);
+
 // Shared by the EF Core and in-memory stores so meter sheets, bulk saves and draft invoices compute identically.
 internal static class MeterBillingComposer
 {
@@ -177,7 +184,6 @@ internal static class MeterBillingComposer
         MeterReading electric,
         Func<string, TaxMode> taxModeForCategory)
     {
-        var unitNumber = context.UnitRef.UnitNumber;
         var invoice = new Invoice
         {
             PropertyId = context.Lease.PropertyId,
@@ -186,22 +192,88 @@ internal static class MeterBillingComposer
             LeaseId = context.Lease.Id,
             BillingPeriodYearMonth = period
         };
-        invoice.AddLine(
-            $"ค่าเช่าห้อง {unitNumber} รอบบิล {period}",
-            context.Lease.MonthlyRentAmount,
-            taxModeForCategory(UtilityChargeCategories.MonthlyRoomRent),
-            $"Room rent {unitNumber} ({period})");
-        invoice.AddLine(
-            $"ค่าน้ำประปา {water.UsageUnits:0.##} หน่วย ({water.PreviousReading:0.##} - {water.CurrentReading:0.##})",
-            water.ChargeAmount,
-            taxModeForCategory(UtilityChargeCategories.Water),
-            $"Water {water.UsageUnits:0.##} units ({water.PreviousReading:0.##} - {water.CurrentReading:0.##})");
-        invoice.AddLine(
-            $"ค่าไฟฟ้า {electric.UsageUnits:0.##} หน่วย ({electric.PreviousReading:0.##} - {electric.CurrentReading:0.##})",
-            electric.ChargeAmount,
-            taxModeForCategory(UtilityChargeCategories.Electric),
-            $"Electricity {electric.UsageUnits:0.##} units ({electric.PreviousReading:0.##} - {electric.CurrentReading:0.##})");
+        foreach (var line in BuildAutoLines(context, period, water, electric, taxModeForCategory))
+        {
+            invoice.AddLine(line.Description, line.Amount, line.TaxMode, line.ChargeCategoryCode);
+        }
+
         return invoice;
+    }
+
+    // Re-prices the batch-generated lines of a Draft invoice from current lease terms and readings.
+    // Lines the user added stay untouched; an auto line the user deleted is not re-added. Returns false when nothing changed.
+    internal static bool RefreshDraftInvoice(
+        Invoice draft,
+        IReadOnlyList<AutoInvoiceLine> autoLines,
+        List<InvoiceLine> removedLines,
+        List<InvoiceLine> addedLines)
+    {
+        foreach (var auto in autoLines)
+        {
+            var existing = draft.Lines.FirstOrDefault(l => l.ChargeCategoryCode == auto.ChargeCategoryCode);
+            if (existing is null
+                || (existing.LineAmount == decimal.Round(auto.Amount, 2, MidpointRounding.AwayFromZero)
+                    && existing.TaxMode == auto.TaxMode
+                    && existing.Description == auto.Description))
+            {
+                continue;
+            }
+
+            removedLines.Add(existing);
+            addedLines.Add(draft.ReplaceLine(existing.Id, auto.Description, auto.Amount, auto.TaxMode));
+        }
+
+        return addedLines.Count > 0;
+    }
+
+    internal static List<AutoInvoiceLine> BuildAutoLines(
+        LeaseMeterContext context,
+        string period,
+        MeterReading water,
+        MeterReading electric,
+        Func<string, TaxMode> taxModeForCategory)
+    {
+        var unitNumber = context.UnitRef.UnitNumber;
+        BillingPeriod.Parse(period, out var periodStart, out var periodEnd);
+        var (rentAmount, billableDays, daysInMonth) = ProrateMonthlyRent(context.Lease, periodStart, periodEnd);
+        var rentDescription = billableDays == daysInMonth
+            ? LocalizedText.Create($"ค่าเช่าห้อง {unitNumber} รอบบิล {period}", $"Room rent {unitNumber} ({period})")
+            : LocalizedText.Create(
+                $"ค่าเช่าห้อง {unitNumber} รอบบิล {period} (คิดตามจริง {billableDays}/{daysInMonth} วัน)",
+                $"Room rent {unitNumber} ({period}, prorated {billableDays}/{daysInMonth} days)");
+        return
+        [
+            new(rentDescription, rentAmount, taxModeForCategory(UtilityChargeCategories.MonthlyRoomRent), UtilityChargeCategories.MonthlyRoomRent),
+            new(
+                LocalizedText.Create(
+                    $"ค่าน้ำประปา {water.UsageUnits:0.##} หน่วย ({water.PreviousReading:0.##} - {water.CurrentReading:0.##})",
+                    $"Water {water.UsageUnits:0.##} units ({water.PreviousReading:0.##} - {water.CurrentReading:0.##})"),
+                water.ChargeAmount,
+                taxModeForCategory(UtilityChargeCategories.Water),
+                UtilityChargeCategories.Water),
+            new(
+                LocalizedText.Create(
+                    $"ค่าไฟฟ้า {electric.UsageUnits:0.##} หน่วย ({electric.PreviousReading:0.##} - {electric.CurrentReading:0.##})",
+                    $"Electricity {electric.UsageUnits:0.##} units ({electric.PreviousReading:0.##} - {electric.CurrentReading:0.##})"),
+                electric.ChargeAmount,
+                taxModeForCategory(UtilityChargeCategories.Electric),
+                UtilityChargeCategories.Electric)
+        ];
+    }
+
+    // คิดค่าเช่าตามจำนวนวันจริงเมื่อสัญญาเริ่มหรือสิ้นสุดกลางรอบบิล:
+    // ProratedRent = round(MonthlyRent x BillableDays / DaysInMonth, 2)
+    // BillableDays = calendar days from max(StartDate, PeriodStart) to min(EndDate, PeriodEnd), inclusive.
+    internal static (decimal Amount, int BillableDays, int DaysInMonth) ProrateMonthlyRent(Lease lease, DateOnly periodStart, DateOnly periodEnd)
+    {
+        var daysInMonth = periodEnd.DayNumber - periodStart.DayNumber + 1;
+        var from = lease.StartDate > periodStart ? lease.StartDate : periodStart;
+        var to = lease.EndDate < periodEnd ? lease.EndDate : periodEnd;
+        var billableDays = Math.Clamp(to.DayNumber - from.DayNumber + 1, 0, daysInMonth);
+        var amount = billableDays == daysInMonth
+            ? lease.MonthlyRentAmount
+            : decimal.Round(lease.MonthlyRentAmount * billableDays / daysInMonth, 2, MidpointRounding.AwayFromZero);
+        return (amount, billableDays, daysInMonth);
     }
 
     internal static TaxMode ResolveTaxMode(IEnumerable<TaxProfile> propertyProfiles, string chargeCategoryCode) =>
@@ -236,6 +308,76 @@ internal static class MeterBillingComposer
             SubTotal: invoice.SubTotal,
             TotalVatAmount: invoice.TotalVatAmount,
             TotalAmount: invoice.TotalAmount);
+
+    // Unlocked periods need only the record permission; a locked period needs the override permission plus a reason.
+    internal static Error? CheckDeletable(LeaseMeterContext? context, int readingCount, string? overrideReason, bool callerCanOverrideLocked)
+    {
+        if (context is null)
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, "Unit has no billable lease in this period.");
+        }
+
+        if (readingCount == 0)
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, $"Unit {context.UnitRef.UnitNumber} has no saved meter readings in this period.");
+        }
+
+        if (!context.IsLocked)
+        {
+            return null;
+        }
+
+        if (!callerCanOverrideLocked)
+        {
+            return new Error(DomainErrorCodes.PermissionDenied, "Meter readings of an invoiced (locked) period require the override permission to delete.");
+        }
+
+        return string.IsNullOrWhiteSpace(overrideReason)
+            ? new Error(DomainErrorCodes.ValidationFailed, "OverrideReason is required to delete readings of a locked period.")
+            : null;
+    }
+
+    // Void is allowed only on an issued invoice without any money attached (receipts, or slips not yet rejected).
+    internal static Error? CheckVoidable(Invoice invoice, bool hasReceipts, bool hasOpenSlips)
+    {
+        if (hasReceipts)
+        {
+            return new Error(
+                DomainErrorCodes.InvoiceImmutableStatus,
+                $"Invoice {invoice.DocumentNumber} has receipts and cannot be voided; issue a credit note or refund instead.");
+        }
+
+        return hasOpenSlips
+            ? new Error(
+                DomainErrorCodes.InvoiceImmutableStatus,
+                $"Invoice {invoice.DocumentNumber} has pending or approved payment slips; reject pending slips before voiding.")
+            : null;
+    }
+
+    internal static Error? ParseLineRequest(InvoiceLineRequest request, out LocalizedText description, out TaxMode taxMode)
+    {
+        description = LocalizedText.Create("-");
+        taxMode = TaxMode.Exempt;
+        if (request.LineAmount < 0m)
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, "LineAmount cannot be negative.");
+        }
+
+        if (!Enum.TryParse(request.TaxMode, ignoreCase: true, out taxMode) || !Enum.IsDefined(taxMode))
+        {
+            return new Error(DomainErrorCodes.ValidationFailed, $"Invalid TaxMode '{request.TaxMode}'.");
+        }
+
+        try
+        {
+            description = LocalizedText.Create(request.Description?.Th ?? string.Empty, request.Description?.En);
+            return null;
+        }
+        catch (DomainRuleException ex)
+        {
+            return new Error(ex.ErrorCode, ex.Message);
+        }
+    }
 
     internal static Error PropertyNotFound(Guid propertyId) =>
         new(DomainErrorCodes.ValidationFailed, $"Property '{propertyId}' was not found.");

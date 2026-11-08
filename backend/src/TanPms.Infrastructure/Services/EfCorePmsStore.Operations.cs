@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Housekeeping;
 using TanPms.Application.Parcels;
@@ -262,6 +263,198 @@ public sealed partial class EfCorePmsStore
             return Result<ParcelItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
         }
     }
+
+    public Result<HousekeepingTaskDto> CreateAdminHousekeepingTask(Guid propertyId, CreateHousekeepingTaskRequest request)
+    {
+        if (OperationsRecordMapper.ValidateNote(request.Note) is { } noteError)
+        {
+            return Result<HousekeepingTaskDto>.Failure(noteError);
+        }
+
+        var unit = _dbContext.Units.AsNoTracking().FirstOrDefault(u => u.Id == request.UnitId && u.PropertyId == propertyId);
+        if (unit is null)
+        {
+            return Result<HousekeepingTaskDto>.Failure(OperationsRecordMapper.NotFound("Unit", propertyId, request.UnitId));
+        }
+
+        var task = OperationsRecordMapper.BuildManualHousekeepingTask(propertyId, request);
+        _dbContext.HousekeepingTasks.Add(task);
+        _dbContext.SaveChanges();
+        return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, BuildSingleUnitRef(unit), unit));
+    }
+
+    public Result<HousekeepingTaskDto> UpdateAdminHousekeepingTask(Guid propertyId, Guid taskId, UpdateHousekeepingTaskRequest request) =>
+        OperationsRecordMapper.ValidateNote(request.Note) is { } noteError
+            ? Result<HousekeepingTaskDto>.Failure(noteError)
+            : MutateHousekeepingTask(propertyId, taskId, (task, _) => task.UpdateDetails(request.AssignedStaffUserId, request.Note));
+
+    public Result<HousekeepingTaskDto> DeleteAdminHousekeepingTask(Guid propertyId, Guid taskId) =>
+        MutateHousekeepingTask(propertyId, taskId, (task, _) =>
+        {
+            task.EnsureCanDelete();
+            // AuditableEntityInterceptor soft-deletes the task.
+            _dbContext.HousekeepingTasks.Remove(task);
+        });
+
+    public Result<WorkOrderItemDto> GetAdminWorkOrder(Guid propertyId, Guid workOrderId, bool unmaskPii = false) =>
+        SingleOrError(
+            ListWorkOrders(w => w.PropertyId == propertyId && w.Id == workOrderId, null, unmaskPii).Value!.Items,
+            OperationsRecordMapper.NotFound("WorkOrder", propertyId, workOrderId));
+
+    public Result<WorkOrderItemDto> GetClientWorkOrder(Guid customerId, Guid workOrderId) =>
+        SingleOrError(
+            ListWorkOrders(w => w.ReportedByCustomerId == customerId && w.Id == workOrderId, null, unmaskPii: false).Value!.Items,
+            OperationsRecordMapper.ClientRecordNotFound("Work order"));
+
+    public Result<WorkOrderItemDto> UpdateAdminWorkOrder(Guid propertyId, Guid workOrderId, UpdateWorkOrderRequest request)
+    {
+        if (WorkOrderRules.ValidateUpdate(request, out var priority) is { } validationError)
+        {
+            return Result<WorkOrderItemDto>.Failure(validationError);
+        }
+
+        var workOrder = _dbContext.WorkOrders.FirstOrDefault(w => w.Id == workOrderId && w.PropertyId == propertyId);
+        return workOrder is null
+            ? Result<WorkOrderItemDto>.Failure(OperationsRecordMapper.NotFound("WorkOrder", propertyId, workOrderId))
+            : SaveWorkOrder(workOrder, w => w.UpdateDetails(request.IssueSummary, request.Description, priority, request.BeforePhotoFileKey));
+    }
+
+    public Result<WorkOrderItemDto> UpdateClientWorkOrder(Guid customerId, Guid workOrderId, UpdateWorkOrderRequest request)
+    {
+        if (WorkOrderRules.ValidateUpdate(request, out var priority) is { } validationError)
+        {
+            return Result<WorkOrderItemDto>.Failure(validationError);
+        }
+
+        var workOrder = _dbContext.WorkOrders.FirstOrDefault(w => w.Id == workOrderId);
+        return WorkOrderRules.CheckClientCanChange(workOrder, customerId) is { } ownerError
+            ? Result<WorkOrderItemDto>.Failure(ownerError)
+            : SaveWorkOrder(workOrder!, w => w.UpdateDetails(request.IssueSummary, request.Description, priority, request.BeforePhotoFileKey));
+    }
+
+    public Result<WorkOrderItemDto> CancelAdminWorkOrder(Guid propertyId, Guid workOrderId, ReasonRequest request)
+    {
+        if (request.Validate() is { } reasonError)
+        {
+            return Result<WorkOrderItemDto>.Failure(reasonError);
+        }
+
+        var workOrder = _dbContext.WorkOrders.FirstOrDefault(w => w.Id == workOrderId && w.PropertyId == propertyId);
+        return workOrder is null
+            ? Result<WorkOrderItemDto>.Failure(OperationsRecordMapper.NotFound("WorkOrder", propertyId, workOrderId))
+            : SaveWorkOrder(workOrder, w => w.Cancel(request.Reason));
+    }
+
+    public Result<WorkOrderItemDto> CancelClientWorkOrder(Guid customerId, Guid workOrderId, ReasonRequest request)
+    {
+        if (request.Validate() is { } reasonError)
+        {
+            return Result<WorkOrderItemDto>.Failure(reasonError);
+        }
+
+        var workOrder = _dbContext.WorkOrders.FirstOrDefault(w => w.Id == workOrderId);
+        return WorkOrderRules.CheckClientCanChange(workOrder, customerId) is { } ownerError
+            ? Result<WorkOrderItemDto>.Failure(ownerError)
+            : SaveWorkOrder(workOrder!, w => w.Cancel(request.Reason));
+    }
+
+    public Result<ParcelItemDto> GetAdminParcel(Guid propertyId, Guid parcelId, bool unmaskPii = false) =>
+        SingleOrError(
+            ListParcels(p => p.PropertyId == propertyId && p.Id == parcelId, null, unmaskPii).Value!.Items,
+            OperationsRecordMapper.NotFound("Parcel", propertyId, parcelId));
+
+    public Result<ParcelItemDto> GetClientParcel(Guid customerId, Guid parcelId) =>
+        SingleOrError(
+            ListParcels(p => p.CustomerId == customerId && p.Id == parcelId, null, unmaskPii: false).Value!.Items,
+            OperationsRecordMapper.ClientRecordNotFound("Parcel"));
+
+    public Result<ParcelItemDto> UpdateAdminParcel(Guid propertyId, Guid parcelId, ReceiveParcelRequest request)
+    {
+        if (ParcelRules.ValidateReceive(request) is { } validationError)
+        {
+            return Result<ParcelItemDto>.Failure(validationError);
+        }
+
+        var parcel = _dbContext.Parcels.FirstOrDefault(p => p.Id == parcelId && p.PropertyId == propertyId);
+        if (parcel is null)
+        {
+            return Result<ParcelItemDto>.Failure(OperationsRecordMapper.NotFound("Parcel", propertyId, parcelId));
+        }
+
+        var customerId = parcel.CustomerId;
+        if (request.UnitId != parcel.UnitId)
+        {
+            var unit = _dbContext.Units.AsNoTracking().FirstOrDefault(u => u.Id == request.UnitId && u.PropertyId == propertyId);
+            if (unit is null)
+            {
+                return Result<ParcelItemDto>.Failure(OperationsRecordMapper.NotFound("Unit", propertyId, request.UnitId));
+            }
+
+            var (stay, lease) = FindActiveOccupancy(unit.Id);
+            if ((stay?.CustomerId ?? lease?.CustomerId) is not { } tenantId)
+            {
+                return Result<ParcelItemDto>.Failure(OperationsRecordMapper.NoActiveTenant(unit.UnitNumber));
+            }
+
+            customerId = tenantId;
+        }
+
+        try
+        {
+            parcel.UpdateDetails(request.UnitId, customerId, request.CarrierName, request.TrackingNumber, request.PhotoFileKey);
+            _dbContext.SaveChanges();
+            return Result<ParcelItemDto>.Success(MapParcels([parcel], unmaskPii: false)[0]);
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<ParcelItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
+    }
+
+    public Result<ParcelItemDto> VoidAdminParcel(Guid propertyId, Guid parcelId, ReasonRequest request)
+    {
+        if (request.Validate() is { } reasonError)
+        {
+            return Result<ParcelItemDto>.Failure(reasonError);
+        }
+
+        var parcel = _dbContext.Parcels.FirstOrDefault(p => p.Id == parcelId && p.PropertyId == propertyId);
+        if (parcel is null)
+        {
+            return Result<ParcelItemDto>.Failure(OperationsRecordMapper.NotFound("Parcel", propertyId, parcelId));
+        }
+
+        try
+        {
+            parcel.EnsureArrived();
+            var dto = MapParcels([parcel], unmaskPii: false)[0];
+            // ParcelStatus has no Cancelled value, so a mistaken entry is soft-deleted by AuditableEntityInterceptor.
+            _dbContext.Parcels.Remove(parcel);
+            _dbContext.SaveChanges();
+            return Result<ParcelItemDto>.Success(dto);
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<ParcelItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
+    }
+
+    private Result<WorkOrderItemDto> SaveWorkOrder(WorkOrder workOrder, Action<WorkOrder> mutate)
+    {
+        try
+        {
+            mutate(workOrder);
+            _dbContext.SaveChanges();
+            return Result<WorkOrderItemDto>.Success(MapWorkOrders([workOrder], unmaskPii: false)[0]);
+        }
+        catch (DomainRuleException ex)
+        {
+            return Result<WorkOrderItemDto>.Failure(new Error(ex.ErrorCode, ex.Message));
+        }
+    }
+
+    private static Result<T> SingleOrError<T>(IReadOnlyList<T> items, Error notFound) =>
+        items.Count == 1 ? Result<T>.Success(items[0]) : Result<T>.Failure(notFound);
 
     private Result<HousekeepingTaskDto> MutateHousekeepingTask(Guid propertyId, Guid taskId, Action<HousekeepingTask, Unit> mutate)
     {

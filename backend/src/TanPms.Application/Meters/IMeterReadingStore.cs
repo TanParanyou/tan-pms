@@ -13,4 +13,11 @@ public interface IMeterReadingStore
         Guid propertyId,
         SaveMeterReadingsRequest request,
         bool callerCanOverrideLocked);
+
+    Result<MeterReadingSheetRowDto> DeleteAdminMeterReading(
+        Guid propertyId,
+        Guid unitId,
+        string period,
+        string? overrideReason,
+        bool callerCanOverrideLocked);
 }

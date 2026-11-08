@@ -206,6 +206,7 @@ public sealed class TanPmsDbContext : DbContext
             b.Property(x => x.IssueSummary).HasMaxLength(200);
             b.Property(x => x.Description).HasMaxLength(2000);
             b.Property(x => x.ResolutionNotes).HasMaxLength(2000);
+            b.Property(x => x.CancelReason).HasMaxLength(2000);
             b.HasIndex(x => new { x.PropertyId, x.Status });
             b.HasIndex(x => x.ReportedByCustomerId);
         });
@@ -215,6 +216,11 @@ public sealed class TanPmsDbContext : DbContext
             b.Property(x => x.RecipientName).HasMaxLength(200);
             b.HasIndex(x => new { x.PropertyId, x.Status });
             b.HasIndex(x => x.CustomerId);
+        });
+
+        modelBuilder.Entity<HousekeepingTask>(b =>
+        {
+            b.Property(x => x.Note).HasMaxLength(1000);
         });
 
         modelBuilder.Entity<MeterReading>(b =>
@@ -230,6 +236,7 @@ public sealed class TanPmsDbContext : DbContext
         {
             b.ToTable("InvoiceLine");
             b.HasKey(x => x.Id);
+            b.Property(x => x.ChargeCategoryCode).HasMaxLength(64);
         });
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

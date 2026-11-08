@@ -173,7 +173,7 @@ public sealed class RatePlansTariffsAndTaxProfilesTests
         Assert.True(catalogRes.IsSuccess);
         Assert.Equal(2, catalogRes.Value!.RatePlans.Count);
         Assert.Equal(2, catalogRes.Value.UtilityTariffs.Count);
-        Assert.Equal(3, catalogRes.Value.TaxProfiles.Count);
+        Assert.Equal(5, catalogRes.Value.TaxProfiles.Count); // includes seeded UTILITY_WATER / UTILITY_ELECTRIC
 
         var deniedUpsertHandler = new UpsertAdminRatePlanHandler(store, readOnlyContext, store);
         var deniedRes = deniedUpsertHandler.Handle(new UpsertAdminRatePlanCommand(

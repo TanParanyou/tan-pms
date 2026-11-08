@@ -76,6 +76,38 @@ public static class LeaseRequestValidation
             ? Invalid("Vehicle LicensePlate is required.")
             : null;
 
+    public static Error? ValidateUpdate(UpdateLeaseRequest request)
+    {
+        if (request.MonthlyRentAmount is null && request.InitialWaterMeterReading is null && request.InitialElectricMeterReading is null)
+        {
+            return Invalid("At least one lease field must be provided.");
+        }
+
+        return string.IsNullOrWhiteSpace(request.Reason)
+            ? Invalid("Reason is required when editing an active lease.")
+            : null;
+    }
+
+    public static Error? ValidateOccupantUpdate(UpdateLeaseOccupantRequest request) =>
+        string.IsNullOrWhiteSpace(request.FullName)
+            ? Invalid("Occupant FullName is required.")
+            : null;
+
+    public static Error InitialReadingsLocked(string documentNumber) =>
+        Invalid($"Initial meter readings of lease {documentNumber} cannot change after meter readings were saved.");
+
+    public static Error OccupantNotFound(Guid occupantId) =>
+        Invalid($"Occupant '{occupantId}' was not found on this lease.");
+
+    public static Error VehicleNotFound(Guid vehicleId) =>
+        Invalid($"Vehicle '{vehicleId}' was not found on this lease.");
+
+    public static Error PrimaryOccupantRequired() =>
+        Invalid("A lease must keep exactly one primary occupant; the primary or last occupant cannot be removed or demoted.");
+
+    public static Error CancelBlockedByBilling(string documentNumber) =>
+        new(DomainErrorCodes.InvoiceImmutableStatus, $"Lease {documentNumber} already has billed invoices; use move-out settlement instead of cancel.");
+
     public static Error? ValidateSettle(SettleLeaseMoveOutRequest request)
     {
         if (request.UtilityDeductionAmount < 0m || request.DamageDeductionAmount < 0m)
