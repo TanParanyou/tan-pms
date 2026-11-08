@@ -1428,6 +1428,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadAdminFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/contract.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminLeaseContractPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminReceipts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/receipts/{receiptId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminReceiptPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadClientFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getClientReceipts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/receipts/{receiptId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getClientReceiptPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/files/{fileKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client/files/{fileKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getClientFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2123,6 +2267,7 @@ export interface components {
             initialElectricMeterReading: number;
             occupants: components["schemas"]["LeaseOccupantDto"][];
             vehicles: components["schemas"]["LeaseVehicleDto"][];
+            cancelReason?: string | null;
         };
         LeaseListResponse: {
             items: components["schemas"]["LeaseItemDto"][];
@@ -2302,6 +2447,7 @@ export interface components {
             totalVatAmount: number;
             /** Format: double */
             totalAmount: number;
+            voidReason?: string | null;
         };
         InvoiceListResponse: {
             items: components["schemas"]["InvoiceItemDto"][];
@@ -2368,6 +2514,8 @@ export interface components {
             varianceRemark?: string | null;
             /** Format: date-time */
             openedAt: string;
+            cashier: components["schemas"]["UserRefDto"];
+            cancelReason?: string | null;
         };
         DepositLedgerListResponse: {
             items: components["schemas"]["DepositLedgerItemDto"][];
@@ -2413,6 +2561,7 @@ export interface components {
             reviewedAt?: string | null;
             rejectReason?: string | null;
             receiptDocumentNumber?: string | null;
+            reviewedBy?: components["schemas"]["UserRefDto"] | null;
         };
         RejectPaymentSlipRequest: {
             reason: string;
@@ -2473,6 +2622,7 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt?: string | null;
+            assignedStaff?: components["schemas"]["UserRefDto"] | null;
         };
         CreateHousekeepingTaskRequest: {
             /** Format: uuid */
@@ -2503,6 +2653,7 @@ export interface components {
             /** Format: date-time */
             pickedUpAt?: string | null;
             recipientName?: string | null;
+            voidReason?: string | null;
         };
         ParcelListResponse: {
             items: components["schemas"]["ParcelItemDto"][];
@@ -2583,6 +2734,7 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt?: string | null;
+            assignedTechnician?: components["schemas"]["UserRefDto"] | null;
         };
         ClientPendingParcelDto: {
             /** Format: uuid */
@@ -2625,6 +2777,57 @@ export interface components {
         };
         ReasonRequest: {
             reason: string;
+        };
+        UserRefDto: {
+            id: string;
+            fullName?: string | null;
+        };
+        PropertyLetterheadDto: {
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            address?: components["schemas"]["LocalizedTextDto"] | null;
+            taxBranchCode: string;
+        };
+        LeaseContractDto: {
+            property: components["schemas"]["PropertyLetterheadDto"];
+            lease: components["schemas"]["LeaseItemDto"];
+        };
+        StoredFileDto: {
+            fileKey: string;
+            purpose: string;
+            contentType: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReceiptListResponse: {
+            items: components["schemas"]["ReceiptItemDto"][];
+        };
+        ReceiptItemDto: {
+            /** Format: uuid */
+            id: string;
+            documentNumber: string;
+            /** Format: uuid */
+            invoiceId: string;
+            invoiceDocumentNumber: string;
+            customer: components["schemas"]["CustomerRefDto"];
+            unit?: components["schemas"]["UnitRefDto"] | null;
+            /** Format: double */
+            invoiceTotalAmount: number;
+            /** Format: double */
+            withholdingTaxAmount: number;
+            whtCertificateNumber?: string | null;
+            /** Format: double */
+            netPayableAmount: number;
+            isCashPayment: boolean;
+            /** Format: date-time */
+            issuedAt: string;
+        };
+        ReceiptDocumentDto: {
+            property: components["schemas"]["PropertyLetterheadDto"];
+            receipt: components["schemas"]["ReceiptItemDto"];
+            invoice: components["schemas"]["InvoiceItemDto"];
         };
     };
     responses: never;
@@ -6957,6 +7160,384 @@ export interface operations {
             };
             /** @description Property scope or permission denied */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    uploadAdminFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: uuid */
+                    propertyId: string;
+                    /** @enum {string} */
+                    purpose: "MeterPhoto" | "PaymentSlip" | "WorkOrderPhoto" | "ParcelPhoto" | "LeaseInspectionPhoto" | "IdentityDocument";
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredFileDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminLeaseContractPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                leaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminReceipts: {
+        parameters: {
+            query?: {
+                invoiceId?: string | null;
+            };
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptListResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminReceiptPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                receiptId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    uploadClientFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @enum {string} */
+                    purpose: "MeterPhoto" | "PaymentSlip" | "WorkOrderPhoto" | "ParcelPhoto" | "LeaseInspectionPhoto" | "IdentityDocument";
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredFileDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getClientReceipts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptListResponse"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getClientReceiptPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receiptId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fileKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Not allowed to read this file */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description File not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getClientFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fileKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Not allowed to read this file */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description File not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

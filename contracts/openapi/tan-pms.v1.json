@@ -6372,6 +6372,533 @@
           }
         }
       }
+    },
+    "/api/v1/admin/files": {
+      "post": {
+        "operationId": "uploadAdminFile",
+        "tags": [
+          "AdminFiles"
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredFileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "propertyId",
+                  "purpose",
+                  "file"
+                ],
+                "properties": {
+                  "propertyId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "MeterPhoto",
+                      "PaymentSlip",
+                      "WorkOrderPhoto",
+                      "ParcelPhoto",
+                      "LeaseInspectionPhoto",
+                      "IdentityDocument"
+                    ]
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/leases/{leaseId}/contract.pdf": {
+      "get": {
+        "operationId": "getAdminLeaseContractPdf",
+        "tags": [
+          "AdminLeases"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF document",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/receipts": {
+      "get": {
+        "operationId": "getAdminReceipts",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invoiceId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/receipts/{receiptId}/pdf": {
+      "get": {
+        "operationId": "getAdminReceiptPdf",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "receiptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF document",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/files": {
+      "post": {
+        "operationId": "uploadClientFile",
+        "tags": [
+          "ClientFiles"
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredFileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "purpose",
+                  "file"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "MeterPhoto",
+                      "PaymentSlip",
+                      "WorkOrderPhoto",
+                      "ParcelPhoto",
+                      "LeaseInspectionPhoto",
+                      "IdentityDocument"
+                    ]
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/receipts": {
+      "get": {
+        "operationId": "getClientReceipts",
+        "tags": [
+          "ClientBilling"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/receipts/{receiptId}/pdf": {
+      "get": {
+        "operationId": "getClientReceiptPdf",
+        "tags": [
+          "ClientBilling"
+        ],
+        "parameters": [
+          {
+            "name": "receiptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF document",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/files/{fileKey}": {
+      "get": {
+        "operationId": "getAdminFile",
+        "tags": [
+          "AdminFiles"
+        ],
+        "parameters": [
+          {
+            "name": "fileKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to read this file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client/files/{fileKey}": {
+      "get": {
+        "operationId": "getClientFile",
+        "tags": [
+          "ClientFiles"
+        ],
+        "parameters": [
+          {
+            "name": "fileKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to read this file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8993,6 +9520,10 @@
             "items": {
               "$ref": "#/components/schemas/LeaseVehicleDto"
             }
+          },
+          "cancelReason": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -9616,6 +10147,10 @@
           "totalAmount": {
             "type": "number",
             "format": "double"
+          },
+          "voidReason": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -9794,7 +10329,8 @@
           "cashReceiptsInShift",
           "cashDepositsReceivedInShift",
           "cashDepositsRefundedInShift",
-          "openedAt"
+          "openedAt",
+          "cashier"
         ],
         "properties": {
           "id": {
@@ -9848,6 +10384,13 @@
           "openedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "cashier": {
+            "$ref": "#/components/schemas/UserRefDto"
+          },
+          "cancelReason": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -9999,6 +10542,14 @@
           },
           "receiptDocumentNumber": {
             "type": "string",
+            "nullable": true
+          },
+          "reviewedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserRefDto"
+              }
+            ],
             "nullable": true
           }
         }
@@ -10205,6 +10756,14 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "assignedStaff": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserRefDto"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -10302,6 +10861,10 @@
             "nullable": true
           },
           "recipientName": {
+            "type": "string",
+            "nullable": true
+          },
+          "voidReason": {
             "type": "string",
             "nullable": true
           }
@@ -10587,6 +11150,14 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "assignedTechnician": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserRefDto"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -10722,6 +11293,190 @@
         "properties": {
           "reason": {
             "type": "string"
+          }
+        }
+      },
+      "UserRefDto": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PropertyLetterheadDto": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "taxBranchCode"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/LocalizedTextDto"
+          },
+          "address": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LocalizedTextDto"
+              }
+            ],
+            "nullable": true
+          },
+          "taxBranchCode": {
+            "type": "string"
+          }
+        }
+      },
+      "LeaseContractDto": {
+        "type": "object",
+        "required": [
+          "property",
+          "lease"
+        ],
+        "properties": {
+          "property": {
+            "$ref": "#/components/schemas/PropertyLetterheadDto"
+          },
+          "lease": {
+            "$ref": "#/components/schemas/LeaseItemDto"
+          }
+        }
+      },
+      "StoredFileDto": {
+        "type": "object",
+        "required": [
+          "fileKey",
+          "purpose",
+          "contentType",
+          "size",
+          "createdAt"
+        ],
+        "properties": {
+          "fileKey": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReceiptListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptItemDto"
+            }
+          }
+        }
+      },
+      "ReceiptItemDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentNumber",
+          "invoiceId",
+          "invoiceDocumentNumber",
+          "customer",
+          "invoiceTotalAmount",
+          "withholdingTaxAmount",
+          "netPayableAmount",
+          "isCashPayment",
+          "issuedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentNumber": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoiceDocumentNumber": {
+            "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerRefDto"
+          },
+          "unit": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnitRefDto"
+              }
+            ],
+            "nullable": true
+          },
+          "invoiceTotalAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "withholdingTaxAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "whtCertificateNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "netPayableAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "isCashPayment": {
+            "type": "boolean"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReceiptDocumentDto": {
+        "type": "object",
+        "required": [
+          "property",
+          "receipt",
+          "invoice"
+        ],
+        "properties": {
+          "property": {
+            "$ref": "#/components/schemas/PropertyLetterheadDto"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/ReceiptItemDto"
+          },
+          "invoice": {
+            "$ref": "#/components/schemas/InvoiceItemDto"
           }
         }
       }
