@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Lock, Save, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import type {
   MeterReadingRowResultDto,
   MeterReadingInputDto,
 } from "@/features/billing/types";
+import { apiClient } from "@/lib/api/api-client";
+import { MeterPhotoCell } from "./MeterPhotoCell";
 import { useMeterReadingSheet, useSaveMeterReadingsMutation, useDeleteMeterReadingMutation } from "../api/use-meters";
 import { meterRowEditSchema, meterSaveSchema, type MeterRowEdit } from "../schemas/meter-schemas";
 import {
@@ -66,6 +68,11 @@ export function BulkMeterReadingSection() {
   const [lastResult, setLastResult] = useState<SaveMeterReadingsResponse | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MeterReadingSheetRowDto | null>(null);
+  // Deferred photos: staged File per "unitId:utility"; uploaded only inside handleSave.
+  const [photoFiles, setPhotoFiles] = useState<Record<string, File>>({});
+  const [photoEpoch, setPhotoEpoch] = useState(0);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+  const uploadedKeys = useRef<Record<string, { file: File; fileKey: string }>>({});
 
   const isPeriodValid = PERIOD_PATTERN.test(period);
   const { data: hierarchy } = usePropertyHierarchy(activeProperty.id);
@@ -77,10 +84,10 @@ export function BulkMeterReadingSection() {
   } = useMeterReadingSheet(activeProperty.id, period, buildingId || undefined, canRecord && isPeriodValid);
   const saveMutation = useSaveMeterReadingsMutation(activeProperty.id);
   const deleteMutation = useDeleteMeterReadingMutation(activeProperty.id);
-  const isBusy = saveMutation.isPending || deleteMutation.isPending;
+  const isBusy = isUploadingPhotos || saveMutation.isPending || deleteMutation.isPending;
 
   const rows = useMemo(() => sheet?.rows ?? [], [sheet]);
-  const isDirty = Object.keys(edits).length > 0;
+  const isDirty = Object.keys(edits).length > 0 || Object.keys(photoFiles).length > 0;
   useUnsavedChanges(isDirty);
 
   const resultByUnit = useMemo(() => {
@@ -94,7 +101,21 @@ export function BulkMeterReadingSection() {
     [hierarchy, locale]
   );
 
+  const stagePhoto = (key: string, file: File | null) => {
+    setPhotoFiles((prev) => {
+      if (file === null) {
+        if (!(key in prev)) return prev;
+        const { [key]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return prev[key] === file ? prev : { ...prev, [key]: file };
+    });
+  };
+
   const resetView = () => {
+    setPhotoFiles({});
+    setPhotoEpoch((n) => n + 1);
+    uploadedKeys.current = {};
     setEdits({});
     setLastResult(null);
     setFormError(null);
@@ -126,8 +147,9 @@ export function BulkMeterReadingSection() {
   const handleSave = async () => {
     if (isBusy) return;
     setFormError(null);
-    const changed = rows.filter((r) => edits[r.unit.id]);
-    const editList = changed.map((r) => edits[r.unit.id]);
+    const changed = rows.filter((r) => edits[r.unit.id] || photoFiles[`${r.unit.id}:water`] || photoFiles[`${r.unit.id}:electric`]);
+    const editOf = (r: MeterReadingSheetRowDto) => edits[r.unit.id] ?? baseEdit(r);
+    const editList = changed.map(editOf);
     const parsed = meterSaveSchema.safeParse({
       rows: editList,
       hasLockedEdit: changed.some((r) => r.isLocked),
@@ -139,16 +161,39 @@ export function BulkMeterReadingSection() {
       setFormError(reasonMissing ? t("errorOverrideReasonRequired") : t("errorIncompleteRows"));
       return;
     }
-    const items: MeterReadingInputDto[] = changed.map((r) => {
-      const e = edits[r.unit.id];
-      return {
-        unitId: r.unit.id,
-        currentWaterReading: Number(e.water),
-        currentElectricReading: Number(e.electric),
-        waterRolloverConfirmed: isBelowPrevious(r.water.previousReading, e.water) && e.waterRollover,
-        electricRolloverConfirmed: isBelowPrevious(r.electric.previousReading, e.electric) && e.electricRollover,
-      };
-    });
+    // Upload staged photos first; failure aborts the save and keeps every edit.
+    const photoKeyFor = async (unitId: string, kind: MeterUtility): Promise<string | undefined> => {
+      const key = `${unitId}:${kind}`;
+      const file = photoFiles[key];
+      if (!file) return undefined;
+      const cached = uploadedKeys.current[key];
+      if (cached && cached.file === file) return cached.fileKey;
+      const stored = await apiClient.uploadAdminFile(activeProperty.id, "MeterPhoto", file);
+      uploadedKeys.current[key] = { file, fileKey: stored.fileKey };
+      return stored.fileKey;
+    };
+    let items: MeterReadingInputDto[];
+    setIsUploadingPhotos(true);
+    try {
+      items = [];
+      for (const r of changed) {
+        const e = editOf(r);
+        items.push({
+          unitId: r.unit.id,
+          currentWaterReading: Number(e.water),
+          currentElectricReading: Number(e.electric),
+          waterRolloverConfirmed: isBelowPrevious(r.water.previousReading, e.water) && e.waterRollover,
+          electricRolloverConfirmed: isBelowPrevious(r.electric.previousReading, e.electric) && e.electricRollover,
+          waterPhotoFileKey: (await photoKeyFor(r.unit.id, "water")) ?? r.water.photoFileKey ?? undefined,
+          electricPhotoFileKey: (await photoKeyFor(r.unit.id, "electric")) ?? r.electric.photoFileKey ?? undefined,
+        });
+      }
+    } catch (err) {
+      toastApiError(err);
+      return;
+    } finally {
+      setIsUploadingPhotos(false);
+    }
     try {
       const res = await saveMutation.mutateAsync({
         period,
@@ -160,6 +205,9 @@ export function BulkMeterReadingSection() {
         toastSuccess(t("savedSuccess"));
         setEdits({});
         setOverrideReason("");
+        setPhotoFiles({});
+        setPhotoEpoch((n) => n + 1);
+        uploadedKeys.current = {};
       }
     } catch (err) {
       toastApiError(err);
@@ -277,6 +325,22 @@ export function BulkMeterReadingSection() {
     },
     ...utilityColumns("water"),
     ...utilityColumns("electric"),
+    {
+      id: "photo",
+      header: t("photoColumn"),
+      cell: (row) => (
+        <div className="space-y-2">
+          {METER_UTILITIES.map((kind) => (
+            <MeterPhotoCell
+              key={`${row.unit.id}-${kind}-${photoEpoch}`}
+              label={`${t(kind === "water" ? "waterLabel" : "electricLabel")} ${t("photoColumn")}`}
+              disabled={isRowReadOnly(row) || isBusy}
+              onStagedChange={(file) => stagePhoto(`${row.unit.id}:${kind}`, file)}
+            />
+          ))}
+        </div>
+      ),
+    },
     {
       id: "rollover",
       header: t("rolloverConfirmed"),

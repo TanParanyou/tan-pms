@@ -66,8 +66,8 @@ export function WorkOrdersListSection() {
       id: "technician",
       header: t("colTechnician"),
       cell: (w) =>
-        w.assignedTechnicianUserId ? (
-          <span className="font-mono text-xs">{w.assignedTechnicianUserId}</span>
+        w.assignedTechnician?.fullName ? (
+          <span className="text-xs">{w.assignedTechnician.fullName}</span>
         ) : (
           <span className="text-mute">-</span>
         ),

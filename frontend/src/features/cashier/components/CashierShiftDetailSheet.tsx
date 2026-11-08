@@ -113,6 +113,7 @@ export function CashierShiftDetailSheet({ propertyId, shiftId, onClose }: Cashie
             <Item label={t("colStatus")}>
               <Badge variant={SHIFT_STATUS_BADGE_VARIANT[status]}>{t(`shiftStatus.${status}`)}</Badge>
             </Item>
+            <Item label={t("colCashier")}>{shift.cashier?.fullName ?? "-"}</Item>
             <Item label={t("colOpenedAt")}>{formatDateTime(shift.openedAt, locale)}</Item>
             <Item label={t("openingFloat")}>{money(shift.openingFloatCash)}</Item>
             <Item label={t("cashReceipts")}>{money(shift.cashReceiptsInShift)}</Item>
@@ -122,6 +123,10 @@ export function CashierShiftDetailSheet({ propertyId, shiftId, onClose }: Cashie
             <Item label={t("colCounted")}>{money(shift.actualCashCounted)}</Item>
             <Item label={t("colVariance")}>{money(shift.cashVariance)}</Item>
             <Item label={t("varianceRemark")}>{shift.varianceRemark ? shift.varianceRemark : "-"}</Item>
+            {status === "Cancelled" && <Item label={t("cancelReason")}>{shift.cancelReason ?? "-"}</Item>}
+            <p data-testid="shift-flow-hint" className="rounded-[12px] bg-surface-soft p-3 text-[11px] text-body">
+              {t("cashFlowHint")}
+            </p>
             {(status === "Closed" || status === "Reconciled") && (
               <p data-testid="shift-no-delete-hint" className="rounded-[12px] bg-surface-soft p-3 text-[11px] text-body">
                 {t("noDeleteHint")}

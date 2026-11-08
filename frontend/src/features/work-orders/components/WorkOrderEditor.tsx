@@ -16,6 +16,8 @@ import { EntityAutocomplete } from "@/components/ui/entity-autocomplete";
 import { PageLoading } from "@/components/ui/mono-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormField } from "@/components/forms/form-field";
+import { PhotoAttachmentField } from "@/components/forms/photo-attachment-field";
+import { StoredFileViewer } from "@/components/shared/stored-file-viewer";
 import { ReasonDialog } from "@/components/forms/reason-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
@@ -23,6 +25,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
 import { useUnitOptions } from "@/hooks/use-unit-options";
+import { useStagedPhoto } from "@/hooks/use-staged-photo";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { formatCurrencyThb } from "@/lib/formatters";
 import {
@@ -96,8 +99,9 @@ function WorkOrderFormBody({ workOrder }: { workOrder?: WorkOrderItemDto }) {
   const createMutation = useCreateWorkOrderMutation(propertyId);
   const updateMutation = useUpdateWorkOrderMutation(propertyId);
   const cancelMutation = useCancelWorkOrderMutation(propertyId);
+  const photo = useStagedPhoto(propertyId, "WorkOrderPhoto");
   const inFlight = useRef(false);
-  const isBusy = createMutation.isPending || updateMutation.isPending || cancelMutation.isPending;
+  const isBusy = photo.isUploading || createMutation.isPending || updateMutation.isPending || cancelMutation.isPending;
 
   const [showAssign, setShowAssign] = useState(false);
   const [showResolve, setShowResolve] = useState(false);
@@ -115,12 +119,14 @@ function WorkOrderFormBody({ workOrder }: { workOrder?: WorkOrderItemDto }) {
         }
       : WORK_ORDER_FORM_DEFAULTS,
   });
-  useUnsavedChanges(form.formState.isDirty);
+  useUnsavedChanges(form.formState.isDirty || photo.queuedFiles.length > 0);
 
   const submit = form.handleSubmit(async (v) => {
     if (isBusy || inFlight.current) return;
     inFlight.current = true;
     try {
+      // Upload happens only here (deferred); a failure throws before any mutation so form values stay.
+      const beforePhotoFileKey = await photo.commit(v.beforePhotoFileKey);
       if (workOrder) {
         await updateMutation.mutateAsync({
           id: workOrder.id,
@@ -128,9 +134,10 @@ function WorkOrderFormBody({ workOrder }: { workOrder?: WorkOrderItemDto }) {
             issueSummary: v.issueSummary,
             description: v.description || undefined,
             priority: v.priority,
-            beforePhotoFileKey: v.beforePhotoFileKey || undefined,
+            beforePhotoFileKey,
           },
         });
+        photo.clear();
         toastSuccess(t("toastUpdated"));
       } else {
         const created = await createMutation.mutateAsync({
@@ -138,8 +145,9 @@ function WorkOrderFormBody({ workOrder }: { workOrder?: WorkOrderItemDto }) {
           issueSummary: v.issueSummary,
           description: v.description || undefined,
           priority: v.priority,
-          beforePhotoFileKey: v.beforePhotoFileKey || undefined,
+          beforePhotoFileKey,
         });
+        photo.clear();
         toastSuccess(t("toastCreated"));
         form.reset(v);
         router.push(`/admin/work-orders/${created.id}`);
@@ -213,16 +221,14 @@ function WorkOrderFormBody({ workOrder }: { workOrder?: WorkOrderItemDto }) {
             {workOrder.unit.unitNumber} ({resolveLocalizedText(workOrder.unit.buildingName, locale)})
           </Item>
           <Item label={t("colTechnician")}>
-            {workOrder.assignedTechnicianUserId ? (
-              <span className="font-mono text-xs">{workOrder.assignedTechnicianUserId}</span>
-            ) : (
-              "-"
-            )}
+            {workOrder.assignedTechnician?.fullName ?? "-"}
           </Item>
           {(status === "Completed" || status === "Cancelled") && (
             <>
               <Item label={t("fieldResolutionNotes")}>{workOrder.resolutionNotes ?? "-"}</Item>
-              <Item label={t("fieldAfterPhoto")}>{workOrder.afterPhotoFileKey ?? "-"}</Item>
+              <Item label={t("fieldAfterPhoto")}>
+                <StoredFileViewer fileKey={workOrder.afterPhotoFileKey} />
+              </Item>
               <Item label={t("fieldRepairCost")}>{formatCurrencyThb(workOrder.tenantChargeAmount)}</Item>
               <Item label={t("chargeDocument")}>{workOrder.chargeDocumentNumber ?? "-"}</Item>
               {status === "Cancelled" && <Item label={t("cancelReason")}>{workOrder.cancelReason ?? "-"}</Item>}
@@ -277,16 +283,16 @@ function WorkOrderFormBody({ workOrder }: { workOrder?: WorkOrderItemDto }) {
                 ))}
               </SelectPill>
             </FormField>
-            <FormField id="wo-before" label={t("fieldBeforePhoto")} helperText={t("photoKeyHint")}>
-              <Input
-                id="wo-before"
-                placeholder={t("placeholderPhotoKey")}
-                disabled={!canEditFields || isBusy}
-                className="h-10 rounded-full font-mono text-xs"
-                {...form.register("beforePhotoFileKey")}
-              />
-            </FormField>
           </div>
+          <PhotoAttachmentField
+            label={t("fieldBeforePhoto")}
+            existingKey={workOrder?.beforePhotoFileKey}
+            queuedFiles={photo.queuedFiles}
+            stageFiles={photo.stageFiles}
+            removeFile={photo.removeFile}
+            isUploading={photo.isUploading}
+            disabled={!canEditFields}
+          />
           {canEditFields && (
             <div className="flex justify-end">
               <Button type="submit" disabled={isBusy} className="h-10 rounded-full px-5 text-xs">

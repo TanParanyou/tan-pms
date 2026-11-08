@@ -23,6 +23,7 @@ const shift = (over: Partial<CashierShiftDto> = {}): CashierShiftDto => ({
   id: "s1",
   documentNumber: "BKK01-SHF-2611-0001",
   cashierUserId: "u1",
+  cashier: { id: "u1", fullName: "Cashier One" },
   status: "Open",
   openingFloatCash: 1000,
   cashReceiptsInShift: 500,
@@ -78,12 +79,12 @@ beforeEach(() => {
   });
   vi.spyOn(apiClient, "getAdminPaymentSlip").mockImplementation(async (_pid, id) =>
     id === "ap"
-      ? slip("ap", "Approved", { reviewedByUserId: "rev1", reviewedAt: "2026-11-07T03:00:00Z", receiptDocumentNumber: "RCT-9" })
+      ? slip("ap", "Approved", { reviewedByUserId: "rev1", reviewedBy: { id: "rev1", fullName: "Reviewer Rev" }, reviewedAt: "2026-11-07T03:00:00Z", receiptDocumentNumber: "RCT-9" })
       : slip(id, "Pending")
   );
   vi.spyOn(apiClient, "getAdminPaymentSlips").mockImplementation(async (_pid, params) => ({
     items: params?.status === "Approved"
-      ? [slip("ap", "Approved", { reviewedByUserId: "rev1", reviewedAt: "2026-11-07T03:00:00Z", receiptDocumentNumber: "RCT-9" })]
+      ? [slip("ap", "Approved", { reviewedByUserId: "rev1", reviewedBy: { id: "rev1", fullName: "Reviewer Rev" }, reviewedAt: "2026-11-07T03:00:00Z", receiptDocumentNumber: "RCT-9" })]
       : [slip("pd", "Pending")],
   }));
 });
@@ -218,7 +219,7 @@ describe("PM-08: Payment slip queue", () => {
     fireEvent.click(screen.getByText(p.status.Approved));
     fireEvent.click(await screen.findByText("INV-ap"));
     const info = await screen.findByTestId("slip-review-info");
-    expect(info).toHaveTextContent("rev1");
+    expect(info).toHaveTextContent("Reviewer Rev");
     expect(info).toHaveTextContent("RCT-9");
   });
 });

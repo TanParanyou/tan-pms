@@ -108,6 +108,7 @@ import type {
   ReceiveParcelRequest,
   PickUpParcelRequest,
 } from "@/features/parcels/types";
+import type { ReceiptListResponse, StoredFileDto, StoredFilePurpose } from "@/features/files/types";
 import { ApiError } from "./api-error";
 
 export interface ApiClientConfig {
@@ -135,13 +136,13 @@ export class ApiClient {
     this.defaultPropertyId = propertyId;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async fetchOk(endpoint: string, options: RequestInit, accept: string): Promise<Response> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers = new Headers(options.headers);
-    if (!headers.has("Content-Type") && options.body) {
+    if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
       headers.set("Content-Type", "application/json");
     }
-    headers.set("Accept", "application/json, application/problem+json");
+    headers.set("Accept", accept);
 
     if (this.defaultScope && !headers.has("X-TanPms-Scope")) {
       headers.set("X-TanPms-Scope", this.defaultScope);
@@ -178,12 +179,24 @@ export class ApiClient {
 
       throw ApiError.fromUnknown(response.status);
     }
+    return response;
+  }
 
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const response = await this.fetchOk(endpoint, options, "application/json, application/problem+json");
     if (response.status === 204) {
       return undefined as unknown as T;
     }
-
     return (await response.json()) as T;
+  }
+
+  private async requestBlob(endpoint: string): Promise<Blob> {
+    const response = await this.fetchOk(
+      endpoint,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } },
+      "*/*, application/problem+json"
+    );
+    return response.blob();
   }
 
   // --- 1. Auth APIs ---
@@ -842,6 +855,32 @@ export class ApiClient {
   }
   voidAdminParcel(propertyId: string, parcelId: string, reason: string) {
     return this.adminCall<ParcelItemDto>(propertyId, `parcels/${parcelId}/void`, "POST", { reason });
+  }
+
+  // --- 6f. Files & PDFs (authorized storage) ---
+  uploadAdminFile(propertyId: string, purpose: StoredFilePurpose, file: File) {
+    const form = new FormData();
+    form.append("propertyId", propertyId);
+    form.append("purpose", purpose);
+    form.append("file", file);
+    return this.request<StoredFileDto>("/api/v1/admin/files", {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      body: form,
+    });
+  }
+  downloadAdminFile(fileKey: string) {
+    return this.requestBlob(`/api/v1/admin/files/${encodeURIComponent(fileKey)}`);
+  }
+  downloadAdminContractPdf(propertyId: string, leaseId: string) {
+    return this.requestBlob(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/contract.pdf`);
+  }
+  listAdminReceipts(propertyId: string, params: { invoiceId?: string } = {}) {
+    const query = params.invoiceId ? `?invoiceId=${encodeURIComponent(params.invoiceId)}` : "";
+    return this.adminCall<ReceiptListResponse>(propertyId, `receipts${query}`, "GET");
+  }
+  downloadAdminReceiptPdf(propertyId: string, receiptId: string) {
+    return this.requestBlob(`/api/v1/admin/properties/${propertyId}/receipts/${receiptId}/pdf`);
   }
 
   // --- 7. Client Dashboard API ---

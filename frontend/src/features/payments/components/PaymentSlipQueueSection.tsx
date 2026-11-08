@@ -21,6 +21,7 @@ import {
 import { PageLoading } from "@/components/ui/mono-spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { FormField } from "@/components/forms/form-field";
+import { StoredFileViewer } from "@/components/shared/stored-file-viewer";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { usePermission } from "@/hooks/use-permission";
@@ -206,13 +207,13 @@ export function PaymentSlipQueueSection() {
               <DetailItem label={t("colAmount")}>{formatCurrencyThb(slip.amount)}</DetailItem>
               <DetailItem label={t("colOutstanding")}>{formatCurrencyThb(slip.invoiceOutstandingAmount)}</DetailItem>
               <DetailItem label={t("transferReference")}>{slip.transferReference ?? "-"}</DetailItem>
-              <DetailItem label={t("slipKey")}>
-                <span className="font-mono text-xs">{slip.slipFileKey}</span>
+              <DetailItem label={t("slipImage")}>
+                <StoredFileViewer fileKey={slip.slipFileKey} />
               </DetailItem>
               <DetailItem label={t("submittedAt")}>{formatDateTime(slip.submittedAt, locale)}</DetailItem>
               {slip.status !== "Pending" && (
                 <div data-testid="slip-review-info" className="space-y-3 rounded-[12px] bg-surface-soft p-3">
-                  <DetailItem label={t("reviewedBy")}>{slip.reviewedByUserId ?? "-"}</DetailItem>
+                  <DetailItem label={t("reviewedBy")}>{slip.reviewedBy?.fullName ?? "-"}</DetailItem>
                   <DetailItem label={t("reviewedAt")}>
                     {slip.reviewedAt ? formatDateTime(slip.reviewedAt, locale) : "-"}
                   </DetailItem>

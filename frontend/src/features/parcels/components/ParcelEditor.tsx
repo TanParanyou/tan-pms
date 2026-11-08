@@ -22,6 +22,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { FormField } from "@/components/forms/form-field";
+import { PhotoAttachmentField } from "@/components/forms/photo-attachment-field";
+import { StoredFileViewer } from "@/components/shared/stored-file-viewer";
 import { ReasonDialog } from "@/components/forms/reason-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
@@ -29,6 +31,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
 import { useUnitOptions } from "@/hooks/use-unit-options";
+import { useStagedPhoto } from "@/hooks/use-staged-photo";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { formatDateTime } from "@/lib/formatters";
 import {
@@ -99,8 +102,10 @@ function ParcelBody({ parcel }: { parcel?: ParcelItemDto }) {
   const updateMutation = useUpdateParcelMutation(propertyId);
   const pickUpMutation = usePickUpParcelMutation(propertyId);
   const voidMutation = useVoidParcelMutation(propertyId);
+  const photo = useStagedPhoto(propertyId, "ParcelPhoto");
   const inFlight = useRef(false);
   const isBusy =
+    photo.isUploading ||
     receiveMutation.isPending || updateMutation.isPending || pickUpMutation.isPending || voidMutation.isPending;
 
   const [showPickup, setShowPickup] = useState(false);
@@ -121,23 +126,27 @@ function ParcelBody({ parcel }: { parcel?: ParcelItemDto }) {
     resolver: zodResolver(parcelPickupSchema),
     defaultValues: { recipientName: "" },
   });
-  useUnsavedChanges(form.formState.isDirty || pickupForm.formState.isDirty);
+  useUnsavedChanges(form.formState.isDirty || pickupForm.formState.isDirty || photo.queuedFiles.length > 0);
 
   const submit = form.handleSubmit(async (v) => {
     if (isBusy || inFlight.current) return;
     inFlight.current = true;
-    const req = {
-      unitId: v.unitId,
-      carrierName: v.carrierName,
-      trackingNumber: v.trackingNumber || undefined,
-      photoFileKey: v.photoFileKey || undefined,
-    };
     try {
+      // Deferred upload: only here, before the mutation; failure keeps the form untouched.
+      const photoFileKey = await photo.commit(v.photoFileKey);
+      const req = {
+        unitId: v.unitId,
+        carrierName: v.carrierName,
+        trackingNumber: v.trackingNumber || undefined,
+        photoFileKey,
+      };
       if (parcel) {
         await updateMutation.mutateAsync({ id: parcel.id, req });
+        photo.clear();
         toastSuccess(t("toastUpdated"));
       } else {
         const created = await receiveMutation.mutateAsync(req);
+        photo.clear();
         toastSuccess(t("toastCreated"));
         form.reset(v);
         router.push(`/admin/parcels/${created.id}`);
@@ -217,6 +226,12 @@ function ParcelBody({ parcel }: { parcel?: ParcelItemDto }) {
           </Item>
           <Item label={t("colCustomer")}>{parcel.customer.fullName}</Item>
           <Item label={t("colArrivedAt")}>{formatDateTime(parcel.arrivedAt, locale)}</Item>
+          {parcel.voidReason != null && <Item label={t("voidReason")}>{parcel.voidReason}</Item>}
+          {parcel.photoFileKey && !canManage && (
+            <Item label={t("fieldPhoto")}>
+              <StoredFileViewer fileKey={parcel.photoFileKey} />
+            </Item>
+          )}
           {status === "PickedUp" && (
             <>
               <Item label={t("pickedUpAt")}>{parcel.pickedUpAt ? formatDateTime(parcel.pickedUpAt, locale) : "-"}</Item>
@@ -270,15 +285,15 @@ function ParcelBody({ parcel }: { parcel?: ParcelItemDto }) {
               />
             </FormField>
           </div>
-          <FormField id="pcl-photo" label={t("fieldPhoto")} helperText={t("photoKeyHint")}>
-            <Input
-              id="pcl-photo"
-              placeholder={t("placeholderPhotoKey")}
-              disabled={!isArrived || isBusy}
-              className="h-10 rounded-full font-mono text-xs"
-              {...form.register("photoFileKey")}
-            />
-          </FormField>
+          <PhotoAttachmentField
+            label={t("fieldPhoto")}
+            existingKey={parcel?.photoFileKey}
+            queuedFiles={photo.queuedFiles}
+            stageFiles={photo.stageFiles}
+            removeFile={photo.removeFile}
+            isUploading={photo.isUploading}
+            disabled={!isArrived}
+          />
           {isArrived && (
             <div className="flex justify-end">
               <Button type="submit" disabled={isBusy} className="h-10 rounded-full px-5 text-xs">

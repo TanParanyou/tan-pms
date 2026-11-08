@@ -21,8 +21,10 @@ import {
 } from "@/components/ui/dialog";
 import { CurrencyInput } from "@/components/forms/currency-input";
 import { FormField } from "@/components/forms/form-field";
+import { PhotoAttachmentField } from "@/components/forms/photo-attachment-field";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
+import { useStagedPhoto } from "@/hooks/use-staged-photo";
 import { useAssigneeOptions } from "@/features/users/api/use-assignee-options";
 import { useAssignWorkOrderMutation, useResolveWorkOrderMutation } from "../api/use-work-orders";
 import {
@@ -119,13 +121,14 @@ export function ResolveWorkOrderDialog({ open, onOpenChange, propertyId, workOrd
   const tCommon = useTranslations("common");
   const { toastSuccess, toastApiError } = useToast();
   const mutation = useResolveWorkOrderMutation(propertyId);
+  const photo = useStagedPhoto(propertyId, "WorkOrderPhoto");
   const inFlight = useRef(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
   const form = useForm<WorkOrderResolveFormValues>({
     resolver: zodResolver(workOrderResolveSchema),
     defaultValues: WORK_ORDER_RESOLVE_DEFAULTS,
   });
-  useUnsavedChanges(open && form.formState.isDirty);
+  useUnsavedChanges(open && (form.formState.isDirty || photo.queuedFiles.length > 0));
 
   const cost = form.watch("repairCostAmount");
   const chargeToTenant = form.watch("chargeToTenant");
@@ -135,17 +138,19 @@ export function ResolveWorkOrderDialog({ open, onOpenChange, propertyId, workOrd
     inFlight.current = true;
     const v = form.getValues();
     try {
+      const afterPhotoFileKey = await photo.commit(v.afterPhotoFileKey);
       await mutation.mutateAsync({
         id: workOrder.id,
         req: {
           resolutionNotes: v.resolutionNotes,
-          afterPhotoFileKey: v.afterPhotoFileKey || undefined,
+          afterPhotoFileKey,
           repairCostAmount: v.repairCostAmount,
           chargeToTenant: v.chargeToTenant,
         },
       });
       toastSuccess(t("toastResolved"));
       form.reset(WORK_ORDER_RESOLVE_DEFAULTS);
+      photo.clear();
       setShowConfirm(false);
       onOpenChange(false);
     } catch (err) {
@@ -173,14 +178,13 @@ export function ResolveWorkOrderDialog({ open, onOpenChange, propertyId, workOrd
             >
               <Textarea id="wo-notes" placeholder={t("placeholderResolutionNotes")} {...form.register("resolutionNotes")} />
             </FormField>
-            <FormField id="wo-after" label={t("fieldAfterPhoto")}>
-              <Input
-                id="wo-after"
-                placeholder={t("placeholderPhotoKey")}
-                className="h-10 rounded-full font-mono text-xs"
-                {...form.register("afterPhotoFileKey")}
-              />
-            </FormField>
+            <PhotoAttachmentField
+              label={t("fieldAfterPhoto")}
+              queuedFiles={photo.queuedFiles}
+              stageFiles={photo.stageFiles}
+              removeFile={photo.removeFile}
+              isUploading={photo.isUploading}
+            />
             <FormField id="wo-cost" label={t("fieldRepairCost")} error={form.formState.errors.repairCostAmount?.message}>
               <Controller
                 name="repairCostAmount"
@@ -215,7 +219,7 @@ export function ResolveWorkOrderDialog({ open, onOpenChange, propertyId, workOrd
             </Button>
             <Button
               type="button"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || photo.isUploading}
               onClick={form.handleSubmit(() => setShowConfirm(true))}
               className="rounded-full"
             >
@@ -232,7 +236,7 @@ export function ResolveWorkOrderDialog({ open, onOpenChange, propertyId, workOrd
         message={chargeToTenant && cost > 0 ? t("confirmResolveChargeMessage") : t("confirmResolveMessage")}
         confirmText={t("btnResolve")}
         variant={chargeToTenant && cost > 0 ? "warning" : "info"}
-        isLoading={mutation.isPending}
+        isLoading={mutation.isPending || photo.isUploading}
       />
     </>
   );

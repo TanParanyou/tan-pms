@@ -48,6 +48,7 @@ import {
   type FolioPaymentFormValues,
   type CheckOutFormValues,
 } from "../schemas/stay-schemas";
+import { ShiftNotOpenAlert, isShiftNotOpenError } from "@/components/shared/shift-not-open-alert";
 import { ArrowLeft, Clock, LogOut, Plus, Receipt } from "lucide-react";
 import Link from "next/link";
 import type { FolioTaxModeType, FolioPaymentMethodType } from "../types";
@@ -78,6 +79,7 @@ export function StayDetailEditor({ stayId }: StayDetailEditorProps) {
   const [showCheckOutModal, setShowCheckOutModal] = useState(false);
   const [showConfirmExtend, setShowConfirmExtend] = useState(false);
   const [showConfirmCheckOut, setShowConfirmCheckOut] = useState(false);
+  const [shiftNotOpen, setShiftNotOpen] = useState(false);
 
   // Extend Stay Form
   const extendForm = useForm({
@@ -166,7 +168,9 @@ export function StayDetailEditor({ stayId }: StayDetailEditorProps) {
       toastSuccess(tStays("saveRecordPayment"));
       paymentForm.reset();
       setActiveTab("tab-charges");
+      setShiftNotOpen(false);
     } catch (err) {
+      setShiftNotOpen(isShiftNotOpenError(err));
       toastApiError(err);
     }
   };
@@ -186,6 +190,8 @@ export function StayDetailEditor({ stayId }: StayDetailEditorProps) {
       setShowCheckOutModal(false);
       router.push("/admin/stays");
     } catch (err) {
+      setShiftNotOpen(isShiftNotOpenError(err));
+      setShowConfirmCheckOut(false);
       toastApiError(err);
     }
   };
@@ -398,6 +404,7 @@ export function StayDetailEditor({ stayId }: StayDetailEditorProps) {
 
   return (
     <div className="space-y-6">
+      {shiftNotOpen && <ShiftNotOpenAlert />}
       <PageHeader
         title={`${stay.documentNumber} — Unit ${stay.unit.unitNumber}`}
         subtitle={`${stay.customer.fullName} • ${tModes(stay.stayMode)}`}

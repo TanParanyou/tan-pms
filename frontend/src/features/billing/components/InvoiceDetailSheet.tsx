@@ -24,6 +24,7 @@ import {
 } from "../constants";
 import type { InvoiceLineDto, InvoiceStatusType } from "../types";
 import { InvoiceLineDialog } from "./InvoiceLineDialog";
+import { InvoiceReceiptsList } from "./InvoiceReceiptsList";
 
 export interface InvoiceDetailSheetProps {
   propertyId: string;
@@ -163,6 +164,13 @@ export function InvoiceDetailSheet({ propertyId, invoiceId, onClose }: InvoiceDe
               </TableBody>
             </Table>
             {!isDraft && <p className="text-[11px] text-mute">{t("linesLockedHint")}</p>}
+            {invoice.voidReason != null && (
+              <div>
+                <div className="text-[11px] text-mute">{t("voidReason")}</div>
+                <div className="text-sm text-ink">{invoice.voidReason}</div>
+              </div>
+            )}
+            {!isDraft && <InvoiceReceiptsList propertyId={propertyId} invoiceId={invoice.id} />}
 
             {canVoid && INVOICE_VOIDABLE_STATUSES.includes(status) && (
               <div className="flex justify-end">

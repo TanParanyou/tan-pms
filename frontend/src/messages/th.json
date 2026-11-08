@@ -135,6 +135,20 @@
       "label": "เหตุผล",
       "placeholder": "ระบุเหตุผลอย่างน้อย 3 ตัวอักษร",
       "errorRequired": "ต้องระบุเหตุผลอย่างน้อย 3 ตัวอักษร"
+    },
+    "files": {
+      "loading": "กำลังโหลดไฟล์...",
+      "loadError": "โหลดไฟล์ไม่สำเร็จ",
+      "retry": "ลองใหม่",
+      "imageAlt": "ไฟล์แนบ",
+      "openFile": "เปิดไฟล์",
+      "currentFile": "ไฟล์ปัจจุบัน",
+      "replaceHint": "เลือกไฟล์ใหม่เพื่อแทนที่ไฟล์เดิม ระบบจะอัปโหลดเมื่อกดบันทึก"
+    },
+    "shiftNotOpen": {
+      "title": "ยังไม่ได้เปิดกะแคชเชียร์",
+      "message": "ต้องเปิดกะแคชเชียร์ก่อนจึงจะรับหรือจ่ายเงินสดได้",
+      "link": "ไปที่หน้าแคชเชียร์เพื่อเปิดกะ"
     }
   },
   "home": {
@@ -305,9 +319,9 @@
       "loadError": "ไม่สามารถโหลดข้อมูลกะแคชเชียร์ได้",
       "expectedDrawerCash": "เงินสดที่ควรมีในลิ้นชัก",
       "openingFloat": "เงินทอนเริ่มต้น",
-      "cashReceipts": "รับเงินสด",
-      "depositsIn": "รับเงินประกัน",
-      "depositsOut": "คืนเงินประกัน",
+      "cashReceipts": "รับเงินสด (ใบเสร็จ)",
+      "depositsIn": "รับเงินประกัน (เงินเข้า)",
+      "depositsOut": "คืนเงินประกัน (เงินออก)",
       "shiftStatus": {
         "Open": "เปิดอยู่",
         "Closed": "ปิดแล้ว",
@@ -354,7 +368,10 @@
       "editRemarkTitle": "แก้ไขหมายเหตุผลต่าง",
       "editRemarkDescription": "แก้ไขได้เฉพาะกะที่ปิดแล้วและยังไม่ตรวจยอด",
       "toastRemarkUpdated": "บันทึกหมายเหตุแล้ว",
-      "noDeleteHint": "กะที่ปิดหรือตรวจยอดแล้วเป็นหลักฐานทางการเงิน จึงไม่สามารถลบได้"
+      "noDeleteHint": "กะที่ปิดหรือตรวจยอดแล้วเป็นหลักฐานทางการเงิน จึงไม่สามารถลบได้",
+      "colCashier": "แคชเชียร์",
+      "cancelReason": "เหตุผลที่ยกเลิก",
+      "cashFlowHint": "ยอดรับเงินสด รวมใบเสร็จที่ชำระด้วยเงินสดในกะนี้ รับเงินประกัน คือเงินสดเข้าลิ้นชัก คืนเงินประกัน คือเงินสดออกจากลิ้นชัก"
     },
     "meters": {
       "title": "ตารางจดมิเตอร์น้ำ-ไฟยกตึก (PM-07 Bulk Reading)",
@@ -417,7 +434,8 @@
       "deleteReadingDescription": "ลบค่ามิเตอร์ของห้องในงวดนี้ หากงวดถูกล็อกต้องระบุเหตุผลและมีสิทธิ์ override",
       "confirmDeleteReadingTitle": "ยืนยันการลบค่ามิเตอร์",
       "confirmDeleteReadingMessage": "ลบค่ามิเตอร์ของห้อง {unit} งวด {period} ใช่หรือไม่?",
-      "toastReadingDeleted": "ลบค่ามิเตอร์แล้ว"
+      "toastReadingDeleted": "ลบค่ามิเตอร์แล้ว",
+      "photoColumn": "รูปมิเตอร์"
     },
     "checkInModal": {
       "title": "เปิดห้องพัก / ทำสัญญาเช่าใหม่",
@@ -966,7 +984,9 @@
       "confirmDeleteOccupantTitle": "ยืนยันการลบผู้พักอาศัย",
       "confirmDeleteOccupantMessage": "ลบผู้พักอาศัย {name} ออกจากสัญญาใช่หรือไม่?",
       "confirmDeleteVehicleTitle": "ยืนยันการลบยานพาหนะ",
-      "confirmDeleteVehicleMessage": "ลบยานพาหนะทะเบียน {plate} ออกจากสัญญาใช่หรือไม่?"
+      "confirmDeleteVehicleMessage": "ลบยานพาหนะทะเบียน {plate} ออกจากสัญญาใช่หรือไม่?",
+      "btnPrintContract": "พิมพ์สัญญา (PDF)",
+      "cancelReason": "เหตุผลที่ยกเลิก"
     },
     "billing": {
       "title": "วางบิลรายเดือนแบบกลุ่ม",
@@ -1045,7 +1065,13 @@
       "voidDescription": "ใบแจ้งหนี้ที่ออกแล้วไม่สามารถลบได้ ต้องยกเลิกพร้อมเหตุผลเพื่อบันทึกการตรวจสอบ",
       "confirmVoidTitle": "ยืนยันการยกเลิกใบแจ้งหนี้",
       "confirmVoidMessage": "ยกเลิกใบแจ้งหนี้ {document} ใช่หรือไม่? การยกเลิกไม่สามารถย้อนกลับได้",
-      "toastVoided": "ยกเลิกใบแจ้งหนี้แล้ว"
+      "toastVoided": "ยกเลิกใบแจ้งหนี้แล้ว",
+      "sectionReceipts": "ใบเสร็จรับเงิน",
+      "loadingReceipts": "กำลังโหลดใบเสร็จ...",
+      "receiptsLoadError": "โหลดใบเสร็จไม่สำเร็จ",
+      "noReceipts": "ยังไม่มีใบเสร็จสำหรับใบแจ้งหนี้นี้",
+      "btnDownloadReceipt": "ดาวน์โหลดใบเสร็จ (PDF)",
+      "voidReason": "เหตุผลที่ยกเลิก"
     },
     "payments": {
       "title": "ตรวจสอบสลิปโอนเงิน",
@@ -1082,7 +1108,8 @@
       "placeholderRejectReason": "ระบุเหตุผลที่ปฏิเสธสลิปนี้",
       "errorReasonRequired": "ต้องระบุเหตุผลที่ปฏิเสธ",
       "toastApproved": "อนุมัติสลิปแล้ว",
-      "toastRejected": "ปฏิเสธสลิปแล้ว"
+      "toastRejected": "ปฏิเสธสลิปแล้ว",
+      "slipImage": "ภาพสลิป"
     },
     "deposits": {
       "title": "ทะเบียนเงินประกัน",
@@ -1219,8 +1246,8 @@
       "placeholderSummary": "ระบุหัวข้อปัญหาโดยสรุป",
       "fieldDescription": "รายละเอียด",
       "placeholderDescription": "อธิบายปัญหาหรือจุดที่ชำรุด",
-      "fieldBeforePhoto": "รหัสไฟล์รูปก่อนซ่อม",
-      "fieldAfterPhoto": "รหัสไฟล์รูปหลังซ่อม",
+      "fieldBeforePhoto": "รูปก่อนซ่อม",
+      "fieldAfterPhoto": "รูปหลังซ่อม",
       "placeholderPhotoKey": "ระบุรหัสไฟล์รูปภาพ",
       "photoKeyHint": "ระบบยังไม่มีการอัปโหลดรูป กรอกรหัสไฟล์ที่มีอยู่แล้วเท่านั้น",
       "errorUnitRequired": "กรุณาเลือกห้องพัก",
@@ -1289,7 +1316,7 @@
       "placeholderCarrier": "ระบุชื่อบริษัทขนส่ง",
       "fieldTracking": "เลขพัสดุ",
       "placeholderTracking": "ระบุเลขติดตามพัสดุ",
-      "fieldPhoto": "รหัสไฟล์รูปพัสดุ",
+      "fieldPhoto": "รูปพัสดุ",
       "placeholderPhotoKey": "ระบุรหัสไฟล์รูปภาพ",
       "photoKeyHint": "ระบบยังไม่มีการอัปโหลดรูป กรอกรหัสไฟล์ที่มีอยู่แล้วเท่านั้น",
       "errorUnitRequired": "กรุณาเลือกห้องพัก",
@@ -1308,7 +1335,8 @@
       "toastCreated": "รับพัสดุเข้าแล้ว",
       "toastUpdated": "บันทึกพัสดุแล้ว",
       "toastPickedUp": "ส่งมอบพัสดุแล้ว",
-      "toastVoided": "ยกเลิกพัสดุแล้ว"
+      "toastVoided": "ยกเลิกพัสดุแล้ว",
+      "voidReason": "เหตุผลที่ยกเลิก"
     }
   },
   "client": {

@@ -129,7 +129,7 @@ export function HousekeepingSection() {
     {
       id: "assignee",
       header: t("colAssignee"),
-      cell: (r) => (r.assignedStaffUserId ? <span className="font-mono text-xs">{r.assignedStaffUserId}</span> : dash),
+      cell: (r) => (r.assignedStaff?.fullName ? <span className="text-xs">{r.assignedStaff.fullName}</span> : dash),
     },
     { id: "note", header: t("colNote"), cell: (r) => <span className="text-xs">{r.note ? r.note : "-"}</span> },
     { id: "updated", header: t("colUpdated"), cell: (r) => <span className="text-xs">{formatDateTime(r.updatedAt ?? r.createdAt, locale)}</span> },

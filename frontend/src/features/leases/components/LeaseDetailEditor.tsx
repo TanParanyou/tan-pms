@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations, useLocale } from "next-intl";
-import { ArrowLeft, Ban, LogOut, Pencil, Plus, RefreshCw, Wallet } from "lucide-react";
+import { ArrowLeft, Ban, FileDown, LogOut, Pencil, Plus, RefreshCw, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { usePermission } from "@/hooks/use-permission";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { useBlobDownload } from "@/hooks/use-blob-download";
+import { apiClient } from "@/lib/api/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { formatCurrencyThb } from "@/lib/formatters";
@@ -113,6 +115,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   const moveOutNotice = useMoveOutNoticeMutation(propertyId);
   const settle = useSettleMoveOutMutation(propertyId);
   const cancelLease = useCancelLeaseMutation(propertyId);
+  const { download, isDownloading } = useBlobDownload();
 
   const [showEdit, setShowEdit] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -252,6 +255,23 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
                 <span>{tCommon("back")}</span>
               </Button>
             </Link>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isDownloading}
+              onClick={() =>
+                void download(
+                  () => apiClient.downloadAdminContractPdf(propertyId, lease.id),
+                  `${lease.documentNumber}.pdf`,
+                  "open"
+                )
+              }
+              className="h-9 rounded-full px-4 gap-1.5 text-xs"
+            >
+              <FileDown className="h-4 w-4" />
+              <span>{isDownloading ? tCommon("loading") : t("btnPrintContract")}</span>
+            </Button>
             {canManage && (
               <>
                 <Button
@@ -334,6 +354,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
         <SummaryItem label={t("colRent")}>{formatCurrencyThb(lease.monthlyRentAmount)}</SummaryItem>
         <SummaryItem label={t("fieldSecurityDeposit")}>{formatCurrencyThb(lease.securityDepositAmount)}</SummaryItem>
         <SummaryItem label={t("colDepositBalance")}>{formatCurrencyThb(lease.securityDepositBalance)}</SummaryItem>
+        {lease.cancelReason != null && <SummaryItem label={t("cancelReason")}>{lease.cancelReason}</SummaryItem>}
         <SummaryItem label={t("fieldMeterStart")}>
           <span className="font-mono text-xs tabular-nums">
             {lease.initialWaterMeterReading} / {lease.initialElectricMeterReading}

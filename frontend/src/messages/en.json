@@ -135,6 +135,20 @@
       "label": "Reason",
       "placeholder": "Enter a reason (at least 3 characters)",
       "errorRequired": "A reason of at least 3 characters is required."
+    },
+    "files": {
+      "loading": "Loading file...",
+      "loadError": "Failed to load file",
+      "retry": "Retry",
+      "imageAlt": "Attachment",
+      "openFile": "Open file",
+      "currentFile": "Current file",
+      "replaceHint": "Choose a new file to replace the current one. It uploads when you save."
+    },
+    "shiftNotOpen": {
+      "title": "No open cashier shift",
+      "message": "A cashier shift must be open before cash can be received or paid.",
+      "link": "Go to Cashier to open a shift"
     }
   },
   "home": {
@@ -305,9 +319,9 @@
       "loadError": "Unable to load cashier shifts",
       "expectedDrawerCash": "Expected Drawer Cash",
       "openingFloat": "Opening Float",
-      "cashReceipts": "Cash Receipts",
-      "depositsIn": "Deposits Received",
-      "depositsOut": "Deposits Refunded",
+      "cashReceipts": "Cash Receipts (in)",
+      "depositsIn": "Deposits Received (in)",
+      "depositsOut": "Deposits Refunded (out)",
       "shiftStatus": {
         "Open": "Open",
         "Closed": "Closed",
@@ -354,7 +368,10 @@
       "editRemarkTitle": "Edit Variance Remark",
       "editRemarkDescription": "Only a Closed shift that is not yet reconciled can be edited.",
       "toastRemarkUpdated": "Remark saved",
-      "noDeleteHint": "Closed or reconciled shifts are financial records and cannot be deleted."
+      "noDeleteHint": "Closed or reconciled shifts are financial records and cannot be deleted.",
+      "colCashier": "Cashier",
+      "cancelReason": "Cancel reason",
+      "cashFlowHint": "Cash receipts are cash-paid receipts in this shift. Deposits received are cash in to the drawer; deposits refunded are cash out of the drawer."
     },
     "meters": {
       "title": "Bulk Utility Meter Reading (PM-07)",
@@ -417,7 +434,8 @@
       "deleteReadingDescription": "Delete this unit's readings for the period. Locked periods need a reason and the override permission.",
       "confirmDeleteReadingTitle": "Confirm Reading Deletion",
       "confirmDeleteReadingMessage": "Delete the readings of unit {unit} for period {period}?",
-      "toastReadingDeleted": "Reading deleted"
+      "toastReadingDeleted": "Reading deleted",
+      "photoColumn": "Meter photo"
     },
     "checkInModal": {
       "title": "Quick Walk-in / New Lease",
@@ -966,7 +984,9 @@
       "confirmDeleteOccupantTitle": "Confirm Occupant Removal",
       "confirmDeleteOccupantMessage": "Remove occupant {name} from this lease?",
       "confirmDeleteVehicleTitle": "Confirm Vehicle Removal",
-      "confirmDeleteVehicleMessage": "Remove vehicle {plate} from this lease?"
+      "confirmDeleteVehicleMessage": "Remove vehicle {plate} from this lease?",
+      "btnPrintContract": "Print contract (PDF)",
+      "cancelReason": "Cancel reason"
     },
     "billing": {
       "title": "Batch Monthly Billing",
@@ -1045,7 +1065,13 @@
       "voidDescription": "Issued invoices cannot be deleted. Void with a reason to keep the audit trail.",
       "confirmVoidTitle": "Confirm Invoice Void",
       "confirmVoidMessage": "Void invoice {document}? This cannot be undone.",
-      "toastVoided": "Invoice voided"
+      "toastVoided": "Invoice voided",
+      "sectionReceipts": "Receipts",
+      "loadingReceipts": "Loading receipts...",
+      "receiptsLoadError": "Failed to load receipts",
+      "noReceipts": "No receipts for this invoice yet",
+      "btnDownloadReceipt": "Download receipt (PDF)",
+      "voidReason": "Void reason"
     },
     "payments": {
       "title": "Payment Slip Verification",
@@ -1082,7 +1108,8 @@
       "placeholderRejectReason": "Enter the reason for rejecting this slip",
       "errorReasonRequired": "A reject reason is required.",
       "toastApproved": "Slip approved",
-      "toastRejected": "Slip rejected"
+      "toastRejected": "Slip rejected",
+      "slipImage": "Slip image"
     },
     "deposits": {
       "title": "Deposit Register",
@@ -1219,8 +1246,8 @@
       "placeholderSummary": "Enter a short issue title",
       "fieldDescription": "Description",
       "placeholderDescription": "Describe the issue or defect location",
-      "fieldBeforePhoto": "Before-photo file key",
-      "fieldAfterPhoto": "After-photo file key",
+      "fieldBeforePhoto": "Before-repair photo",
+      "fieldAfterPhoto": "After-repair photo",
       "placeholderPhotoKey": "Enter an image file key",
       "photoKeyHint": "Photo upload is not available yet. Enter an existing file key only.",
       "errorUnitRequired": "Please select a unit.",
@@ -1289,7 +1316,7 @@
       "placeholderCarrier": "Enter the carrier name",
       "fieldTracking": "Tracking number",
       "placeholderTracking": "Enter the tracking number",
-      "fieldPhoto": "Parcel photo file key",
+      "fieldPhoto": "Parcel photo",
       "placeholderPhotoKey": "Enter an image file key",
       "photoKeyHint": "Photo upload is not available yet. Enter an existing file key only.",
       "errorUnitRequired": "Please select a unit.",
@@ -1308,7 +1335,8 @@
       "toastCreated": "Parcel received",
       "toastUpdated": "Parcel saved",
       "toastPickedUp": "Parcel handed over",
-      "toastVoided": "Parcel voided"
+      "toastVoided": "Parcel voided",
+      "voidReason": "Void reason"
     }
   },
   "client": {

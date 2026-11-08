@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
+import type { ReceiptListResponse } from "@/features/files/types";
 import type { InvoiceItemDto, InvoiceLineRequest, InvoiceListResponse, BatchInvoiceRunRequest } from "../types";
 
 export function useAdminInvoices(propertyId: string, period: string, status?: string, enabled = true) {
@@ -69,4 +70,11 @@ export function useVoidInvoiceMutation(propertyId: string) {
   return useBillingMutation(({ invoiceId, reason }: { invoiceId: string; reason: string }) =>
     apiClient.voidAdminInvoice(propertyId, invoiceId, reason)
   );
+}
+
+export function useAdminReceipts(propertyId: string, invoiceId: string) {
+  return useQuery<ReceiptListResponse>({
+    queryKey: ["admin-receipts", propertyId, invoiceId],
+    queryFn: () => apiClient.listAdminReceipts(propertyId, { invoiceId }),
+  });
 }

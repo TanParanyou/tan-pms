@@ -93,6 +93,7 @@ const shift = (status: string, over: Partial<CashierShiftDto> = {}): CashierShif
   id: "s1",
   documentNumber: "SHF-0001",
   cashierUserId: "u1",
+  cashier: { id: "u1", fullName: "Cashier One" },
   status,
   openingFloatCash: 1000,
   cashReceiptsInShift: 0,
@@ -390,9 +391,10 @@ describe("CRUD completeness: Cashier", () => {
 
 describe("CRUD completeness: Payments and Deposits", () => {
   it("loads the slip detail through the single GET", async () => {
+    const download = vi.spyOn(apiClient, "downloadAdminFile").mockResolvedValue(new Blob(["x"], { type: "application/pdf" }));
     renderAdmin(<PaymentSlipQueueSection />);
     fireEvent.click(await screen.findByText("INV-S1"));
-    expect(await screen.findByText("slips/detail-key.png")).toBeInTheDocument();
+    await waitFor(() => expect(download).toHaveBeenCalledWith("slips/detail-key.png"));
     expect(apiClient.getAdminPaymentSlip).toHaveBeenCalledWith(expect.any(String), "sl1");
     expect(p.title).toBeTruthy();
   });
