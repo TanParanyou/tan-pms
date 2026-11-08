@@ -1,141 +1,85 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import { InvertedCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CommandTag } from "@/components/ui/command-tag";
-import { DeferredFilePicker } from "@/components/ui/deferred-file-picker";
-import { useDeferredFileUpload } from "@/hooks/use-deferred-file-upload";
 import { useCountdownTimer } from "@/hooks/use-countdown-timer";
-import { useTranslations, useLocale } from "next-intl";
-import { resolveLocalizedText } from "@/lib/i18n/localized-text";
-import { CLIENT_SAMPLE_PROFILE, SAMPLE_HOLD_RESERVATION } from "../constants";
-import type { LocalizedTextDto } from "@/lib/i18n/localized-text";
-import { CheckCircle2, Lightbulb } from "lucide-react";
+import { formatCurrencyThb } from "@/lib/formatters";
+import { resolveLocalizedText, type LocalizedTextDto } from "@/lib/i18n/localized-text";
 
 export interface HoldTtlInvertedCardProps {
-  holdReservation?: {
+  hold: {
     documentNumber?: string;
     unitTypeName?: LocalizedTextDto;
     stayMode?: string;
     holdExpiresAt?: string;
     depositAmount?: number;
-  } | null;
+  };
+  href: string;
+  onExpire?: () => void;
 }
 
-export function HoldTtlInvertedCard({ holdReservation }: HoldTtlInvertedCardProps = {}) {
+export function secondsUntil(iso: string | undefined, now: number = Date.now()): number {
+  if (!iso) return 0;
+  const ms = new Date(iso).getTime() - now;
+  return Number.isFinite(ms) ? Math.max(0, Math.floor(ms / 1000)) : 0;
+}
+
+/** The single inverted card of the client dashboard: live countdown for the active Hold. */
+export function HoldTtlInvertedCard({ hold, href, onExpire }: HoldTtlInvertedCardProps) {
   const locale = useLocale() as "th" | "en";
-  const tHold = useTranslations("client.holdBanner");
-  const tCommon = useTranslations("common");
-
-  const activeHold = holdReservation ?? SAMPLE_HOLD_RESERVATION;
-
-  const { remainingSeconds, formattedTime } = useCountdownTimer({
-    initialSeconds: CLIENT_SAMPLE_PROFILE.initialRemainingSeconds,
-  });
-  const [slipSubmitted, setSlipSubmitted] = useState(false);
-
-  const {
-    queuedFiles,
-    stageFiles,
-    removeFile,
-    commitUploads,
-    isUploading,
-  } = useDeferredFileUpload({ maxFiles: 1 });
-
-  const handleConfirmSlip = async () => {
-    if (queuedFiles.length === 0) return;
-    await commitUploads(async (file) => {
-      return `https://storage.tan-pms.internal/slips/${file.name}`;
-    });
-    setSlipSubmitted(true);
-  };
+  const t = useTranslations("client.portal.hold");
+  const tModes = useTranslations("stayModes");
+  const { formattedTime } = useCountdownTimer({ initialSeconds: secondsUntil(hold.holdExpiresAt), onExpire });
 
   return (
-    <InvertedCard className="p-6">
+    <InvertedCard className="p-6" data-testid="hold-card">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800 pb-4 mb-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-terminal-yellow inline-block animate-pulse" />
-            <span className="text-xs uppercase tracking-wider text-mute font-mono">
-              {tHold("statusBadge")}
-            </span>
-            <CommandTag prefixCode="RES" className="bg-neutral-800 border-neutral-700 text-canvas">
-              {SAMPLE_HOLD_RESERVATION.documentNumber}
-            </CommandTag>
+            <span className="text-xs uppercase tracking-wider text-mute font-mono">{t("badge")}</span>
+            {hold.documentNumber && (
+              <CommandTag prefixCode="RES" className="bg-neutral-800 border-neutral-700 text-canvas">
+                {hold.documentNumber}
+              </CommandTag>
+            )}
           </div>
           <h2 className="text-xl font-rounded font-semibold text-canvas" data-inverted-heading>
-            {tHold("title")}
+            {t("title")}
           </h2>
         </div>
-
         <div className="text-right">
-          <span className="text-[11px] text-mute block">
-            {tHold("remainingTime")}
-          </span>
-          <span className="font-mono text-3xl font-bold text-canvas tracking-wider tabular-nums">
-            {formattedTime}
-          </span>
+          <span className="text-[11px] text-mute block">{t("remaining")}</span>
+          <span className="font-mono text-3xl font-bold text-canvas tracking-wider tabular-nums">{formattedTime}</span>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
-        <div className="space-y-2 text-xs">
-          <div className="flex justify-between border-b border-neutral-800 py-1">
-            <span className="text-mute">{tHold("unitType")}:</span>
+      <div className="flex flex-wrap items-end justify-between gap-4 text-xs">
+        <div className="space-y-1">
+          <div className="flex gap-2">
+            <span className="text-mute">{t("unitType")}:</span>
             <span className="font-medium text-canvas">
-              {resolveLocalizedText(SAMPLE_HOLD_RESERVATION.unitTypeName, locale)}
+              {hold.unitTypeName ? resolveLocalizedText(hold.unitTypeName, locale) : "-"}
             </span>
           </div>
-          <div className="flex justify-between border-b border-neutral-800 py-1">
-            <span className="text-mute">{tHold("stayMode")}:</span>
-            <span className="font-medium text-canvas">{tHold("stayModeSample")}</span>
+          <div className="flex gap-2">
+            <span className="text-mute">{t("stayMode")}:</span>
+            <span className="font-medium text-canvas">{hold.stayMode ? tModes(hold.stayMode) : "-"}</span>
           </div>
-          <div className="flex justify-between border-b border-neutral-800 py-1">
-            <span className="text-mute">{tHold("depositAmount")}:</span>
-            <span className="font-mono font-semibold text-canvas text-sm tabular-nums">
-              {tCommon("currencySymbol")}{SAMPLE_HOLD_RESERVATION.depositAmount}
+          <div className="flex gap-2">
+            <span className="text-mute">{t("deposit")}:</span>
+            <span className="font-mono font-semibold text-canvas tabular-nums">
+              {hold.depositAmount == null ? "-" : formatCurrencyThb(hold.depositAmount)}
             </span>
           </div>
-          <div className="flex items-start gap-1.5 text-[11px] text-mute pt-1">
-            <Lightbulb className="h-3.5 w-3.5 text-terminal-yellow shrink-0 mt-0.5" aria-hidden="true" />
-            <span>{tHold("bankInstruction")}</span>
-          </div>
         </div>
-
-        {/* Deferred Slip Upload */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-[10px] p-4 space-y-3">
-          {slipSubmitted ? (
-            <div className="text-center py-4 space-y-2">
-              <CheckCircle2 className="h-8 w-8 text-terminal-green mx-auto" aria-hidden="true" />
-              <h4 className="text-sm font-semibold text-canvas">{tHold("slipSuccessTitle")}</h4>
-              <p className="text-xs text-mute">
-                {tHold("slipSuccessDesc")}
-              </p>
-            </div>
-          ) : (
-            <>
-              <DeferredFilePicker
-                queuedFiles={queuedFiles}
-                onFilesSelected={stageFiles}
-                onRemoveFile={removeFile}
-                isUploading={isUploading}
-                label={tHold("uploadSlip")}
-                helperText={tHold("uploadSlipHelper")}
-              />
-              <Button
-                type="button"
-                variant="onDark"
-                size="sm"
-                onClick={handleConfirmSlip}
-                disabled={queuedFiles.length === 0 || isUploading}
-                className="w-full rounded-full font-medium h-9 text-xs mt-2"
-              >
-                {isUploading ? tCommon("loading") : tHold("confirmPayment")} →
-              </Button>
-            </>
-          )}
-        </div>
+        <Link href={href}>
+          <Button type="button" variant="onDark" size="sm" className="rounded-full h-9 px-5 text-xs">
+            {t("manage")}
+          </Button>
+        </Link>
       </div>
     </InvertedCard>
   );

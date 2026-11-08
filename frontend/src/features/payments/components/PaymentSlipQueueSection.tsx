@@ -22,6 +22,7 @@ import { PageLoading } from "@/components/ui/mono-spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { FormField } from "@/components/forms/form-field";
 import { StoredFileViewer } from "@/components/shared/stored-file-viewer";
+import { InvoiceReceiptsList } from "@/features/billing/components/InvoiceReceiptsList";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { usePermission } from "@/hooks/use-permission";
@@ -221,6 +222,11 @@ export function PaymentSlipQueueSection() {
                   <DetailItem label={t("receiptNo")}>{slip.receiptDocumentNumber ?? "-"}</DetailItem>
                 </div>
               )}
+            </div>
+          )}
+          {slip && slip.status === "Approved" && (
+            <div className="pb-4">
+              <InvoiceReceiptsList propertyId={activeProperty.id} invoiceId={slip.invoiceId} />
             </div>
           )}
           {canVerify && isPending && (

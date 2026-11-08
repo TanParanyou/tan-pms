@@ -154,6 +154,52 @@ describe("PM-07: Bulk meter readings", () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  it("uploads staged meter photos only on save and sends the returned keys", async () => {
+    const upload = vi.spyOn(apiClient, "uploadAdminFile").mockResolvedValue({
+      fileKey: "files/meter-1",
+      purpose: "MeterPhoto",
+      contentType: "image/jpeg",
+      size: 3,
+      createdAt: "2026-11-07T01:00:00Z",
+    });
+    const save = vi.spyOn(apiClient, "saveAdminMeterReadings").mockResolvedValue({ period: "2026-11", isSaved: true, rows: [] });
+    renderWith(<BulkMeterReadingSection />);
+    await screen.findByText("A-101");
+    fireEvent.change(waterInput("A-101"), { target: { value: "120" } });
+    fireEvent.change(electricInput("A-101"), { target: { value: "600" } });
+    const input = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "water.jpg", { type: "image/jpeg" })] } });
+    expect(await screen.findByText("water.jpg")).toBeInTheDocument();
+    expect(upload).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText(m.saveBatch));
+    await waitFor(() => expect(upload).toHaveBeenCalledWith(expect.any(String), "MeterPhoto", expect.any(File)));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          items: [expect.objectContaining({ unitId: "u-a", waterPhotoFileKey: "files/meter-1", electricPhotoFileKey: undefined })],
+        })
+      )
+    );
+    await waitFor(() => expect(screen.queryByText("water.jpg")).not.toBeInTheDocument());
+  });
+
+  it("keeps edits and skips the save when a meter photo upload fails", async () => {
+    const upload = vi.spyOn(apiClient, "uploadAdminFile").mockRejectedValue(new Error("upload failed"));
+    const save = vi.spyOn(apiClient, "saveAdminMeterReadings");
+    renderWith(<BulkMeterReadingSection />);
+    await screen.findByText("A-101");
+    fireEvent.change(waterInput("A-101"), { target: { value: "120" } });
+    fireEvent.change(electricInput("A-101"), { target: { value: "600" } });
+    const input = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "water.jpg", { type: "image/jpeg" })] } });
+    fireEvent.click(screen.getByText(m.saveBatch));
+    await waitFor(() => expect(upload).toHaveBeenCalled());
+    expect(save).not.toHaveBeenCalled();
+    expect(waterInput("A-101").value).toBe("120");
+    expect(screen.getByText("water.jpg")).toBeInTheDocument();
+  });
+
   it("makes locked rows read-only without override permission", async () => {
     renderWith(<BulkMeterReadingSection />, ["admin.meters.record"]);
     await screen.findByText("B-202");

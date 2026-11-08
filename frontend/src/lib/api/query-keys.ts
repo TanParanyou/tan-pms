@@ -129,6 +129,34 @@ export const queryKeys = {
     export: (propertyId: string, date?: string) =>
       [...queryKeys.regulatoryExports.all, propertyId, date ?? ""] as const,
   },
+  clientPortal: {
+    all: ["client-portal"] as const,
+    leases: () => [...queryKeys.clientPortal.all, "leases"] as const,
+    lease: (id: string) => [...queryKeys.clientPortal.all, "lease", id] as const,
+    leaseIntents: () => [...queryKeys.clientPortal.all, "lease-intents"] as const,
+    invoices: (status?: string) => [...queryKeys.clientPortal.all, "invoices", status ?? ""] as const,
+    invoice: (id: string) => [...queryKeys.clientPortal.all, "invoice", id] as const,
+    slips: () => [...queryKeys.clientPortal.all, "slips"] as const,
+    usage: (leaseId?: string, months?: number) =>
+      [...queryKeys.clientPortal.all, "usage", leaseId ?? "", months ?? 0] as const,
+    workOrders: (status?: string) => [...queryKeys.clientPortal.all, "work-orders", status ?? ""] as const,
+    workOrder: (id: string) => [...queryKeys.clientPortal.all, "work-order", id] as const,
+    parcels: (status?: string) => [...queryKeys.clientPortal.all, "parcels", status ?? ""] as const,
+    reservations: () => [...queryKeys.clientPortal.all, "reservations"] as const,
+    reservation: (id: string) => [...queryKeys.clientPortal.all, "reservation", id] as const,
+    availability: (params: object) => [...queryKeys.clientPortal.all, "availability", params] as const,
+    notifications: () => [...queryKeys.clientPortal.all, "notifications"] as const,
+  },
+  leaseIntents: {
+    all: ["admin-lease-intents"] as const,
+    list: (propertyId: string, status?: string) =>
+      [...queryKeys.leaseIntents.all, propertyId, status ?? ""] as const,
+  },
+  analytics: {
+    all: ["admin-analytics"] as const,
+    report: (propertyId: string, report: string, from: string, to: string) =>
+      [...queryKeys.analytics.all, propertyId, report, from, to] as const,
+  },
   clientDashboard: {
     all: ["client-dashboard"] as const,
     summary: (customerId?: string) =>

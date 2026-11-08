@@ -378,3 +378,20 @@ export const INITIAL_REGULATORY_GUEST_ROWS: RegulatoryGuestRowDto[] = [
     stayMode: "Daily",
   },
 ];
+
+export const STAY_CREATE_DEFAULTS = {
+  unitId: "",
+  customerId: "",
+  stayMode: "Hourly" as "Hourly" | "Daily",
+  durationHours: 3,
+  durationDays: 1,
+  dirtyOverrideReason: "",
+  primaryGuestName: "",
+  primaryNationality: "",
+  primaryIdNumber: "",
+  primaryLicensePlate: "",
+  keyDepositAmount: 500,
+};
+export const CHECK_IN_STAY_MODES = ["Hourly", "Daily"] as const;
+export const MS_PER_HOUR = 60 * 60 * 1000;
+export const MS_PER_DAY = 24 * MS_PER_HOUR;

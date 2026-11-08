@@ -10,26 +10,32 @@ import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
 import {
   CalendarDays,
+  ClipboardList,
   FileText,
   Globe,
   Home,
+  KeyRound,
   LogOut,
   Package,
   Wrench,
+  Zap,
 } from "lucide-react";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { locale, toggleLocale } = useAppLocale();
-  const tNav = useTranslations("admin.nav");
+  const tPortalNav = useTranslations("client.portal.nav");
   const tCommon = useTranslations("common");
 
   const navLinks = [
-    { href: "/client/dashboard", label: "Dashboard", icon: Home },
-    { href: "/client/book", label: "Book Room", icon: CalendarDays },
-    { href: "/client/invoices", label: "Invoices & Lease", icon: FileText },
-    { href: "/client/work-orders", label: "Work Orders", icon: Wrench },
-    { href: "/client/parcels", label: "Parcels", icon: Package },
+    { href: "/client/dashboard", label: tPortalNav("dashboard"), icon: Home },
+    { href: "/client/book", label: tPortalNav("book"), icon: CalendarDays },
+    { href: "/client/reservations", label: tPortalNav("reservations"), icon: ClipboardList },
+    { href: "/client/lease", label: tPortalNav("lease"), icon: KeyRound },
+    { href: "/client/invoices", label: tPortalNav("invoices"), icon: FileText },
+    { href: "/client/usage", label: tPortalNav("usage"), icon: Zap },
+    { href: "/client/work-orders", label: tPortalNav("workOrders"), icon: Wrench },
+    { href: "/client/parcels", label: tPortalNav("parcels"), icon: Package },
   ];
 
   const isLinkActive = (href: string) => {
@@ -56,7 +62,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
           {/* Capsule Nav Links */}
           <nav
-            aria-label="Client Capsule Navigation"
+            aria-label={tPortalNav("ariaLabel")}
             className="hidden md:flex items-center gap-1.5 p-1 rounded-full bg-surface-soft border border-hairline"
           >
             {navLinks.map((link) => {

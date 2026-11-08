@@ -4,21 +4,6 @@ import { CENTRAL_PROPERTIES, DEFAULT_KEY_DEPOSIT } from "@/constants/master-data
 export { DEFAULT_KEY_DEPOSIT };
 export const ADMIN_PROPERTIES: PropertyRefDto[] = [...CENTRAL_PROPERTIES];
 
-export const AVAILABLE_WALK_IN_UNITS = [
-  {
-    id: "A-101",
-    unitNumber: "A-101",
-    unitTypeName: { th: "สตูดิโอ ดีลักซ์", en: "Studio Deluxe" },
-    isClean: true,
-  },
-  {
-    id: "A-302",
-    unitNumber: "A-302",
-    unitTypeName: { th: "1 ห้องนอน สแตนดาร์ด", en: "Standard 1-Bed" },
-    isClean: false,
-  },
-] as const;
-
 export const INITIAL_RACK_PROJECTIONS: RoomRackItemDto[] = [
   {
     unit: {

@@ -33,6 +33,8 @@ import {
   Users,
   Wallet,
   Zap,
+  ClipboardCheck,
+  BarChart3,
 } from "lucide-react";
 
 export interface AdminMobileDrawerProps {
@@ -63,6 +65,7 @@ const DRAWER_GROUPS: DrawerMenuGroup[] = [
       { key: "stays", href: "/admin/stays", icon: Receipt, labelKey: "stays" },
       { key: "reservations", href: "/admin/reservations", icon: CalendarDays, labelKey: "reservations" },
       { key: "leases", href: "/admin/leases", icon: FileText, labelKey: "leases" },
+      { key: "leaseIntents", href: "/admin/lease-intents", icon: ClipboardCheck, labelKey: "leaseIntents" },
       { key: "meters", href: "/admin/meters", icon: Zap, labelKey: "meters" },
       { key: "housekeeping", href: "/admin/housekeeping", icon: Sparkles, labelKey: "housekeeping" },
       { key: "workOrders", href: "/admin/work-orders", icon: Wrench, labelKey: "workOrders" },
@@ -84,6 +87,7 @@ const DRAWER_GROUPS: DrawerMenuGroup[] = [
       { key: "payments", href: "/admin/payments", icon: BadgeCheck, labelKey: "payments" },
       { key: "deposits", href: "/admin/deposits", icon: PiggyBank, labelKey: "deposits" },
       { key: "cashier", href: "/admin/cashier", icon: Wallet, labelKey: "cashier" },
+      { key: "analytics", href: "/admin/analytics", icon: BarChart3, labelKey: "analytics" },
     ],
   },
 ];

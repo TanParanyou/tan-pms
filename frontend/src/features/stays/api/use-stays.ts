@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
+import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import {
   INITIAL_STAYS,
   INITIAL_REGULATORY_GUEST_ROWS,
@@ -61,9 +62,8 @@ export function useCheckInStayMutation() {
     mutationFn: async (req: CheckInStayRequest) => {
       return await apiClient.checkInStay(req);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stays.all });
-    },
+    // Check-in occupies the unit and books the key deposit into the open shift: await every dependent cache.
+    onSuccess: () => invalidateOperationalCaches(queryClient),
   });
 }
 

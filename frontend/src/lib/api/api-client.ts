@@ -109,6 +109,19 @@ import type {
   PickUpParcelRequest,
 } from "@/features/parcels/types";
 import type { ReceiptListResponse, StoredFileDto, StoredFilePurpose } from "@/features/files/types";
+import type {
+  LeaseIntentDto,
+  LeaseIntentListResponse,
+  CreateLeaseIntentRequest,
+  UpdateLeaseIntentRequest,
+  ClientInvoiceDto,
+  ClientInvoiceListResponse,
+  ClientPaymentSlipDto,
+  ClientPaymentSlipListResponse,
+  SubmitPaymentSlipRequest,
+  ClientUtilityUsageResponse,
+  AnalyticsReportKind,
+} from "@/features/client/types";
 import { ApiError } from "./api-error";
 
 export interface ApiClientConfig {
@@ -190,10 +203,10 @@ export class ApiClient {
     return (await response.json()) as T;
   }
 
-  private async requestBlob(endpoint: string): Promise<Blob> {
+  private async requestBlob(endpoint: string, scope: "AdminScope" | "ClientScope" = "AdminScope"): Promise<Blob> {
     const response = await this.fetchOk(
       endpoint,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } },
+      { method: "GET", headers: { "X-TanPms-Scope": scope } },
       "*/*, application/problem+json"
     );
     return response.blob();
@@ -313,8 +326,8 @@ export class ApiClient {
     params: { checkIn: string; checkOut: string; stayMode?: string }
   ): Promise<AvailabilitySearchResponse> {
     const query = new URLSearchParams({
-      checkIn: params.checkIn,
-      checkOut: params.checkOut,
+      slotStartAt: params.checkIn,
+      slotEndAt: params.checkOut,
       ...(params.stayMode ? { stayMode: params.stayMode } : {}),
     });
     return this.request<AvailabilitySearchResponse>(
@@ -383,16 +396,11 @@ export class ApiClient {
 
   async getClientAvailability(params: {
     propertyId: string;
-    checkIn: string;
-    checkOut: string;
-    stayMode?: string;
+    slotStartAt: string;
+    slotEndAt: string;
+    stayMode: string;
   }): Promise<AvailabilitySearchResponse> {
-    const query = new URLSearchParams({
-      propertyId: params.propertyId,
-      checkIn: params.checkIn,
-      checkOut: params.checkOut,
-      ...(params.stayMode ? { stayMode: params.stayMode } : {}),
-    });
+    const query = new URLSearchParams(params);
     return this.request<AvailabilitySearchResponse>(`/api/v1/client/availability?${query.toString()}`, {
       method: "GET",
       headers: { "X-TanPms-Scope": "ClientScope" },
@@ -881,6 +889,121 @@ export class ApiClient {
   }
   downloadAdminReceiptPdf(propertyId: string, receiptId: string) {
     return this.requestBlob(`/api/v1/admin/properties/${propertyId}/receipts/${receiptId}/pdf`);
+  }
+
+  // --- 6g. Client portal (ClientScope) ---
+  private clientCall<T>(path: string, method: string, body?: unknown): Promise<T> {
+    return this.request<T>(`/api/v1/client/${path}`, {
+      method,
+      headers: { "X-TanPms-Scope": "ClientScope" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  }
+
+  uploadClientFile(purpose: StoredFilePurpose, file: File) {
+    const form = new FormData();
+    form.append("purpose", purpose);
+    form.append("file", file);
+    return this.request<StoredFileDto>("/api/v1/client/files", {
+      method: "POST",
+      headers: { "X-TanPms-Scope": "ClientScope" },
+      body: form,
+    });
+  }
+  downloadClientFile(fileKey: string) {
+    return this.requestBlob(`/api/v1/client/files/${encodeURIComponent(fileKey)}`, "ClientScope");
+  }
+  downloadClientReceiptPdf(receiptId: string) {
+    return this.requestBlob(`/api/v1/client/receipts/${receiptId}/pdf`, "ClientScope");
+  }
+  getClientLeases() {
+    return this.clientCall<LeaseListResponse>("leases", "GET");
+  }
+  getClientLease(leaseId: string) {
+    return this.clientCall<LeaseItemDto>(`leases/${leaseId}`, "GET");
+  }
+  createClientLeaseIntent(leaseId: string, req: CreateLeaseIntentRequest) {
+    return this.clientCall<LeaseIntentDto>(`leases/${leaseId}/intents`, "POST", req);
+  }
+  getClientLeaseIntents() {
+    return this.clientCall<LeaseIntentListResponse>("lease-intents", "GET");
+  }
+  updateClientLeaseIntent(intentId: string, req: UpdateLeaseIntentRequest) {
+    return this.clientCall<LeaseIntentDto>(`lease-intents/${intentId}`, "PUT", req);
+  }
+  withdrawClientLeaseIntent(intentId: string) {
+    return this.clientCall<LeaseIntentDto>(`lease-intents/${intentId}`, "DELETE");
+  }
+  getClientInvoices(params: { status?: string } = {}) {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.clientCall<ClientInvoiceListResponse>(`invoices${query}`, "GET");
+  }
+  getClientInvoice(invoiceId: string) {
+    return this.clientCall<ClientInvoiceDto>(`invoices/${invoiceId}`, "GET");
+  }
+  submitClientPaymentSlip(invoiceId: string, req: SubmitPaymentSlipRequest) {
+    return this.clientCall<ClientPaymentSlipDto>(`invoices/${invoiceId}/slips`, "POST", req);
+  }
+  updateClientPaymentSlip(invoiceId: string, slipId: string, req: SubmitPaymentSlipRequest) {
+    return this.clientCall<ClientPaymentSlipDto>(`invoices/${invoiceId}/slips/${slipId}`, "PUT", req);
+  }
+  withdrawClientPaymentSlip(invoiceId: string, slipId: string) {
+    return this.clientCall<ClientPaymentSlipDto>(`invoices/${invoiceId}/slips/${slipId}`, "DELETE");
+  }
+  getClientAllPaymentSlips() {
+    return this.clientCall<ClientPaymentSlipListResponse>("payment-slips", "GET");
+  }
+  getClientUtilityUsage(params: { leaseId?: string; months?: number } = {}) {
+    const qs = new URLSearchParams();
+    if (params.leaseId) qs.set("leaseId", params.leaseId);
+    if (params.months) qs.set("months", String(params.months));
+    const query = qs.toString();
+    return this.clientCall<ClientUtilityUsageResponse>(`utility-usage${query ? `?${query}` : ""}`, "GET");
+  }
+  getClientWorkOrders(params: { status?: string } = {}) {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.clientCall<WorkOrderListResponse>(`work-orders${query}`, "GET");
+  }
+  getClientWorkOrder(workOrderId: string) {
+    return this.clientCall<WorkOrderItemDto>(`work-orders/${workOrderId}`, "GET");
+  }
+  createClientWorkOrder(req: CreateWorkOrderRequest) {
+    return this.clientCall<WorkOrderItemDto>("work-orders", "POST", req);
+  }
+  updateClientWorkOrder(workOrderId: string, req: UpdateWorkOrderRequest) {
+    return this.clientCall<WorkOrderItemDto>(`work-orders/${workOrderId}`, "PUT", req);
+  }
+  cancelClientWorkOrder(workOrderId: string, reason: string) {
+    return this.clientCall<WorkOrderItemDto>(`work-orders/${workOrderId}/cancel`, "POST", { reason });
+  }
+  getClientParcels(params: { status?: string } = {}) {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.clientCall<ParcelListResponse>(`parcels${query}`, "GET");
+  }
+  getClientReservation(reservationId: string) {
+    return this.clientCall<ReservationItemDto>(`reservations/${reservationId}`, "GET");
+  }
+  cancelClientReservation(reservationId: string, reason: string) {
+    return this.clientCall<ReservationItemDto>(`reservations/${reservationId}/cancel`, "POST", { reason });
+  }
+
+  // --- 6h. Admin lease intents & analytics ---
+  getAdminLeaseIntents(propertyId: string, params: { status?: string } = {}) {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
+    return this.adminCall<LeaseIntentListResponse>(propertyId, `lease-intents${query}`, "GET");
+  }
+  approveAdminLeaseIntent(propertyId: string, intentId: string) {
+    return this.adminCall<LeaseIntentDto>(propertyId, `lease-intents/${intentId}/approve`, "POST");
+  }
+  rejectAdminLeaseIntent(propertyId: string, intentId: string, reason: string) {
+    return this.adminCall<LeaseIntentDto>(propertyId, `lease-intents/${intentId}/reject`, "POST", { reason });
+  }
+  getAdminAnalytics<T>(propertyId: string, report: AnalyticsReportKind, range: { from?: string; to?: string }) {
+    const qs = new URLSearchParams();
+    if (range.from) qs.set("from", range.from);
+    if (range.to) qs.set("to", range.to);
+    const query = qs.toString();
+    return this.adminCall<T>(propertyId, `analytics/${report}${query ? `?${query}` : ""}`, "GET");
   }
 
   // --- 7. Client Dashboard API ---

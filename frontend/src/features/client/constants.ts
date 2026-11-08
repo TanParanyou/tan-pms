@@ -1,41 +1,57 @@
-import type { LocalizedTextDto } from "@/lib/i18n/localized-text";
-import { WORK_ORDER_CATEGORIES } from "@/constants/master-data";
+import type { BadgeProps } from "@/components/ui/badge";
+import type { LeaseIntentStatusType, LeaseIntentType, SlipStatusType } from "./types";
 
-export const CLIENT_SAMPLE_PROFILE = {
-  maskedNationalId: "3-xxxx-xxxxx-11-8",
-  initialRemainingSeconds: 14 * 60 + 59,
-} as const;
+type BadgeVariant = NonNullable<BadgeProps["variant"]>;
 
-export const SAMPLE_HOLD_RESERVATION = {
-  documentNumber: "BKK01-RES-2611-0108",
-  unitTypeName: { th: "1 ห้องนอน สแตนดาร์ด (32 ตร.ม.)", en: "Standard 1-Bed (32 sqm)" } as LocalizedTextDto,
-  stayMode: "Daily",
-  depositAmount: "1,500.00",
+export const LEASE_INTENT_TYPES: readonly LeaseIntentType[] = ["Renew", "MoveOut"];
+export const LEASE_INTENT_STATUS_OPTIONS: readonly LeaseIntentStatusType[] = [
+  "Pending",
+  "Approved",
+  "Rejected",
+  "Withdrawn",
+];
+export const DEFAULT_ADMIN_INTENT_STATUS: LeaseIntentStatusType = "Pending";
+
+export const INTENT_STATUS_BADGE_VARIANT: Record<LeaseIntentStatusType, BadgeVariant> = {
+  Pending: "warning",
+  Approved: "success",
+  Rejected: "destructive",
+  Withdrawn: "outline",
 };
 
-export const SAMPLE_LEASE_DETAILS = {
-  leaseNumber: "BKK01-LSE-2611-0015",
-  formattedRent: "12,500.00",
-  formattedDeposit: "25,000.00",
-  unit: {
-    id: "u-301",
-    unitNumber: "A-301",
-    buildingName: { th: "อาคาร A", en: "Building A" } as LocalizedTextDto,
-    floorNumber: 3,
-    unitTypeName: { th: "1 ห้องนอน สแตนดาร์ด (32 ตร.ม.)", en: "Standard 1-Bed (32 sqm)" } as LocalizedTextDto,
-  },
+export const SLIP_STATUS_BADGE_VARIANT: Record<SlipStatusType, BadgeVariant> = {
+  Pending: "warning",
+  Approved: "success",
+  Rejected: "destructive",
+  Withdrawn: "outline",
 };
 
-export const SAMPLE_INVOICE_DETAILS = {
-  invoiceNumber: "BKK01-INV-2611-0042",
-  formattedTotal: "15,350.00",
-  formattedRentAmount: "12,500.00",
-  formattedServiceAmount: "1,000.00",
-  formattedUtilityAmount: "1,850.00",
-} as const;
+export const CLIENT_INVOICE_STATUS_OPTIONS: readonly string[] = ["Issued", "PartiallyPaid", "Overdue", "Paid"];
 
-export const SAMPLE_PARCEL_DETAILS = {
-  parcelNumber: "BKK01-PCL-2611-0042",
-} as const;
+export const RESERVATION_STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
+  Hold: "warning",
+  PendingVerification: "default",
+  Confirmed: "success",
+  CheckedIn: "success",
+  Expired: "outline",
+  Cancelled: "outline",
+  NoShow: "destructive",
+};
 
-export const MAINTENANCE_CATEGORIES = WORK_ORDER_CATEGORIES;
+export const UTILITY_MONTH_OPTIONS: readonly number[] = [6, 12, 24];
+export const DEFAULT_UTILITY_MONTHS = 12;
+
+export const CLIENT_STAY_MODES = ["Hourly", "Daily", "Monthly"] as const;
+export const DEFAULT_CLIENT_STAY_MODE = "Daily";
+
+export const CLIENT_WORK_ORDER_PRIORITIES = ["Low", "Normal", "High", "Urgent"] as const;
+export const CLIENT_WORK_ORDER_DEFAULTS = {
+  unitId: "",
+  issueSummary: "",
+  description: "",
+  priority: "Normal" as (typeof CLIENT_WORK_ORDER_PRIORITIES)[number],
+};
+
+export const CLIENT_SLIP_DEFAULTS = { amount: 0, transferReference: "", transferredAt: "" };
+export const CLIENT_INTENT_DEFAULTS = { intentType: "Renew" as LeaseIntentType, desiredDate: "", note: "" };
+export const HOLD_TTL_FALLBACK_SECONDS = 15 * 60;

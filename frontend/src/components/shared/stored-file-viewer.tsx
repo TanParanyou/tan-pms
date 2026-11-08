@@ -10,14 +10,16 @@ import { apiClient } from "@/lib/api/api-client";
 
 export interface StoredFileViewerProps {
   fileKey: string | null | undefined;
+  scope?: "admin" | "client";
 }
 
 /** Fetches an authorized stored file as a blob and shows it as image or open-in-tab link. */
-export function StoredFileViewer({ fileKey }: StoredFileViewerProps) {
+export function StoredFileViewer({ fileKey, scope = "admin" }: StoredFileViewerProps) {
   const t = useTranslations("common.files");
   const { data, isLoading, isError, refetch } = useQuery<Blob>({
-    queryKey: ["stored-file", fileKey],
-    queryFn: () => apiClient.downloadAdminFile(fileKey as string),
+    queryKey: ["stored-file", scope, fileKey],
+    queryFn: () =>
+      scope === "client" ? apiClient.downloadClientFile(fileKey as string) : apiClient.downloadAdminFile(fileKey as string),
     enabled: Boolean(fileKey),
     staleTime: Infinity,
   });

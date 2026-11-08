@@ -1,25 +1,33 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations, useLocale } from "next-intl";
+import { ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SelectPill } from "@/components/ui/select-pill";
+import { EntityAutocomplete } from "@/components/ui/entity-autocomplete";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageLoading } from "@/components/ui/mono-spinner";
 import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
-import { PageHeader } from "@/components/layout/page-header";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
-import { DeferredFilePicker } from "@/components/ui/deferred-file-picker";
-import { useDeferredFileUpload } from "@/hooks/use-deferred-file-upload";
+import { CurrencyInput } from "@/components/forms/currency-input";
+import { FormField } from "@/components/forms/form-field";
+import { PageHeader } from "@/components/layout/page-header";
+import { ShiftNotOpenAlert } from "@/components/shared/shift-not-open-alert";
+import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
+import { useCustomerPicker } from "@/hooks/use-customer-picker";
 import { useFormTabErrors } from "@/hooks/use-form-tab-errors";
-import { useTranslations, useLocale } from "next-intl";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
-import { SAMPLE_UNITS_FOR_STAY, SAMPLE_UNITS_FOR_STAY_MAP } from "../constants";
+import { usePropertyHierarchy } from "@/features/properties/api/use-properties";
 import { stayCreateSchema, type StayCreateFormValues } from "../schemas/stay-schemas";
-import { ArrowLeft, Save } from "lucide-react";
-import Link from "next/link";
+import { CHECK_IN_STAY_MODES, MS_PER_DAY, MS_PER_HOUR, STAY_CREATE_DEFAULTS } from "../constants";
+import { useCheckInSubmit } from "../hooks/use-check-in";
 
 export function StayCreateEditor() {
   const router = useRouter();
@@ -27,45 +35,51 @@ export function StayCreateEditor() {
   const tStays = useTranslations("admin.stays");
   const tModes = useTranslations("stayModes");
   const tCommon = useTranslations("common");
+  const { activeProperty } = useAdminWorkspace();
+  const propertyId = activeProperty.id;
+
+  const hierarchy = usePropertyHierarchy(propertyId);
+  const customers = useCustomerPicker(propertyId);
+  const checkIn = useCheckInSubmit();
 
   const [activeTab, setActiveTab] = useState("tab-room-mode");
   const [showDirtyConfirm, setShowDirtyConfirm] = useState(false);
   const [showNormalConfirm, setShowNormalConfirm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     control,
     handleSubmit,
     watch,
-    formState: { errors },
+    getValues,
+    formState: { errors, isDirty },
   } = useForm<StayCreateFormValues>({
     resolver: zodResolver(stayCreateSchema),
-    defaultValues: {
-      unitId: SAMPLE_UNITS_FOR_STAY[0].id,
-      stayMode: "Hourly",
-      durationHours: 3,
-      durationDays: 1,
-      dirtyOverrideReason: "",
-      primaryGuestName: "Alice Smith",
-      primaryNationality: "USA",
-      primaryIdNumber: "US-PASS-5544332",
-      primaryLicensePlate: "3EF-7890",
-      keyDepositAmount: 500,
-    },
+    defaultValues: STAY_CREATE_DEFAULTS,
   });
+  useUnsavedChanges(isDirty);
 
   const selectedUnitId = watch("unitId");
   const selectedStayMode = watch("stayMode");
 
-  const selectedUnit =
-    SAMPLE_UNITS_FOR_STAY_MAP[selectedUnitId] ??
-    SAMPLE_UNITS_FOR_STAY[0];
+  // Only vacant units can be checked in; dirtiness comes from the same hierarchy response.
+  const units = useMemo(() => (hierarchy.data?.units ?? []).filter((u) => u.occupancyStatus === "Vacant"), [hierarchy.data]);
+  const unitOptions = useMemo(
+    () =>
+      units.map((u) => ({
+        value: u.id,
+        label: `${resolveLocalizedText(u.unitType.name, locale)} (${u.unitNumber})`,
+        sublabel: `${resolveLocalizedText(u.building.name, locale)} - ${u.conditionStatus === "Clean" ? tStays("cleanBadge") : tStays("dirtyBadge")}`,
+        code: u.unitNumber,
+      })),
+    [units, locale, tStays]
+  );
+  const unitById = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
+  const selectedUnit = unitById.get(selectedUnitId);
+  const isUnitDirty = selectedUnit !== undefined && selectedUnit.conditionStatus !== "Clean";
 
-  const isUnitDirty = selectedUnit.conditionStatus === "Dirty";
-
-  // Tab Error Mapping
   const fieldToTabMap = {
     unitId: "tab-room-mode",
+    customerId: "tab-room-mode",
     stayMode: "tab-room-mode",
     durationHours: "tab-room-mode",
     durationDays: "tab-room-mode",
@@ -75,28 +89,18 @@ export function StayCreateEditor() {
     primaryIdNumber: "tab-guests",
     keyDepositAmount: "tab-deposit",
   };
-
-  const { hasTabError, firstErrorTab } = useFormTabErrors({
-    fieldToTabMap,
-    errors,
-  });
-
-  const {
-    queuedFiles,
-    stageFiles,
-    removeFile,
-    commitUploads,
-    isUploading,
-  } = useDeferredFileUpload({ maxFiles: 1 });
+  const { hasTabError, firstErrorTab } = useFormTabErrors({ fieldToTabMap, errors });
 
   const onInvalidSubmit = () => {
-    if (firstErrorTab) {
-      setActiveTab(firstErrorTab);
-    }
+    if (firstErrorTab) setActiveTab(firstErrorTab);
   };
 
-  const onValidSubmit = () => {
+  const onValidSubmit = (v: StayCreateFormValues) => {
     if (isUnitDirty) {
+      if (!v.dirtyOverrideReason?.trim()) {
+        setActiveTab("tab-room-mode");
+        return;
+      }
       setShowDirtyConfirm(true);
     } else {
       setShowNormalConfirm(true);
@@ -104,20 +108,36 @@ export function StayCreateEditor() {
   };
 
   const executeCheckIn = async () => {
-    setIsSubmitting(true);
-    try {
-      if (queuedFiles.length > 0) {
-        await commitUploads(async (file) => {
-          return `https://storage.tan-pms.internal/credentials/${file.name}`;
-        });
-      }
-      setShowDirtyConfirm(false);
-      setShowNormalConfirm(false);
-      router.push("/admin/stays");
-    } finally {
-      setIsSubmitting(false);
-    }
+    const v = getValues();
+    const durationMs = v.stayMode === "Hourly" ? v.durationHours * MS_PER_HOUR : v.durationDays * MS_PER_DAY;
+    const stay = await checkIn.submit({
+      propertyId,
+      unitId: v.unitId,
+      customerId: v.customerId,
+      stayMode: v.stayMode,
+      keyDepositAmount: v.keyDepositAmount,
+      overrideDirtyCheckIn: isUnitDirty,
+      overrideReason: isUnitDirty ? v.dirtyOverrideReason?.trim() : undefined,
+      expectedCheckOutAt: new Date(Date.now() + durationMs).toISOString(),
+      occupants: [
+        {
+          fullName: v.primaryGuestName,
+          nationalityCode: v.primaryNationality,
+          identityNumber: v.primaryIdNumber,
+          isPrimaryOccupant: true,
+          vehicleLicensePlate: v.primaryLicensePlate || undefined,
+        },
+      ],
+    });
+    setShowDirtyConfirm(false);
+    setShowNormalConfirm(false);
+    if (stay) router.push(`/admin/stays/${stay.id}`);
   };
+
+  if (hierarchy.isLoading) return <PageLoading message={tStays("loadingUnits")} />;
+  if (hierarchy.isError) {
+    return <EmptyState title={tStays("unitsLoadError")} actionLabel={tCommon("retry")} onAction={() => void hierarchy.refetch()} />;
+  }
 
   const tabs: FormTabItem[] = [
     {
@@ -126,41 +146,64 @@ export function StayCreateEditor() {
       hasError: hasTabError("tab-room-mode"),
       content: (
         <div className="space-y-4 pt-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="checkin-unit-select" className="text-xs font-medium text-ink">
-              {tStays("fieldSelectUnit")}
-            </Label>
+          <FormField id="checkin-unit" label={tStays("fieldSelectUnit")} required error={errors.unitId ? tStays("errorUnitRequired") : undefined}>
             <Controller
               name="unitId"
               control={control}
               render={({ field }) => (
-                <SelectPill
-                  id="checkin-unit-select"
+                <EntityAutocomplete
+                  id="checkin-unit"
+                  options={unitOptions}
                   value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  className="h-10 text-xs font-mono"
-                >
-                  {SAMPLE_UNITS_FOR_STAY.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      Unit {u.unitNumber} ({resolveLocalizedText(u.buildingName, locale)}) —{" "}
-                      {u.conditionStatus === "Clean"
-                        ? tStays("cleanBadge")
-                        : tStays("dirtyBadge")}
-                    </option>
-                  ))}
-                </SelectPill>
+                  onValueChange={field.onChange}
+                  placeholder={tStays("placeholderUnit")}
+                  searchPlaceholder={tStays("placeholderUnit")}
+                  hasError={Boolean(errors.unitId)}
+                  wrapperClassName="!mb-0"
+                />
               )}
             />
-          </div>
+          </FormField>
+
+          <FormField
+            id="checkin-customer"
+            label={tStays("fieldCustomer")}
+            required
+            error={customers.isError ? tStays("customerSearchError") : errors.customerId ? tStays("errorCustomerRequired") : undefined}
+            topRightAction={
+              customers.isError ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => void customers.refetch()} className="h-6 rounded-full px-2 text-[11px]">
+                  {tCommon("retry")}
+                </Button>
+              ) : undefined
+            }
+          >
+            <Controller
+              name="customerId"
+              control={control}
+              render={({ field }) => (
+                <EntityAutocomplete
+                  id="checkin-customer"
+                  options={customers.options}
+                  value={field.value}
+                  onValueChange={(val) => {
+                    field.onChange(val);
+                    customers.pick(val);
+                  }}
+                  onSearchChange={customers.setSearch}
+                  isLoading={customers.isLoading}
+                  placeholder={tStays("placeholderCustomer")}
+                  searchPlaceholder={tStays("placeholderCustomer")}
+                  hasError={Boolean(errors.customerId)}
+                  wrapperClassName="!mb-0"
+                />
+              )}
+            />
+          </FormField>
 
           {isUnitDirty && (
-            <div
-              data-testid="dirty-unit-warning-box"
-              className="p-3 rounded-[12px] bg-destructive/10 border border-destructive/20 space-y-2 text-xs"
-            >
-              <div className="text-destructive font-semibold">
-                {tStays("dirtyRoomAlert")}
-              </div>
+            <div data-testid="dirty-unit-warning-box" className="space-y-2 rounded-[12px] border border-destructive/20 bg-destructive/10 p-3 text-xs">
+              <div className="font-semibold text-destructive">{tStays("dirtyRoomAlert")}</div>
               <div className="space-y-1">
                 <Label htmlFor="dirty-override-reason" className="text-[11px] font-medium text-destructive">
                   {tStays("fieldDirtyOverrideReason")}
@@ -174,7 +217,7 @@ export function StayCreateEditor() {
                       value={field.value ?? ""}
                       onChange={field.onChange}
                       placeholder={tStays("dirtyOverridePlaceholder")}
-                      className="h-9 rounded-full text-xs bg-canvas"
+                      className="h-9 rounded-full bg-canvas text-xs"
                     />
                   )}
                 />
@@ -182,78 +225,49 @@ export function StayCreateEditor() {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-ink">
-              {tStays("fieldStayMode")}
-            </Label>
+          <FormField label={tStays("fieldStayMode")}>
             <Controller
               name="stayMode"
               control={control}
               render={({ field }) => (
                 <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant={field.value === "Hourly" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => field.onChange("Hourly")}
-                    className="rounded-full text-xs font-mono h-8 px-4"
-                  >
-                    {tModes("Hourly")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={field.value === "Daily" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => field.onChange("Daily")}
-                    className="rounded-full text-xs font-mono h-8 px-4"
-                  >
-                    {tModes("Daily")}
-                  </Button>
+                  {CHECK_IN_STAY_MODES.map((mode) => (
+                    <Button
+                      key={mode}
+                      type="button"
+                      variant={field.value === mode ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => field.onChange(mode)}
+                      className="h-8 rounded-full px-4 font-mono text-xs"
+                    >
+                      {tModes(mode)}
+                    </Button>
+                  ))}
                 </div>
               )}
             />
-          </div>
+          </FormField>
 
           {selectedStayMode === "Hourly" ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="duration-hours" className="text-xs font-medium text-ink">
-                {tStays("fieldDurationHours")}
-              </Label>
+            <FormField id="duration-hours" label={tStays("fieldDurationHours")}>
               <Controller
                 name="durationHours"
                 control={control}
                 render={({ field }) => (
-                  <Input
-                    id="duration-hours"
-                    type="number"
-                    value={field.value}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    placeholder={tStays("fieldDurationHours")}
-                    className="h-10 rounded-full font-mono text-xs"
-                  />
+                  <Input id="duration-hours" type="number" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))} placeholder={tStays("fieldDurationHours")} className="h-10 rounded-full font-mono text-xs" />
                 )}
               />
-            </div>
+            </FormField>
           ) : (
-            <div className="space-y-1.5">
-              <Label htmlFor="duration-days" className="text-xs font-medium text-ink">
-                {tStays("fieldDurationDays")}
-              </Label>
+            <FormField id="duration-days" label={tStays("fieldDurationDays")}>
               <Controller
                 name="durationDays"
                 control={control}
                 render={({ field }) => (
-                  <Input
-                    id="duration-days"
-                    type="number"
-                    value={field.value}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    placeholder={tStays("fieldDurationDays")}
-                    className="h-10 rounded-full font-mono text-xs"
-                  />
+                  <Input id="duration-days" type="number" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))} placeholder={tStays("fieldDurationDays")} className="h-10 rounded-full font-mono text-xs" />
                 )}
               />
-            </div>
+            </FormField>
           )}
         </div>
       ),
@@ -264,82 +278,27 @@ export function StayCreateEditor() {
       hasError: hasTabError("tab-guests"),
       content: (
         <div className="space-y-4 pt-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="primary-guest-name" className="text-xs font-medium text-ink">
-                {tStays("fieldPrimaryGuestName")}
-              </Label>
-              <Controller
-                name="primaryGuestName"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="primary-guest-name"
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder={tCommon("placeholders.guestName")}
-                    className="h-10 rounded-full text-xs"
-                  />
-                )}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="primary-nationality" className="text-xs font-medium text-ink">
-                {tStays("fieldNationality")}
-              </Label>
-              <Controller
-                name="primaryNationality"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="primary-nationality"
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder={tStays("fieldNationality")}
-                    className="h-10 rounded-full font-mono text-xs"
-                  />
-                )}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="primary-id-number" className="text-xs font-medium text-ink">
-                {tStays("fieldIdentityNumber")}
-              </Label>
-              <Controller
-                name="primaryIdNumber"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="primary-id-number"
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder={tCommon("placeholders.nationalId")}
-                    className="h-10 rounded-full font-mono text-xs"
-                  />
-                )}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="primary-license-plate" className="text-xs font-medium text-ink">
-                {tStays("fieldLicensePlate")}
-              </Label>
-              <Controller
-                name="primaryLicensePlate"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="primary-license-plate"
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    placeholder={tStays("fieldLicensePlate")}
-                    className="h-10 rounded-full font-mono text-xs"
-                  />
-                )}
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField id="primary-guest-name" label={tStays("fieldPrimaryGuestName")} required error={errors.primaryGuestName ? tStays("errorGuestRequired") : undefined}>
+              <Controller name="primaryGuestName" control={control} render={({ field }) => (
+                <Input id="primary-guest-name" value={field.value} onChange={field.onChange} placeholder={tCommon("placeholders.guestName")} className="h-10 rounded-full text-xs" />
+              )} />
+            </FormField>
+            <FormField id="primary-nationality" label={tStays("fieldNationality")} required error={errors.primaryNationality ? tStays("errorGuestRequired") : undefined}>
+              <Controller name="primaryNationality" control={control} render={({ field }) => (
+                <Input id="primary-nationality" value={field.value} onChange={field.onChange} placeholder={tStays("fieldNationality")} className="h-10 rounded-full font-mono text-xs" />
+              )} />
+            </FormField>
+            <FormField id="primary-id-number" label={tStays("fieldIdentityNumber")} required error={errors.primaryIdNumber ? tStays("errorGuestRequired") : undefined}>
+              <Controller name="primaryIdNumber" control={control} render={({ field }) => (
+                <Input id="primary-id-number" value={field.value} onChange={field.onChange} placeholder={tCommon("placeholders.nationalId")} className="h-10 rounded-full font-mono text-xs" />
+              )} />
+            </FormField>
+            <FormField id="primary-license-plate" label={tStays("fieldLicensePlate")}>
+              <Controller name="primaryLicensePlate" control={control} render={({ field }) => (
+                <Input id="primary-license-plate" value={field.value ?? ""} onChange={field.onChange} placeholder={tStays("fieldLicensePlate")} className="h-10 rounded-full font-mono text-xs" />
+              )} />
+            </FormField>
           </div>
         </div>
       ),
@@ -350,39 +309,16 @@ export function StayCreateEditor() {
       hasError: hasTabError("tab-deposit"),
       content: (
         <div className="space-y-4 pt-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="key-deposit-amount" className="text-xs font-medium text-ink">
-              {tStays("fieldKeyDepositAmount")}
-            </Label>
+          <FormField id="key-deposit-amount" label={tStays("fieldKeyDepositAmount")} error={errors.keyDepositAmount ? tStays("errorDepositInvalid") : undefined}>
             <Controller
               name="keyDepositAmount"
               control={control}
               render={({ field }) => (
-                <Input
-                  id="key-deposit-amount"
-                  type="number"
-                  value={field.value}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
-                  placeholder={tStays("fieldKeyDepositAmount")}
-                  className="h-10 rounded-full font-mono text-xs"
-                />
+                <CurrencyInput id="key-deposit-amount" value={field.value} onValueChange={field.onChange} placeholder={tStays("fieldKeyDepositAmount")} hasError={Boolean(errors.keyDepositAmount)} />
               )}
             />
-          </div>
-
-          <div className="space-y-2 pt-2">
-            <Label className="text-xs font-medium text-ink">
-              {tStays("fieldAttachIdPhoto")}
-            </Label>
-            <DeferredFilePicker
-              queuedFiles={queuedFiles}
-              onFilesSelected={stageFiles}
-              onRemoveFile={removeFile}
-              isUploading={isUploading}
-              accept="image/*,.pdf"
-              multiple={false}
-            />
-          </div>
+          </FormField>
+          <p className="text-xs text-body">{tStays("depositNote")}</p>
         </div>
       ),
     },
@@ -390,6 +326,7 @@ export function StayCreateEditor() {
 
   return (
     <div className="space-y-6">
+      {checkIn.shiftNotOpen && <ShiftNotOpenAlert />}
       <PageHeader
         prefixCode="STY"
         title={tStays("modalTitleCheckIn")}
@@ -397,26 +334,14 @@ export function StayCreateEditor() {
         actions={
           <div className="flex items-center gap-2">
             <Link href="/admin/stays">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full text-xs font-mono h-9 px-4 gap-1.5"
-              >
+              <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5 rounded-full px-4 font-mono text-xs">
                 <ArrowLeft className="h-4 w-4" />
                 <span>{tCommon("back")}</span>
               </Button>
             </Link>
-
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSubmit(onValidSubmit, onInvalidSubmit)}
-              disabled={isSubmitting}
-              className="rounded-full text-xs h-9 px-5 gap-1.5"
-            >
+            <Button type="button" size="sm" onClick={handleSubmit(onValidSubmit, onInvalidSubmit)} disabled={checkIn.isPending} className="h-9 gap-1.5 rounded-full px-5 text-xs">
               <Save className="h-4 w-4" />
-              <span>{tStays("saveCheckIn")}</span>
+              <span>{checkIn.isPending ? tCommon("loading") : tStays("saveCheckIn")}</span>
             </Button>
           </div>
         }
@@ -424,15 +349,10 @@ export function StayCreateEditor() {
 
       <div className="rounded-[12px] border border-hairline bg-canvas p-6 shadow-none">
         <form onSubmit={handleSubmit(onValidSubmit, onInvalidSubmit)}>
-          <FormTabs
-            tabs={tabs}
-            value={activeTab}
-            onValueChange={setActiveTab}
-          />
+          <FormTabs tabs={tabs} value={activeTab} onValueChange={setActiveTab} />
         </form>
       </div>
 
-      {/* Normal Confirmation */}
       <ConfirmationModal
         isOpen={showNormalConfirm}
         onClose={() => setShowNormalConfirm(false)}
@@ -442,10 +362,8 @@ export function StayCreateEditor() {
         confirmText={tStays("saveCheckIn")}
         cancelText={tCommon("cancel")}
         variant="info"
-        isLoading={isSubmitting}
+        isLoading={checkIn.isPending}
       />
-
-      {/* Dirty Override Confirmation */}
       <ConfirmationModal
         isOpen={showDirtyConfirm}
         onClose={() => setShowDirtyConfirm(false)}
@@ -455,7 +373,7 @@ export function StayCreateEditor() {
         confirmText={tStays("saveCheckIn")}
         cancelText={tCommon("cancel")}
         variant="danger"
-        isLoading={isSubmitting}
+        isLoading={checkIn.isPending}
       />
     </div>
   );

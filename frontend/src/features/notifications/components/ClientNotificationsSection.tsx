@@ -1,177 +1,86 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useMemo, useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
+import { Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CommandTag } from "@/components/ui/command-tag";
-import { useTranslations, useLocale } from "next-intl";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageLoading } from "@/components/ui/mono-spinner";
+import { useClientNotifications } from "@/features/client/api/use-client-operations";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
-import { INITIAL_CLIENT_NOTIFICATIONS } from "../constants";
-import type { NotificationItemDto } from "../types";
-import { Bell } from "lucide-react";
+import { formatDateTime } from "@/lib/formatters";
 
-export interface ClientNotificationsSectionProps {
-  initialNotifications?: NotificationItemDto[];
-}
+const CHANNELS = ["All", "InApp", "Line", "Email"] as const;
+type ChannelFilter = (typeof CHANNELS)[number];
 
-export function ClientNotificationsSection({
-  initialNotifications = INITIAL_CLIENT_NOTIFICATIONS,
-}: ClientNotificationsSectionProps) {
+export function ClientNotificationsSection() {
   const locale = useLocale() as "th" | "en";
-  const tNotif = useTranslations("client.notifications");
+  const t = useTranslations("client.notifications");
   const tCommon = useTranslations("common");
+  const [channel, setChannel] = useState<ChannelFilter>("All");
+  const { data, isLoading, isError, refetch } = useClientNotifications();
 
-  const [notifications, setNotifications] = useState<NotificationItemDto[]>(
-    initialNotifications
-  );
-  const [selectedChannel, setSelectedChannel] = useState<string>("All");
-
-  const unreadCount = useMemo(() => {
-    return notifications.filter((n) => !n.isRead).length;
-  }, [notifications]);
-
-  const filteredNotifications = useMemo(() => {
-    if (selectedChannel === "All") return notifications;
-    return notifications.filter((n) => n.channel === selectedChannel);
-  }, [notifications, selectedChannel]);
-
-  const handleMarkAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  };
+  const items = useMemo(() => {
+    const all = data?.items ?? [];
+    return channel === "All" ? all : all.filter((n) => n.channel === channel);
+  }, [data, channel]);
+  const unread = useMemo(() => (data?.items ?? []).filter((n) => !n.isRead).length, [data]);
 
   return (
-    <section className="space-y-4" aria-label="Customer Notification Center">
-      <Card className="rounded-[12px] border border-hairline bg-canvas p-6 space-y-4 shadow-none">
-        <CardHeader className="p-0 pb-3 border-b border-hairline flex flex-row flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <CommandTag>NOTIFICATION CENTER</CommandTag>
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="text-[10px] animate-pulse">
-                  {unreadCount} {tNotif("unreadBadge")}
-                </Badge>
-              )}
-            </div>
-            <CardTitle className="text-lg font-rounded text-ink">
-              {tNotif("title")}
-            </CardTitle>
-            <p className="text-xs text-body">{tNotif("description")}</p>
+    <section className="space-y-4" aria-label={t("title")}>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-rounded text-base font-semibold text-ink">{t("title")}</h3>
+            {unread > 0 && (
+              <Badge variant="destructive" className="text-[10px]">
+                {unread} {t("unreadBadge")}
+              </Badge>
+            )}
           </div>
-
-          {unreadCount > 0 && (
+          <p className="text-xs text-body">{t("description")}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {CHANNELS.map((c) => (
             <Button
+              key={c}
               type="button"
-              variant="outline"
               size="sm"
-              onClick={handleMarkAllAsRead}
-              className="rounded-full text-xs h-8 px-3"
+              variant={channel === c ? "default" : "outline"}
+              onClick={() => setChannel(c)}
+              className="h-8 rounded-full px-3 text-xs"
             >
-              {tNotif("markAllRead")}
+              {t(`channel${c}`)}
             </Button>
-          )}
-        </CardHeader>
-
-        {/* Channel Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {["All", "InApp", "Line", "Email"].map((ch) => {
-            const isSelected = selectedChannel === ch;
-            const labelKey =
-              ch === "All"
-                ? "channelAll"
-                : ch === "InApp"
-                ? "channelInApp"
-                : ch === "Line"
-                ? "channelLine"
-                : "channelEmail";
-            return (
-              <Button
-                key={ch}
-                type="button"
-                variant={isSelected ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedChannel(ch)}
-                className="rounded-full text-xs h-8 px-3"
-              >
-                {tNotif(labelKey as "channelAll" | "channelInApp" | "channelLine" | "channelEmail")}
-              </Button>
-            );
-          })}
+          ))}
         </div>
-
-        {/* Notifications List */}
-        <div className="divide-y divide-hairline rounded-lg border border-hairline overflow-hidden">
-          {filteredNotifications.length === 0 ? (
-            <div className="p-8 text-center text-body space-y-1 bg-surface-soft">
-              <Bell className="h-6 w-6 text-mute mx-auto mb-1" aria-hidden="true" />
-              <p className="text-xs font-medium text-ink">{tNotif("emptyTitle")}</p>
-              <p className="text-[11px] text-body">{tNotif("emptyDesc")}</p>
-            </div>
-          ) : (
-            filteredNotifications.map((item) => {
-              const channelVariant =
-                item.channel === "InApp"
-                  ? "default"
-                  : item.channel === "Line"
-                  ? "success"
-                  : "secondary";
-
-              return (
-                <div
-                  key={item.id}
-                  className={`p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 transition-colors ${
-                    !item.isRead ? "bg-surface-soft" : "bg-canvas"
-                  }`}
-                >
-                  <div className="space-y-1.5 max-w-2xl">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={channelVariant} className="text-[10px]">
-                        {item.channel}
-                      </Badge>
-                      {!item.isRead && (
-                        <span
-                          className="h-2 w-2 rounded-full bg-destructive inline-block"
-                          aria-label="Unread notification indicator"
-                        />
-                      )}
-                      <span className="text-[11px] font-mono text-mute">
-                        {item.createdAt.slice(0, 10)}
-                      </span>
-                    </div>
-
-                    <h4 className="text-sm font-semibold text-ink">
-                      {resolveLocalizedText(item.title, locale)}
-                    </h4>
-                    <p className="text-xs text-body leading-relaxed">
-                      {resolveLocalizedText(item.body, locale)}
-                    </p>
-                  </div>
-
-                  {!item.isRead && (
-                    <div className="self-end sm:self-center shrink-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleMarkAsRead(item.id)}
-                        className="rounded-full h-7 px-3 text-[11px]"
-                      >
-                        {tNotif("markAsRead")}
-                      </Button>
-                    </div>
-                  )}
+      </div>
+      {isLoading && <PageLoading message={tCommon("loading")} />}
+      {isError && <EmptyState title={t("loadError")} actionLabel={tCommon("retry")} onAction={() => void refetch()} />}
+      {!isLoading && !isError && items.length === 0 && (
+        <EmptyState title={t("emptyTitle")} description={t("emptyDesc")} />
+      )}
+      {!isLoading && !isError && items.length > 0 && (
+        <ul className="space-y-2">
+          {items.map((n) => (
+            <li key={n.id} className="flex items-start gap-3 rounded-[12px] border border-hairline bg-surface-soft/40 p-4">
+              <Bell className="mt-0.5 h-4 w-4 shrink-0 text-mute" aria-hidden="true" />
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-ink">{resolveLocalizedText(n.title, locale)}</span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {t(`channel${n.channel}`)}
+                  </Badge>
+                  {!n.isRead && <Badge variant="warning" className="text-[10px]">{t("unreadBadge")}</Badge>}
                 </div>
-              );
-            })
-          )}
-        </div>
-      </Card>
+                <p className="text-xs text-body">{resolveLocalizedText(n.body, locale)}</p>
+                <span className="font-mono text-[11px] text-mute">{formatDateTime(n.createdAt, locale)}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

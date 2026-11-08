@@ -14,6 +14,8 @@ export interface PhotoAttachmentFieldProps {
   removeFile: (id: string) => void;
   isUploading: boolean;
   disabled?: boolean;
+  scope?: "admin" | "client";
+  accept?: string;
 }
 
 /** Deferred single-file field: shows the stored file (if any) and stages a replacement until save. */
@@ -25,6 +27,8 @@ export function PhotoAttachmentField({
   removeFile,
   isUploading,
   disabled = false,
+  scope = "admin",
+  accept = "image/*",
 }: PhotoAttachmentFieldProps) {
   const t = useTranslations("common.files");
   return (
@@ -32,7 +36,7 @@ export function PhotoAttachmentField({
       {existingKey && (
         <div className="space-y-1">
           <div className="text-[11px] text-mute">{t("currentFile")}</div>
-          <StoredFileViewer fileKey={existingKey} />
+          <StoredFileViewer fileKey={existingKey} scope={scope} />
         </div>
       )}
       <DeferredFilePicker
@@ -42,7 +46,7 @@ export function PhotoAttachmentField({
         onFilesSelected={stageFiles}
         onRemoveFile={removeFile}
         isUploading={isUploading || disabled}
-        accept="image/*"
+        accept={accept}
       />
     </div>
   );

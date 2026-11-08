@@ -3,6 +3,7 @@ import { moneyAmountSchema, positiveMoneySchema } from "@/lib/validators";
 
 export const stayCreateSchema = z.object({
   unitId: z.string().min(1, "Please select a unit"),
+  customerId: z.string().min(1, "Please select a customer"),
   stayMode: z.enum(["Hourly", "Daily"]),
   durationHours: z.number().int().min(1).max(24),
   durationDays: z.number().int().min(1).max(30),

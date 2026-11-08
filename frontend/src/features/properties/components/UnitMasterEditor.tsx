@@ -57,8 +57,20 @@ export function UnitMasterEditor({ unitId }: UnitMasterEditorProps) {
       />
     );
   }
+  if (!isCreate && unitQuery.isError) {
+    return (
+      <EmptyState
+        title={tProps("loadUnitError")}
+        actionLabel={tCommon("retry")}
+        onAction={() => void unitQuery.refetch()}
+      />
+    );
+  }
   if (!hierarchyQuery.data || (!isCreate && unitQuery.isLoading)) {
     return <PageLoading message={tCommon("loading")} />;
+  }
+  if (!isCreate && unitQuery.data === null) {
+    return <EmptyState title={tProps("unitNotFound")} />;
   }
 
   // Form defaults are captured on first render, so mount it only once data is ready.

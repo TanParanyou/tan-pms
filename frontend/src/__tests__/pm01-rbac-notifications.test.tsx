@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 import { AdminRbacUsersSection } from "@/features/users/components/AdminRbacUsersSection";
 import { ClientNotificationsSection } from "@/features/notifications/components/ClientNotificationsSection";
-import { INITIAL_CLIENT_NOTIFICATIONS } from "@/features/notifications/constants";
+import { apiClient } from "@/lib/api/api-client";
+import { renderAdmin } from "./test-utils";
 import { NextIntlClientProvider } from "next-intl";
 import thMessages from "@/messages/th.json";
 
@@ -68,62 +69,37 @@ describe("PM-01: Admin RBAC & Client Notifications", () => {
   });
 
   describe("ClientNotificationsSection", () => {
-    it("renders notification items with channel badges and unread indicator", () => {
-      renderWithIntl(<ClientNotificationsSection />);
+    const items = [
+      { id: "n1", channel: "InApp" as const, templateKey: "t1", title: { th: "แจ้งเตือนในแอป", en: "In-app" }, body: { th: "เนื้อหา 1", en: "Body 1" }, isRead: false, createdAt: "2026-11-07T01:00:00Z" },
+      { id: "n2", channel: "Line" as const, templateKey: "t2", title: { th: "แจ้งเตือนไลน์", en: "Line" }, body: { th: "เนื้อหา 2", en: "Body 2" }, isRead: true, createdAt: "2026-11-07T02:00:00Z" },
+    ];
+    afterEach(() => vi.restoreAllMocks());
 
+    it("renders real notifications with channel badges and the unread indicator", async () => {
+      vi.spyOn(apiClient, "getClientNotifications").mockResolvedValue({ items });
+      renderAdmin(<ClientNotificationsSection />);
+      expect(await screen.findByText("แจ้งเตือนในแอป")).toBeInTheDocument();
       expect(screen.getByText(thMessages.client.notifications.title)).toBeInTheDocument();
-      // Channel badges in notifications list
-      const inAppBadges = screen.getAllByText("InApp");
-      expect(inAppBadges.length).toBeGreaterThan(0);
-      const lineBadges = screen.getAllByText("Line");
-      expect(lineBadges.length).toBeGreaterThan(0);
-      const emailBadges = screen.getAllByText("Email");
-      expect(emailBadges.length).toBeGreaterThan(0);
+      expect(screen.getAllByText(thMessages.client.notifications.unreadBadge).length).toBeGreaterThan(0);
     });
 
-    it("filters notifications by channel correctly", () => {
-      renderWithIntl(<ClientNotificationsSection />);
-
-      const lineButton = screen.getByText(thMessages.client.notifications.channelLine);
-      fireEvent.click(lineButton);
-
-      // Line notification title should be visible
-      expect(screen.getByText(INITIAL_CLIENT_NOTIFICATIONS[1].title.th)).toBeInTheDocument();
-      // InApp and Email titles should NOT be in the document
-      expect(screen.queryByText(INITIAL_CLIENT_NOTIFICATIONS[0].title.th)).not.toBeInTheDocument();
-      expect(screen.queryByText(INITIAL_CLIENT_NOTIFICATIONS[2].title.th)).not.toBeInTheDocument();
+    it("filters notifications by channel", async () => {
+      vi.spyOn(apiClient, "getClientNotifications").mockResolvedValue({ items });
+      renderAdmin(<ClientNotificationsSection />);
+      await screen.findByText("แจ้งเตือนในแอป");
+      fireEvent.click(screen.getAllByText(thMessages.client.notifications.channelLine)[0]);
+      expect(screen.getByText("แจ้งเตือนไลน์")).toBeInTheDocument();
+      expect(screen.queryByText("แจ้งเตือนในแอป")).not.toBeInTheDocument();
     });
 
-    it("marks an unread notification as read when clicking mark read button", () => {
-      renderWithIntl(<ClientNotificationsSection />);
-
-      const markReadButtons = screen.getAllByText(
-        thMessages.client.notifications.markAsRead
-      );
-      expect(markReadButtons.length).toBeGreaterThan(0);
-
-      fireEvent.click(markReadButtons[0]);
-
-      // Count of mark read buttons should decrease
-      const updatedButtons = screen.queryAllByText(
-        thMessages.client.notifications.markAsRead
-      );
-      expect(updatedButtons.length).toBe(markReadButtons.length - 1);
-    });
-
-    it("marks all notifications as read when clicking mark all read button", () => {
-      renderWithIntl(<ClientNotificationsSection />);
-
-      const markAllButton = screen.getByText(
-        thMessages.client.notifications.markAllRead
-      );
-      fireEvent.click(markAllButton);
-
-      // No unread markAsRead buttons should remain
-      const remainingButtons = screen.queryAllByText(
-        thMessages.client.notifications.markAsRead
-      );
-      expect(remainingButtons.length).toBe(0);
+    it("shows an empty state and an error state with retry", async () => {
+      const spy = vi.spyOn(apiClient, "getClientNotifications").mockResolvedValue({ items: [] });
+      const first = renderAdmin(<ClientNotificationsSection />);
+      expect(await screen.findByText(thMessages.client.notifications.emptyTitle)).toBeInTheDocument();
+      first.unmount();
+      spy.mockRejectedValue(new Error("boom"));
+      renderAdmin(<ClientNotificationsSection />);
+      expect(await screen.findByText(thMessages.client.notifications.loadError)).toBeInTheDocument();
     });
   });
 });
