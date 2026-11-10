@@ -577,6 +577,22 @@
                 "Monthly"
               ]
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -931,7 +947,25 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
       }
     },
     "/api/v1/client/reservations/hold": {
@@ -1104,6 +1138,22 @@
                 "Hourly",
                 "Daily"
               ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
             }
           }
         ],
@@ -1517,6 +1567,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -1648,7 +1714,25 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
       }
     },
     "/api/v1/admin/properties/{propertyId}/leases": {
@@ -1690,6 +1774,22 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
             }
           }
         ],
@@ -2633,6 +2733,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -2992,6 +3108,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -3191,6 +3323,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -3249,6 +3397,22 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
             }
           }
         ],
@@ -3559,6 +3723,22 @@
               "type": "string",
               "format": "uuid",
               "nullable": true
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
             }
           }
         ],
@@ -3879,6 +4059,22 @@
               "type": "string",
               "nullable": true
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -4138,6 +4334,22 @@
               "type": "string",
               "nullable": true
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -4334,7 +4546,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonRequest"
+                "$ref": "#/components/schemas/CancelLeaseRequest"
               }
             }
           }
@@ -5887,6 +6099,22 @@
               "type": "string",
               "nullable": true
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -5986,6 +6214,22 @@
             "schema": {
               "type": "string",
               "nullable": true
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
             }
           }
         ],
@@ -6924,6 +7168,22 @@
               "type": "string",
               "nullable": true
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -7764,6 +8024,22 @@
               "type": "string",
               "nullable": true
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -7918,7 +8194,24 @@
         "tags": [
           "ClientPayments"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -9811,6 +10104,139 @@
           }
         }
       }
+    },
+    "/api/v1/admin/properties/{propertyId}/billing-settings": {
+      "get": {
+        "operationId": "getAdminBillingSettings",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingSettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateAdminBillingSettings",
+        "tags": [
+          "AdminBilling"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBillingSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingSettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logoutAuthSession",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "204": {
+            "description": "Logged out; client discards the token"
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10433,6 +10859,14 @@
             "items": {
               "$ref": "#/components/schemas/AdminUserDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -10567,6 +11001,14 @@
             "items": {
               "$ref": "#/components/schemas/NotificationItemDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -11801,6 +12243,14 @@
             "items": {
               "$ref": "#/components/schemas/ReservationItemDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -12189,6 +12639,14 @@
             "items": {
               "$ref": "#/components/schemas/StayDetailDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -12499,6 +12957,14 @@
             "items": {
               "$ref": "#/components/schemas/LeaseItemDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -12627,6 +13093,10 @@
             "items": {
               "$ref": "#/components/schemas/LeaseVehicleRequest"
             }
+          },
+          "paymentMethod": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -12665,6 +13135,10 @@
           },
           "reason": {
             "type": "string"
+          },
+          "refundPaymentMethod": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -13112,6 +13586,16 @@
           "voidReason": {
             "type": "string",
             "nullable": true
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         }
       },
@@ -13126,6 +13610,14 @@
             "items": {
               "$ref": "#/components/schemas/InvoiceItemDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -13208,6 +13700,10 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -13276,6 +13772,14 @@
             "items": {
               "$ref": "#/components/schemas/CashierShiftDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -13371,6 +13875,14 @@
           "totalHeldBalance": {
             "type": "number",
             "format": "double"
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -13512,6 +14024,11 @@
               }
             ],
             "nullable": true
+          },
+          "invoiceDueDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
           }
         }
       },
@@ -13594,6 +14111,14 @@
             "items": {
               "$ref": "#/components/schemas/AdminPaymentSlipDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -13608,6 +14133,14 @@
             "items": {
               "$ref": "#/components/schemas/ClientPaymentSlipDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -13671,6 +14204,14 @@
             "items": {
               "$ref": "#/components/schemas/HousekeepingTaskDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -13842,6 +14383,14 @@
             "items": {
               "$ref": "#/components/schemas/ParcelItemDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -13939,6 +14488,14 @@
             "items": {
               "$ref": "#/components/schemas/WorkOrderItemDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -14362,8 +14919,6 @@
         "required": [
           "id",
           "documentNumber",
-          "invoiceId",
-          "invoiceDocumentNumber",
           "customer",
           "invoiceTotalAmount",
           "withholdingTaxAmount",
@@ -14381,10 +14936,12 @@
           },
           "invoiceId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "nullable": true
           },
           "invoiceDocumentNumber": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "customer": {
             "$ref": "#/components/schemas/CustomerRefDto"
@@ -14419,6 +14976,19 @@
           "issuedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "stayId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "stayDocumentNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentMethod": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -14427,7 +14997,8 @@
         "required": [
           "property",
           "receipt",
-          "invoice"
+          "invoice",
+          "folioCharges"
         ],
         "properties": {
           "property": {
@@ -14438,6 +15009,12 @@
           },
           "invoice": {
             "$ref": "#/components/schemas/InvoiceItemDto"
+          },
+          "folioCharges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FolioChargeItemDto"
+            }
           }
         }
       },
@@ -14452,6 +15029,14 @@
             "items": {
               "$ref": "#/components/schemas/LeaseIntentDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -14664,6 +15249,14 @@
             "items": {
               "$ref": "#/components/schemas/ClientInvoiceDto"
             }
+          },
+          "pagination": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginationMetadata"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -15277,6 +15870,89 @@
           "monthlyRentRate": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "PageRequest": {
+        "type": "object",
+        "required": [
+          "page",
+          "pageSize"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          }
+        }
+      },
+      "CancelLeaseRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "refundPaymentMethod": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "BillingSettingsDto": {
+        "type": "object",
+        "required": [
+          "propertyId",
+          "effectivePaymentTermsDays"
+        ],
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paymentTermsDays": {
+            "type": "integer",
+            "nullable": true
+          },
+          "effectivePaymentTermsDays": {
+            "type": "integer"
+          }
+        }
+      },
+      "UpdateBillingSettingsRequest": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "paymentTermsDays": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "PaginationMetadata": {
+        "type": "object",
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "totalPages"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "totalCount": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
           }
         }
       }

@@ -2196,6 +2196,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/properties/{propertyId}/billing-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminBillingSettings"];
+        put: operations["updateAdminBillingSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logoutAuthSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2362,6 +2394,7 @@ export interface components {
         };
         AdminUserListResponse: {
             items: components["schemas"]["AdminUserDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         UpsertAdminUserRequest: {
             /** Format: uuid */
@@ -2398,6 +2431,7 @@ export interface components {
         };
         NotificationListResponse: {
             items: components["schemas"]["NotificationItemDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         PropertyDetailDto: {
             /** Format: uuid */
@@ -2711,6 +2745,7 @@ export interface components {
         };
         ReservationListResponse: {
             items: components["schemas"]["ReservationItemDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         CreateAdminReservationRequest: {
             /** Format: uuid */
@@ -2821,6 +2856,7 @@ export interface components {
         };
         StayListResponse: {
             items: components["schemas"]["StayDetailDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         ExtendStayRequest: {
             additionalHours: number;
@@ -2908,6 +2944,7 @@ export interface components {
         };
         LeaseListResponse: {
             items: components["schemas"]["LeaseItemDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         LeaseSettlementDto: {
             lease: components["schemas"]["LeaseItemDto"];
@@ -2947,6 +2984,7 @@ export interface components {
             initialElectricMeterReading: number;
             occupants?: components["schemas"]["LeaseOccupantRequest"][] | null;
             vehicles?: components["schemas"]["LeaseVehicleRequest"][] | null;
+            paymentMethod?: string | null;
         };
         RenewLeaseRequest: {
             /** Format: date */
@@ -2960,6 +2998,7 @@ export interface components {
             /** Format: double */
             damageDeductionAmount: number;
             reason: string;
+            refundPaymentMethod?: string | null;
         };
         CustomerListResponse: {
             items: components["schemas"]["CustomerRefDto"][];
@@ -3085,9 +3124,14 @@ export interface components {
             /** Format: double */
             totalAmount: number;
             voidReason?: string | null;
+            /** Format: date */
+            dueDate?: string | null;
+            /** Format: date-time */
+            issuedAt?: string | null;
         };
         InvoiceListResponse: {
             items: components["schemas"]["InvoiceItemDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         BatchInvoiceRunRequest: {
             period: string;
@@ -3110,6 +3154,7 @@ export interface components {
             reason?: string | null;
             /** Format: date-time */
             createdAt: string;
+            paymentMethod?: string | null;
         };
         DepositLedgerItemDto: {
             /** Format: uuid */
@@ -3127,6 +3172,7 @@ export interface components {
         };
         CashierShiftListResponse: {
             items: components["schemas"]["CashierShiftDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         CashierShiftDto: {
             /** Format: uuid */
@@ -3158,6 +3204,7 @@ export interface components {
             items: components["schemas"]["DepositLedgerItemDto"][];
             /** Format: double */
             totalHeldBalance: number;
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         CurrentCashierShiftResponse: {
             shift?: components["schemas"]["CashierShiftDto"] | null;
@@ -3199,6 +3246,8 @@ export interface components {
             rejectReason?: string | null;
             receiptDocumentNumber?: string | null;
             reviewedBy?: components["schemas"]["UserRefDto"] | null;
+            /** Format: date */
+            invoiceDueDate?: string | null;
         };
         RejectPaymentSlipRequest: {
             reason: string;
@@ -3224,9 +3273,11 @@ export interface components {
         };
         PaymentSlipQueueResponse: {
             items: components["schemas"]["AdminPaymentSlipDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         ClientPaymentSlipListResponse: {
             items: components["schemas"]["ClientPaymentSlipDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         SubmitPaymentSlipRequest: {
             /** Format: double */
@@ -3245,6 +3296,7 @@ export interface components {
         };
         HousekeepingTaskListResponse: {
             items: components["schemas"]["HousekeepingTaskDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         HousekeepingTaskDto: {
             /** Format: uuid */
@@ -3294,6 +3346,7 @@ export interface components {
         };
         ParcelListResponse: {
             items: components["schemas"]["ParcelItemDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         PickUpParcelRequest: {
             recipientName?: string | null;
@@ -3322,6 +3375,7 @@ export interface components {
         };
         WorkOrderListResponse: {
             items: components["schemas"]["WorkOrderItemDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         ResolveWorkOrderRequest: {
             resolutionNotes: string;
@@ -3446,8 +3500,8 @@ export interface components {
             id: string;
             documentNumber: string;
             /** Format: uuid */
-            invoiceId: string;
-            invoiceDocumentNumber: string;
+            invoiceId?: string | null;
+            invoiceDocumentNumber?: string | null;
             customer: components["schemas"]["CustomerRefDto"];
             unit?: components["schemas"]["UnitRefDto"] | null;
             /** Format: double */
@@ -3460,14 +3514,20 @@ export interface components {
             isCashPayment: boolean;
             /** Format: date-time */
             issuedAt: string;
+            /** Format: uuid */
+            stayId?: string | null;
+            stayDocumentNumber?: string | null;
+            paymentMethod?: string | null;
         };
         ReceiptDocumentDto: {
             property: components["schemas"]["PropertyLetterheadDto"];
             receipt: components["schemas"]["ReceiptItemDto"];
             invoice: components["schemas"]["InvoiceItemDto"];
+            folioCharges: components["schemas"]["FolioChargeItemDto"][];
         };
         LeaseIntentListResponse: {
             items: components["schemas"]["LeaseIntentDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         UpdateLeaseIntentRequest: {
             /** Format: date */
@@ -3530,6 +3590,7 @@ export interface components {
         };
         ClientInvoiceListResponse: {
             items: components["schemas"]["ClientInvoiceDto"][];
+            pagination?: components["schemas"]["PaginationMetadata"] | null;
         };
         OccupancyByStayModeDto: {
             stayMode: string;
@@ -3720,6 +3781,29 @@ export interface components {
             dailyRate: number;
             /** Format: double */
             monthlyRentRate: number;
+        };
+        PageRequest: {
+            page: number;
+            pageSize: number;
+        };
+        CancelLeaseRequest: {
+            reason: string;
+            refundPaymentMethod?: string | null;
+        };
+        BillingSettingsDto: {
+            /** Format: uuid */
+            propertyId: string;
+            paymentTermsDays?: number | null;
+            effectivePaymentTermsDays: number;
+        };
+        UpdateBillingSettingsRequest: {
+            paymentTermsDays?: number | null;
+        };
+        PaginationMetadata: {
+            page: number;
+            pageSize: number;
+            totalCount: number;
+            totalPages: number;
         };
     };
     responses: never;
@@ -4119,6 +4203,8 @@ export interface operations {
             query?: {
                 status?: "Hold" | "PendingVerification" | "Confirmed" | "CheckedIn" | "Expired" | "Cancelled" | "NoShow";
                 stayMode?: "Hourly" | "Daily" | "Monthly";
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -4332,7 +4418,10 @@ export interface operations {
     };
     getClientReservations: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4465,6 +4554,8 @@ export interface operations {
             query?: {
                 status?: "Active" | "CheckedOut" | "Cancelled";
                 stayMode?: "Hourly" | "Daily";
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -4740,6 +4831,8 @@ export interface operations {
         parameters: {
             query?: {
                 propertyId?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -4846,7 +4939,10 @@ export interface operations {
     };
     getClientNotifications: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4869,6 +4965,8 @@ export interface operations {
             query?: {
                 status?: "Draft" | "PendingSignature" | "Active" | "MoveOutNotice" | "MovedOut" | "Terminated" | "Cancelled";
                 licensePlate?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -5516,6 +5614,8 @@ export interface operations {
             query?: {
                 period?: string;
                 status?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -5774,6 +5874,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -5906,6 +6008,8 @@ export interface operations {
         parameters: {
             query?: {
                 type?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -5948,6 +6052,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -6161,6 +6267,8 @@ export interface operations {
             query?: {
                 status?: string | null;
                 buildingId?: string | null;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -6378,6 +6486,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -6554,6 +6664,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -6693,7 +6805,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonRequest"];
+                "application/json": components["schemas"]["CancelLeaseRequest"];
             };
         };
         responses: {
@@ -7689,6 +7801,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -7771,6 +7885,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -8443,6 +8559,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -9030,6 +9148,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -9149,7 +9269,10 @@ export interface operations {
     };
     getClientAllPaymentSlips: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -10449,6 +10572,117 @@ export interface operations {
             };
             /** @description Property scope or permission denied */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminBillingSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSettingsDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    updateAdminBillingSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBillingSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSettingsDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    logoutAuthSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out; client discards the token */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
