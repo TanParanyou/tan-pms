@@ -401,7 +401,9 @@ public sealed partial class InMemoryOperationalService
                     ut.SupportedStayModes.Select(m => m.ToString()).ToList(),
                     ut.HourlyBasePackagePrice,
                     ut.DailyRate,
-                    ut.MonthlyRentRate))
+                    ut.MonthlyRentRate,
+                    ut.HourlyBasePackageHours,
+                    ut.HourlyAdditionalHourPrice))
                 .ToList();
 
             var propertyUnits = _units.Values

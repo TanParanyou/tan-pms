@@ -751,8 +751,11 @@ public sealed class PostgresPersistenceIntegrationTests
                 new Application.Properties.UpsertFloorRequest(null, pgBuilding!.Id, 1, new LocalizedTextDto("ชั้น 1", "Floor 1"))))
                 .Content.ReadFromJsonAsync<Application.Properties.FloorDetailDto>();
             var pgUnitType = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/unit-types", new Application.Properties.UpsertUnitTypeRequest(
-                null, "PG-SUITE", new LocalizedTextDto("สวีท PG", "PG Suite"), null, 40m, 1, ["Daily"], 0m, 3, 0m, 2000m, 0m)))
+                null, "PG-SUITE", new LocalizedTextDto("สวีท PG", "PG Suite"), null, 40m, 1, ["Hourly", "Daily"], 390m, 5, 110m, 2000m, 0m)))
                 .Content.ReadFromJsonAsync<Application.Properties.UnitTypeDetailDto>();
+            var pgReloadedType = (await masterClient.GetFromJsonAsync<Application.Properties.PropertyHierarchyResponse>($"{bkkUrl}/hierarchy"))!
+                .UnitTypes.Single(t => t.Id == pgUnitType!.Id);
+            Assert.Equal((390m, 5, 110m), (pgReloadedType.HourlyBasePackagePrice, pgReloadedType.HourlyBasePackageHours, pgReloadedType.HourlyAdditionalHourPrice));
             var pgUnit = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/units", new Application.Properties.UpsertUnitMasterRequest(
                 null, pgBuilding.Id, pgFloor!.Id, pgUnitType!.Id, "PG-101", ["Daily"], "Clean", [])))
                 .Content.ReadFromJsonAsync<Application.Properties.UnitMasterItemDto>();

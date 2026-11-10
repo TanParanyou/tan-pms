@@ -75,6 +75,11 @@ public sealed class MasterDataAndStayLifecycleTests
         var unitType = new UpsertAdminUnitTypeHandler(store, manage, store).Handle(new UpsertAdminUnitTypeCommand(Bkk, new UpsertUnitTypeRequest(
             null, "suite", new LocalizedTextDto("สวีท", "Suite"), null, 48m, 1, ["Daily", "Monthly"], 0m, 3, 0m, 2500m, 15000m))).Value!;
         Assert.Equal(["Daily", "Monthly"], unitType.SupportedStayModes.ToArray());
+        var hourlyType = store.UpsertUnitType(Bkk, new UpsertUnitTypeRequest(
+            unitType.Id, "SUITE", unitType.Name, null, 48m, 1, ["Hourly", "Daily"], 450m, 4, 125m, 2500m, 15000m)).Value!;
+        var reloaded = store.GetPropertyHierarchy(Bkk).Value!.UnitTypes.Single(t => t.Id == unitType.Id);
+        Assert.Equal((450m, 4, 125m), (hourlyType.HourlyBasePackagePrice, hourlyType.HourlyBasePackageHours, hourlyType.HourlyAdditionalHourPrice));
+        Assert.Equal((450m, 4, 125m), (reloaded.HourlyBasePackagePrice, reloaded.HourlyBasePackageHours, reloaded.HourlyAdditionalHourPrice));
         var unit = store.UpsertUnitMaster(Bkk, new UpsertUnitMasterRequest(null, building.Id, floor.Id, unitType.Id, "B-101", ["Daily"], "Clean",
             [new UpsertUnitAssetItemDto("TV-01", new LocalizedTextDto("ทีวี", "TV"), 9000m)])).Value!;
         Assert.Single(new GetAdminUnitHandler(store, manage).Handle(new GetAdminUnitQuery(Bkk, unit.Id)).Value!.Assets);

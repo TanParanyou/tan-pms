@@ -12,4 +12,6 @@ public sealed record UnitTypeDetailDto(
     IReadOnlyList<string> SupportedStayModes,
     decimal HourlyBasePackagePrice,
     decimal DailyRate,
-    decimal MonthlyRentRate);
+    decimal MonthlyRentRate,
+    int HourlyBasePackageHours,
+    decimal HourlyAdditionalHourPrice);
