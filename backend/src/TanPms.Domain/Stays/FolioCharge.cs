@@ -12,4 +12,13 @@ public sealed class FolioCharge
 
     // TaxProfile charge category for room charges (used by RevPAR); null for minibar, repairs and manual charges.
     public string? ChargeCategoryCode { get; init; }
+
+    public bool IsVoided { get; private set; }
+    public string? VoidReason { get; private set; }
+
+    internal void Void(string reason)
+    {
+        IsVoided = true;
+        VoidReason = reason.Trim();
+    }
 }

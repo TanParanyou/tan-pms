@@ -108,4 +108,10 @@
   <data name="internal.unexpected_error_DETAIL" xml:space="preserve">
     <value>The request could not be completed due to an unexpected internal error.</value>
   </data>
+  <data name="master_data.in_use_TITLE" xml:space="preserve">
+    <value>Master data is in use</value>
+  </data>
+  <data name="master_data.in_use_DETAIL" xml:space="preserve">
+    <value>This record is referenced by other records (such as leases, stays, reservations or invoices) and cannot be deleted.</value>
+  </data>
 </root>

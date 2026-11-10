@@ -34,6 +34,13 @@ public sealed class CashierShift : AuditableEntity
         CashReceiptsInShift += decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
     }
 
+    // Corrects a cash folio payment taken by mistake; the drawer total goes down by the reversed amount.
+    public void ReverseCashReceipt(decimal amount)
+    {
+        EnsureOpen();
+        CashReceiptsInShift -= decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
+    }
+
     public void RecordCashDepositReceived(decimal amount)
     {
         EnsureOpen();

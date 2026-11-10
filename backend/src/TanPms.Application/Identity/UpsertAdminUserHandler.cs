@@ -44,6 +44,12 @@ public sealed class UpsertAdminUserHandler
             }
         }
 
+        if (!command.IsActive && command.Id is { } targetId && IdentityRules.CheckNotSelf(_currentUser, targetId) is { } selfError)
+        {
+            return Result<AdminUserDto>.Failure(selfError);
+        }
+
+        var before = command.Id is { } existingId ? _store.GetAdminUser(existingId).Value : null;
         var result = _store.UpsertAdminUser(command);
         if (result.IsSuccess && result.Value is not null)
         {
@@ -56,8 +62,12 @@ public sealed class UpsertAdminUserHandler
                 {
                     result.Value.Username,
                     result.Value.RoleCode,
-                    result.Value.IsActive
-                });
+                    result.Value.IsActive,
+                    AllowedPropertyIds = result.Value.AllowedProperties.Select(p => p.Id).ToList()
+                },
+                beforeState: before is null
+                    ? null
+                    : new { before.RoleCode, before.IsActive, AllowedPropertyIds = before.AllowedProperties.Select(p => p.Id).ToList() });
         }
 
         return result;

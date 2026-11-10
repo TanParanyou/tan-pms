@@ -721,6 +721,111 @@ public sealed class PostgresPersistenceIntegrationTests
             Assert.Equal("Liability", pgDeposits!.Classification);
             Assert.Equal(pgDeposits.ByType.Sum(t => t.HeldBalance), pgDeposits.TotalHeldBalance);
             Assert.Equal(HttpStatusCode.Forbidden, (await cnxAdmin.GetAsync($"{bkkUrl}/analytics/occupancy")).StatusCode);
+
+            // 12. PM-01..PM-05 CRUD gaps through EfCorePmsStore + PostgreSQL
+            using var masterClient = factory.CreateClient();
+            masterClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+            masterClient.DefaultRequestHeaders.Add("X-TanPms-User-Id", "pg-crud"); // owns the Open BKK shift from step 9
+            masterClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", $"{PmsSeedConstants.BkkPropertyId},{PmsSeedConstants.CnxPropertyId}");
+            masterClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", string.Join(",",
+                PermissionKeys.AdminUsersRead, PermissionKeys.AdminUsersManage, PermissionKeys.AdminPropertiesRead, PermissionKeys.AdminPropertiesManage,
+                PermissionKeys.AdminRatesManage, PermissionKeys.AdminReservationsRead, PermissionKeys.AdminReservationsManage,
+                PermissionKeys.AdminStayCheckIn, PermissionKeys.AdminStayCheckOut, PermissionKeys.AdminStayOverrideDirtyCheckIn,
+                PermissionKeys.AdminInvoicesVoid, PermissionKeys.AdminCashierOperateShift, PermissionKeys.AdminLeasesManage,
+                PermissionKeys.AdminLeasesSettleMoveOut, PermissionKeys.AdminAnalyticsRead));
+
+            var pgUsers = await masterClient.GetFromJsonAsync<Application.Identity.AdminUserListResponse>("/api/v1/admin/users");
+            var pgCashierUser = pgUsers!.Items.Single(u => u.Username == "pimchanok.bkk");
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.GetAsync($"/api/v1/admin/users/{pgCashierUser.Id}")).StatusCode);
+            Assert.False((await (await masterClient.PostAsJsonAsync($"/api/v1/admin/users/{pgCashierUser.Id}/deactivate", new ReasonRequest("Long leave")))
+                .Content.ReadFromJsonAsync<Application.Identity.AdminUserDto>())!.IsActive);
+            Assert.True((await (await masterClient.PostAsync($"/api/v1/admin/users/{pgCashierUser.Id}/reactivate", null))
+                .Content.ReadFromJsonAsync<Application.Identity.AdminUserDto>())!.IsActive);
+            var pgOrgAdmin = pgUsers.Items.Single(u => u.Username == "naphat.admin");
+            Assert.Equal(HttpStatusCode.Conflict, (await masterClient.PostAsJsonAsync($"/api/v1/admin/users/{pgOrgAdmin.Id}/deactivate", new ReasonRequest("x"))).StatusCode);
+
+            var pgBuilding = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/buildings",
+                new Application.Properties.UpsertBuildingRequest(null, "PG-B", new LocalizedTextDto("อาคาร PG", "PG Building"))))
+                .Content.ReadFromJsonAsync<Application.Properties.BuildingDetailDto>();
+            var pgFloor = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/floors",
+                new Application.Properties.UpsertFloorRequest(null, pgBuilding!.Id, 1, new LocalizedTextDto("ชั้น 1", "Floor 1"))))
+                .Content.ReadFromJsonAsync<Application.Properties.FloorDetailDto>();
+            var pgUnitType = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/unit-types", new Application.Properties.UpsertUnitTypeRequest(
+                null, "PG-SUITE", new LocalizedTextDto("สวีท PG", "PG Suite"), null, 40m, 1, ["Daily"], 0m, 3, 0m, 2000m, 0m)))
+                .Content.ReadFromJsonAsync<Application.Properties.UnitTypeDetailDto>();
+            var pgUnit = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/units", new Application.Properties.UpsertUnitMasterRequest(
+                null, pgBuilding.Id, pgFloor!.Id, pgUnitType!.Id, "PG-101", ["Daily"], "Clean", [])))
+                .Content.ReadFromJsonAsync<Application.Properties.UnitMasterItemDto>();
+            Assert.Equal("PG-101", (await masterClient.GetFromJsonAsync<Application.Properties.UnitMasterItemDto>($"{bkkUrl}/units/{pgUnit!.Id}"))!.UnitNumber);
+            Assert.Equal(HttpStatusCode.Conflict, (await masterClient.DeleteAsync($"{bkkUrl}/buildings/{pgBuilding.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await masterClient.DeleteAsync($"{bkkUrl}/units/{PmsSeedConstants.OccupiedMonthlyUnitA201Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.DeleteAsync($"{bkkUrl}/units/{pgUnit.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.DeleteAsync($"{bkkUrl}/floors/{pgFloor.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.DeleteAsync($"{bkkUrl}/buildings/{pgBuilding.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.DeleteAsync($"{bkkUrl}/unit-types/{pgUnitType.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.GetAsync($"{bkkUrl}/rates/taxes/{PmsSeedConstants.MonthlyRentExemptTaxProfileId}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await masterClient.DeleteAsync($"{bkkUrl}/rates/taxes/{PmsSeedConstants.MonthlyRentExemptTaxProfileId}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await masterClient.DeleteAsync($"{bkkUrl}/rates/utilities/{PmsSeedConstants.BkkWaterTariffId}")).StatusCode);
+
+            var pgConfirmed = await masterClient.GetFromJsonAsync<Application.Reservations.ReservationItemDto>($"{bkkUrl}/reservations/{PmsSeedConstants.SampleConfirmedReservationId}");
+            var pgMoved = await masterClient.PutAsJsonAsync($"{bkkUrl}/reservations/{pgConfirmed!.Id}", new Application.Reservations.UpdateReservationRequest(
+                pgConfirmed.UnitType.Id, pgConfirmed.AssignedUnit!.Id, pgConfirmed.SlotStartAt.AddDays(1), pgConfirmed.SlotEndAt.AddDays(1), 2, "Moved by guest"));
+            Assert.Equal(HttpStatusCode.OK, pgMoved.StatusCode);
+            Assert.Equal(2, (await pgMoved.Content.ReadFromJsonAsync<Application.Reservations.ReservationItemDto>())!.GuestCount);
+            Assert.Equal(HttpStatusCode.BadRequest, (await masterClient.DeleteAsync($"{bkkUrl}/reservations/{PmsSeedConstants.SampleHoldReservationId}")).StatusCode);
+
+            // A-101 is Dirty after step 10, so the desk overrides with a reason. First a mistaken check-in is cancelled.
+            CheckInStayRequest DirtyCheckIn(decimal keyDeposit) => new(
+                PmsSeedConstants.BkkPropertyId, PmsSeedConstants.CleanUnitA101Id, PmsSeedConstants.PrimaryCustomerId, "Hourly", keyDeposit,
+                OverrideDirtyCheckIn: true, OverrideReason: "Guest accepted room as-is",
+                Occupants: [new CheckInOccupantInputDto("PG Guest", "THA", "1100700000077", true, null, "0899999999")]);
+            var mistaken = await (await masterClient.PostAsJsonAsync("/api/v1/admin/stays/check-in", DirtyCheckIn(200m))).Content.ReadFromJsonAsync<StaySummaryDto>();
+            var refundedBefore = (await masterClient.GetFromJsonAsync<CurrentCashierShiftResponse>($"{bkkUrl}/cashier/shifts/current"))!.Shift!.CashDepositsRefundedInShift;
+            var cancelledStay = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/stays/{mistaken!.Id}/cancel", new ReasonRequest("Keyed wrong guest")))
+                .Content.ReadFromJsonAsync<StayDetailDto>();
+            Assert.Equal("Cancelled", cancelledStay!.Status);
+            Assert.Equal(refundedBefore + 200m, (await masterClient.GetFromJsonAsync<CurrentCashierShiftResponse>($"{bkkUrl}/cashier/shifts/current"))!.Shift!.CashDepositsRefundedInShift);
+
+            var pgStay = await (await masterClient.PostAsJsonAsync("/api/v1/admin/stays/check-in", DirtyCheckIn(0m))).Content.ReadFromJsonAsync<StaySummaryDto>();
+            var pgDetail = await masterClient.GetFromJsonAsync<StayDetailDto>($"{bkkUrl}/stays/{pgStay!.Id}");
+            var pgPrimary = Assert.Single(pgDetail!.Occupants);
+            Assert.Equal("0899999999", pgPrimary.PhoneNumber);
+            var withCompanion = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/stays/{pgStay.Id}/occupants",
+                new CheckInOccupantInputDto("PG Companion", "THA", "1100700000088", false))).Content.ReadFromJsonAsync<StayDetailDto>();
+            var companion = withCompanion!.Occupants.Single(o => o.FullName == "PG Companion");
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.PutAsJsonAsync($"{bkkUrl}/stays/{pgStay.Id}/occupants/{companion.Id}",
+                new UpdateStayOccupantRequest("PG Companion", "THA", null, true))).StatusCode);
+            Assert.Single((await (await masterClient.DeleteAsync($"{bkkUrl}/stays/{pgStay.Id}/occupants/{pgPrimary.Id}"))
+                .Content.ReadFromJsonAsync<StayDetailDto>())!.Occupants);
+            Assert.Equal("Late check-in", (await (await masterClient.PutAsJsonAsync($"{bkkUrl}/stays/{pgStay.Id}", new UpdateStayRequest(null, "Late check-in")))
+                .Content.ReadFromJsonAsync<StayDetailDto>())!.Note);
+
+            var pgMinibar = await (await masterClient.PostAsJsonAsync($"{bkkUrl}/stays/{pgStay.Id}/folio/charges",
+                new AddFolioChargeRequest(new LocalizedTextDto("มินิบาร์", "Minibar"), 100m, "VatIncluded"))).Content.ReadFromJsonAsync<StayDetailDto>();
+            var minibarId = pgMinibar!.Folio.Charges.Single(c => c.Description.En == "Minibar").Id;
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.PostAsJsonAsync($"{bkkUrl}/stays/{pgStay.Id}/folio/payments",
+                new RecordFolioPaymentRequest(pgMinibar.Folio.BalanceDue, "Cash"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await masterClient.PostAsJsonAsync(
+                $"{bkkUrl}/stays/{pgStay.Id}/folio/charges/{minibarId}/void", new ReasonRequest("Not consumed"))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.PostAsJsonAsync(
+                $"{bkkUrl}/stays/{pgStay.Id}/folio/payments/reverse", new ReverseFolioPaymentRequest(100m, "Cash", "Minibar not consumed"))).StatusCode);
+            var afterVoid = await (await masterClient.PostAsJsonAsync(
+                $"{bkkUrl}/stays/{pgStay.Id}/folio/charges/{minibarId}/void", new ReasonRequest("Not consumed"))).Content.ReadFromJsonAsync<StayDetailDto>();
+            Assert.True(afterVoid!.Folio.Charges.Single(c => c.Id == minibarId).IsVoided);
+            Assert.Equal(0m, afterVoid.Folio.BalanceDue);
+            Assert.Equal(HttpStatusCode.BadRequest, (await masterClient.PostAsJsonAsync($"{bkkUrl}/stays/{pgStay.Id}/cancel", new ReasonRequest("x"))).StatusCode);
+
+            // Analytics parity: a lease moved out today counts through today on PostgreSQL exactly as in-memory does.
+            var parityToday = AnalyticsPeriod.Today();
+            var parityLease = await (await masterClient.PostAsJsonAsync(leasesUrl, new CreateLeaseRequest(
+                PmsSeedConstants.DirtyUnitA102Id, PmsSeedConstants.SecondaryCustomerId, parityToday.AddDays(-10), parityToday.AddDays(300), 6000m, 0m, 0m, 0m)))
+                .Content.ReadFromJsonAsync<LeaseItemDto>();
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.PostAsync($"{leasesUrl}/{parityLease!.Id}/move-out-notice", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.PostAsJsonAsync($"{leasesUrl}/{parityLease.Id}/settle-move-out",
+                new SettleLeaseMoveOutRequest(0m, 0m, "Moved out early"))).StatusCode);
+            var parity = await masterClient.GetFromJsonAsync<OccupancyReportDto>(
+                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{bkkUrl}/analytics/occupancy?from={parityToday.AddDays(-10):yyyy-MM-dd}&to={parityToday:yyyy-MM-dd}"));
+            Assert.Equal(22, parity!.ByStayMode.Single(m => m.StayMode == "Monthly").OccupiedUnitNights);
         }
         finally
         {

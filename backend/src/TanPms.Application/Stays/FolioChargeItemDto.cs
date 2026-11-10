@@ -6,4 +6,6 @@ public sealed record FolioChargeItemDto(
     Guid Id,
     LocalizedTextDto Description,
     decimal Amount,
-    string TaxMode);
+    string TaxMode,
+    bool IsVoided,
+    string? VoidReason);

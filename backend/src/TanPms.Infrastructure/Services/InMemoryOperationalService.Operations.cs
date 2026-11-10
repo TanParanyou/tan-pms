@@ -112,6 +112,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 workOrder.Assign(request.TechnicianUserId);
+                Touch(workOrder);
                 return Result<WorkOrderItemDto>.Success(MapWorkOrderLocked(workOrder, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -184,6 +185,7 @@ public sealed partial class InMemoryOperationalService
                 }
 
                 workOrder.Resolve(request.ResolutionNotes, request.AfterPhotoFileKey, request.RepairCostAmount, chargeDocumentNumber);
+                Touch(workOrder);
                 return Result<WorkOrderItemDto>.Success(MapWorkOrderLocked(workOrder, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -247,6 +249,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 parcel.MarkPickedUp(nowUtc ?? DateTimeOffset.UtcNow, request.RecipientName);
+                Touch(parcel);
                 return Result<ParcelItemDto>.Success(MapParcelLocked(parcel, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -375,6 +378,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 parcel.UpdateDetails(request.UnitId, customerId, request.CarrierName, request.TrackingNumber, request.PhotoFileKey);
+                Touch(parcel);
                 return Result<ParcelItemDto>.Success(MapParcelLocked(parcel, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -426,6 +430,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 mutate(workOrder!);
+                Touch(workOrder!);
                 return Result<WorkOrderItemDto>.Success(MapWorkOrderLocked(workOrder!, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -455,6 +460,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 mutate(task, unit);
+                Touch(task);
                 return Result<HousekeepingTaskDto>.Success(OperationsRecordMapper.MapHousekeepingTask(task, _unitRefs[unit.Id], unit, UserRefsLocked()));
             }
             catch (DomainRuleException ex)

@@ -20,4 +20,6 @@ public sealed record StayDetailDto(
     decimal KeyDepositBalance,
     FolioSummaryDto Folio,
     IReadOnlyList<StayOccupantDto> Occupants,
-    string? GeneratedHousekeepingTaskStatus);
+    string? GeneratedHousekeepingTaskStatus,
+    string? Note,
+    string? CancelReason);

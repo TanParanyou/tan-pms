@@ -29,6 +29,7 @@ public static class ProblemDetailsMapper
         DomainErrorCodes.InvoiceImmutableStatus => StatusCodes.Status409Conflict,
         DomainErrorCodes.ShiftNotOpen => StatusCodes.Status409Conflict,
         DomainErrorCodes.MeterRolloverUnconfirmed => StatusCodes.Status409Conflict,
+        DomainErrorCodes.MasterDataInUse => StatusCodes.Status409Conflict,
         _ => StatusCodes.Status500InternalServerError
     };
 

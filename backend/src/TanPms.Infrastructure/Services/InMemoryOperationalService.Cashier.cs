@@ -106,6 +106,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 shift.CloseShift(request.ActualCashCounted, request.VarianceRemark?.Trim());
+                Touch(shift);
                 return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
             }
             catch (DomainRuleException ex)
@@ -128,6 +129,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 shift.MarkReconciled();
+                Touch(shift);
                 return Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
             }
             catch (DomainRuleException ex)
@@ -199,7 +201,13 @@ public sealed partial class InMemoryOperationalService
 
             try
             {
-                return mutate(shift) is { } error
+                var mutationError = mutate(shift);
+                if (mutationError is null)
+                {
+                    Touch(shift);
+                }
+
+                return mutationError is { } error
                     ? Result<CashierShiftDto>.Failure(error)
                     : Result<CashierShiftDto>.Success(CashierRecordMapper.MapShift(shift, UserRefsLocked()));
             }
@@ -299,6 +307,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 slip!.UpdatePending(request.Amount, request.SlipFileKey, request.TransferReference, request.TransferredAt);
+                Touch(slip);
                 return Result<ClientPaymentSlipDto>.Success(CashierRecordMapper.MapClientSlip(slip, invoice.DocumentNumber));
             }
             catch (DomainRuleException ex)
@@ -433,6 +442,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 slip.Approve(reviewerUserId, clockUtc);
+                Touch(slip, clockUtc);
                 var property = _properties[propertyId];
                 var receipt = CashierRecordMapper.BuildSlipReceipt(
                     invoice,
@@ -467,6 +477,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 slip.Reject(reviewerUserId, request.Reason, nowUtc ?? DateTimeOffset.UtcNow);
+                Touch(slip);
                 return Result<AdminPaymentSlipDto>.Success(MapAdminSlipLocked(slip, unmaskPii: false));
             }
             catch (DomainRuleException ex)

@@ -195,6 +195,13 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                 $"Role '{command.RoleCode}' does not exist."));
         }
 
+        if (command.Id.HasValue
+            && _dbContext.AdminUsers.AsNoTracking().FirstOrDefault(u => u.Id == command.Id.Value) is { } current
+            && IdentityRules.CheckKeepsAnOrganizationAdmin(current, command.IsActive, role.Code, _dbContext.AdminUsers.AsNoTracking().ToList()) is { } adminError)
+        {
+            return Result<AdminUserDto>.Failure(adminError);
+        }
+
         AdminUser user;
         if (command.Id.HasValue)
         {
@@ -1897,21 +1904,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             {
                 foreach (var occInput in command.Occupants)
                 {
-                    _dbContext.Occupants.Add(new Occupant
-                    {
-                        PropertyId = command.PropertyId,
-                        CustomerId = customer.Id,
-                        StayId = stay.Id,
-                        FullName = occInput.FullName.Trim(),
-                        NationalityCode = string.IsNullOrWhiteSpace(occInput.NationalityCode)
-                            ? "THA"
-                            : occInput.NationalityCode.Trim().ToUpperInvariant(),
-                        IdentityNumber = occInput.IdentityNumber.Trim(),
-                        IsPrimaryOccupant = occInput.IsPrimaryOccupant,
-                        VehicleLicensePlate = string.IsNullOrWhiteSpace(occInput.VehicleLicensePlate)
-                            ? null
-                            : occInput.VehicleLicensePlate.Trim()
-                    });
+                    _dbContext.Occupants.Add(StayRecordMapper.BuildOccupant(command.PropertyId, customer.Id, stay.Id, occInput));
                 }
             }
             else
@@ -2823,7 +2816,9 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                 DepositAmount: reservation.DepositAmount,
                 PaymentSlipFileKey: reservation.PaymentSlipFileKey,
                 CancellationReason: reservation.CancellationReason,
-                Status: reservation.Status.ToString()));
+                Status: reservation.Status.ToString(),
+                GuestCount: reservation.GuestCount,
+                Note: reservation.Note));
         }
 
         return list;
@@ -2852,11 +2847,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
 
         var folioDto = new FolioSummaryDto(
             Id: folio.Id,
-            Charges: folio.Charges.Select(c => new FolioChargeItemDto(
-                c.Id,
-                LocalizedTextDto.FromDomain(c.Description),
-                c.Amount,
-                c.TaxMode.ToString())).ToList(),
+            Charges: folio.Charges.Select(StayRecordMapper.MapCharge).ToList(),
             TotalCharges: folio.TotalCharges,
             TotalPayments: folio.TotalPayments,
             BalanceDue: folio.BalanceDue);
@@ -2870,13 +2861,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             .AsNoTracking()
             .Where(o => o.StayId == stay.Id)
             .ToList()
-            .Select(o => new StayOccupantDto(
-                Id: o.Id,
-                FullName: o.FullName,
-                NationalityCode: o.NationalityCode,
-                MaskedIdentityNumber: unmaskPii ? o.IdentityNumber : o.GetMaskedIdentity(),
-                IsPrimaryOccupant: o.IsPrimaryOccupant,
-                VehicleLicensePlate: o.VehicleLicensePlate))
+            .Select(o => StayRecordMapper.MapOccupant(o, unmaskPii))
             .ToList();
 
         var reservationDocNo = stay.ReservationId.HasValue
@@ -2915,7 +2900,9 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             KeyDepositBalance: ledger?.CurrentBalance ?? 0m,
             Folio: folioDto,
             Occupants: occupants,
-            GeneratedHousekeepingTaskStatus: hkTask?.Status.ToString());
+            GeneratedHousekeepingTaskStatus: hkTask?.Status.ToString(),
+            Note: stay.Note,
+            CancelReason: stay.CancelReason);
     }
 
     private Dictionary<Guid, UnitRefDto> BuildUnitRefsForProperty(Guid propertyId, IReadOnlyList<Unit> units)

@@ -18,4 +18,6 @@ public sealed record ReservationItemDto(
     decimal DepositAmount,
     string? PaymentSlipFileKey,
     string? CancellationReason,
-    string Status);
+    string Status,
+    int? GuestCount,
+    string? Note);

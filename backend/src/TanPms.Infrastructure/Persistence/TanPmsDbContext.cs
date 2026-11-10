@@ -248,6 +248,24 @@ public sealed class TanPmsDbContext : DbContext
         modelBuilder.Entity<FolioCharge>(b =>
         {
             b.Property(x => x.ChargeCategoryCode).HasMaxLength(64);
+            b.Property(x => x.VoidReason).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<Occupant>(b =>
+        {
+            b.Property(x => x.PhoneNumber).HasMaxLength(32);
+            b.Property(x => x.IdentityDocumentFileKey).HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<Stay>(b =>
+        {
+            b.Property(x => x.Note).HasMaxLength(1000);
+            b.Property(x => x.CancelReason).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<Reservation>(b =>
+        {
+            b.Property(x => x.Note).HasMaxLength(1000);
         });
 
         modelBuilder.Entity<StoredFile>(b =>

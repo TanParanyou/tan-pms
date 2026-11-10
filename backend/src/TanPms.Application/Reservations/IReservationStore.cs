@@ -39,6 +39,16 @@ public interface IReservationStore
         CancelReservationRequest request,
         DateTimeOffset? nowUtc = null);
 
+    Result<ReservationItemDto> GetAdminReservation(Guid propertyId, Guid reservationId, DateTimeOffset? nowUtc = null);
+
+    Result<ReservationItemDto> UpdateAdminReservation(
+        Guid propertyId,
+        Guid reservationId,
+        UpdateReservationRequest request,
+        DateTimeOffset? nowUtc = null);
+
+    Result<ReservationItemDto> DeleteAdminReservation(Guid propertyId, Guid reservationId, DateTimeOffset? nowUtc = null);
+
     Result<ReservationListResponse> GetClientReservations(
         Guid customerId,
         DateTimeOffset? nowUtc = null);

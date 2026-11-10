@@ -98,6 +98,12 @@ public sealed class Unit : AuditableEntity
         OccupancyStatus = OccupancyStatus.Occupied;
     }
 
+    // Undo of a mistaken check-in: the unit was never really used, so its condition is left untouched.
+    public void MarkVacantAfterCancelledCheckIn()
+    {
+        OccupancyStatus = OccupancyStatus.Vacant;
+    }
+
     public void MarkReserved()
     {
         OccupancyStatus = OccupancyStatus.Reserved;

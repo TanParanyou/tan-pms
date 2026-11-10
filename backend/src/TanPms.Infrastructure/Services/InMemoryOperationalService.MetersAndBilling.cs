@@ -372,6 +372,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 invoice.Void(request.Reason.Trim());
+                Touch(invoice);
                 return Result<InvoiceItemDto>.Success(MapInvoiceLocked(invoice, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -405,6 +406,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 mutate(invoice, description, taxMode);
+                Touch(invoice);
                 return Result<InvoiceItemDto>.Success(MapInvoiceLocked(invoice, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -417,6 +419,7 @@ public sealed partial class InMemoryOperationalService
     private void IssueLocked(Invoice invoice)
     {
         invoice.Issue();
+        Touch(invoice);
         _notifications.Add(new NotificationMessage
         {
             PropertyId = invoice.PropertyId,

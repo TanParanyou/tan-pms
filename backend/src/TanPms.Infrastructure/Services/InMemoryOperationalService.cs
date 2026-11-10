@@ -236,6 +236,13 @@ public sealed partial class InMemoryOperationalService
                     $"Role '{command.RoleCode}' does not exist."));
             }
 
+            if (command.Id.HasValue
+                && _adminUsers.FirstOrDefault(u => u.Id == command.Id.Value) is { } current
+                && IdentityRules.CheckKeepsAnOrganizationAdmin(current, command.IsActive, role.Code, _adminUsers) is { } adminError)
+            {
+                return Result<AdminUserDto>.Failure(adminError);
+            }
+
             AdminUser user;
             if (command.Id.HasValue)
             {
@@ -521,6 +528,7 @@ public sealed partial class InMemoryOperationalService
             }).ToList();
 
             unit.ReplaceAssets(assets);
+            Touch(unit);
 
             _unitRefs[unit.Id] = new UnitRefDto(
                 unit.Id,
@@ -1346,6 +1354,7 @@ public sealed partial class InMemoryOperationalService
                 UnifiedAvailabilityCalculator.EnsureQuotaAvailable(availability);
 
                 reservation.AssignUnit(unitId);
+                Touch(reservation);
                 return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
             }
             catch (DomainRuleException ex)
@@ -1384,6 +1393,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 reservation.ConfirmByAdmin();
+                Touch(reservation);
                 return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
             }
             catch (DomainRuleException ex)
@@ -1418,10 +1428,12 @@ public sealed partial class InMemoryOperationalService
                 if (request.MarkNoShow)
                 {
                     reservation.MarkNoShow(request.Reason);
+                    Touch(reservation);
                 }
                 else
                 {
                     reservation.Cancel(request.Reason);
+                    Touch(reservation);
                 }
 
                 return Result<ReservationItemDto>.Success(MapReservationItemDtoLocked(reservation));
@@ -1710,7 +1722,9 @@ public sealed partial class InMemoryOperationalService
             DepositAmount: reservation.DepositAmount,
             PaymentSlipFileKey: reservation.PaymentSlipFileKey,
             CancellationReason: reservation.CancellationReason,
-            Status: reservation.Status.ToString());
+            Status: reservation.Status.ToString(),
+            GuestCount: reservation.GuestCount,
+            Note: reservation.Note);
     }
 
     public Result<RoomRackResponse> GetRoomRack(Guid propertyId)
@@ -1954,21 +1968,7 @@ public sealed partial class InMemoryOperationalService
             {
                 foreach (var occInput in command.Occupants)
                 {
-                    _occupants.Add(new Occupant
-                    {
-                        PropertyId = command.PropertyId,
-                        CustomerId = customer.Id,
-                        StayId = stay.Id,
-                        FullName = occInput.FullName.Trim(),
-                        NationalityCode = string.IsNullOrWhiteSpace(occInput.NationalityCode)
-                            ? "THA"
-                            : occInput.NationalityCode.Trim().ToUpperInvariant(),
-                        IdentityNumber = occInput.IdentityNumber.Trim(),
-                        IsPrimaryOccupant = occInput.IsPrimaryOccupant,
-                        VehicleLicensePlate = string.IsNullOrWhiteSpace(occInput.VehicleLicensePlate)
-                            ? null
-                            : occInput.VehicleLicensePlate.Trim()
-                    });
+                    _occupants.Add(StayRecordMapper.BuildOccupant(command.PropertyId, customer.Id, stay.Id, occInput));
                 }
             }
             else
@@ -2137,6 +2137,7 @@ public sealed partial class InMemoryOperationalService
                     var oldQuote = HourlyPricingCalculator.Calculate(oldDurationMins, hourlyRule);
 
                     stay.ExtendStay(request.AdditionalHours);
+                    Touch(stay);
 
                     var newDurationMins = Math.Max(60, (int)Math.Ceiling((stay.ExpectedCheckOutAt!.Value - stay.CheckInAt).TotalMinutes));
                     var newQuote = HourlyPricingCalculator.Calculate(newDurationMins, hourlyRule);
@@ -2157,6 +2158,7 @@ public sealed partial class InMemoryOperationalService
                 else
                 {
                     stay.ExtendStay(request.AdditionalHours);
+                    Touch(stay);
                     var nightlyRate = ratePlan?.WeekdayRate ?? unitType.DailyRate;
                     var additionalCharge = request.AdditionalHours >= 24
                         ? decimal.Round((request.AdditionalHours / 24m) * nightlyRate, 2, MidpointRounding.AwayFromZero)
@@ -2288,6 +2290,7 @@ public sealed partial class InMemoryOperationalService
                 clockUtc).GetAwaiter().GetResult();
 
             folio.RecordPayment(roundedAmount);
+            Touch(folio);
         if (request.PaymentMethod == "Cash")
         {
             // Cash lands in the caller's Open drawer; transfers/PromptPay do not touch the shift.
@@ -2372,6 +2375,7 @@ public sealed partial class InMemoryOperationalService
                 }
 
                 stay.CompleteCheckOut(folio, ledger, clockUtc);
+                Touch(stay, clockUtc);
 
                 var unit = _units[stay.UnitId];
                 var housekeepingTask = unit.MarkCheckedOutOrMovedOut(stay.DocumentNumber);
@@ -2511,11 +2515,7 @@ public sealed partial class InMemoryOperationalService
         var folio = EnsureFolioLocked(stay);
         var folioDto = new FolioSummaryDto(
             Id: folio.Id,
-            Charges: folio.Charges.Select(c => new FolioChargeItemDto(
-                c.Id,
-                LocalizedTextDto.FromDomain(c.Description),
-                c.Amount,
-                c.TaxMode.ToString())).ToList(),
+            Charges: folio.Charges.Select(StayRecordMapper.MapCharge).ToList(),
             TotalCharges: folio.TotalCharges,
             TotalPayments: folio.TotalPayments,
             BalanceDue: folio.BalanceDue);
@@ -2525,13 +2525,7 @@ public sealed partial class InMemoryOperationalService
 
         var occupants = _occupants
             .Where(o => o.StayId == stay.Id)
-            .Select(o => new StayOccupantDto(
-                Id: o.Id,
-                FullName: o.FullName,
-                NationalityCode: o.NationalityCode,
-                MaskedIdentityNumber: unmaskPii ? o.IdentityNumber : o.GetMaskedIdentity(),
-                IsPrimaryOccupant: o.IsPrimaryOccupant,
-                VehicleLicensePlate: o.VehicleLicensePlate))
+            .Select(o => StayRecordMapper.MapOccupant(o, unmaskPii))
             .ToList();
 
         var reservationDocNo = stay.ReservationId.HasValue
@@ -2565,7 +2559,9 @@ public sealed partial class InMemoryOperationalService
             KeyDepositBalance: ledger?.CurrentBalance ?? 0m,
             Folio: folioDto,
             Occupants: occupants,
-            GeneratedHousekeepingTaskStatus: hkTask?.Status.ToString());
+            GeneratedHousekeepingTaskStatus: hkTask?.Status.ToString(),
+            Note: stay.Note,
+            CancelReason: stay.CancelReason);
     }
 
     public Result<ClientDashboardResponse> GetClientDashboard(Guid customerId)

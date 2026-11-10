@@ -10,4 +10,9 @@ public interface IIdentityStore
     Result<RoleCatalogResponse> GetRoleCatalog();
     Result<AdminUserListResponse> GetAdminUsers(Guid? propertyId, IReadOnlySet<Guid> callerAllowedPropertyIds);
     Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command);
+
+    Result<AdminUserDto> GetAdminUser(Guid userId);
+
+    // Soft (de)activation only; enforces IdentityRules.CheckKeepsAnOrganizationAdmin.
+    Result<AdminUserDto> SetAdminUserActive(Guid userId, bool isActive);
 }

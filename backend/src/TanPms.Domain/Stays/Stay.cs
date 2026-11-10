@@ -17,6 +17,8 @@ public sealed class Stay : AuditableEntity
     public DateTimeOffset? CheckOutAt { get; private set; }
     public decimal KeyDepositAmount { get; set; }
     public StayStatus Status { get; private set; } = StayStatus.Active;
+    public string? Note { get; set; }
+    public string? CancelReason { get; private set; }
 
     public int? GetRemainingMinutes(DateTimeOffset nowUtc)
     {
@@ -54,6 +56,56 @@ public sealed class Stay : AuditableEntity
         var baseline = ExpectedCheckOutAt ?? CheckInAt.AddHours(3);
         ExpectedCheckOutAt = baseline.AddHours(additionalHours);
     }
+
+    // Lengthening goes through ExtendStay (it re-prices the folio); this only pulls the expected check-out earlier.
+    public void ShortenExpectedCheckOut(DateTimeOffset newExpectedCheckOutAt, DateTimeOffset nowUtc)
+    {
+        EnsureActive();
+        if (newExpectedCheckOutAt <= CheckInAt || newExpectedCheckOutAt < nowUtc)
+        {
+            throw Invalid("ExpectedCheckOutAt must be after check-in and not in the past.");
+        }
+
+        if (ExpectedCheckOutAt is { } current && newExpectedCheckOutAt > current)
+        {
+            throw Invalid("Use the extend endpoint to lengthen a stay so the folio is re-priced.");
+        }
+
+        ExpectedCheckOutAt = newExpectedCheckOutAt;
+    }
+
+    public void CancelMistakenCheckIn(Folio folio, string reason)
+    {
+        EnsureActive();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw Invalid("Cancel reason is required.");
+        }
+
+        if (ReservationId.HasValue)
+        {
+            throw Invalid("A check-in created from a reservation must be checked out, not cancelled.");
+        }
+
+        if (folio.TotalPayments != 0m || folio.Charges.Count(c => !c.IsVoided) > 1)
+        {
+            throw Invalid("Only a check-in with no payments and no charges beyond the initial room charge can be cancelled.");
+        }
+
+        CancelReason = reason.Trim();
+        Status = StayStatus.Cancelled;
+    }
+
+    public void EnsureActive()
+    {
+        if (Status != StayStatus.Active)
+        {
+            throw Invalid($"Stay {DocumentNumber} is {Status}; an Active stay is required.");
+        }
+    }
+
+    private static DomainRuleException Invalid(string message) =>
+        new(DomainErrorCodes.ValidationFailed, message, httpStatus: 400);
 
     public void CompleteCheckOut(Folio folio, DepositLedger? keyDepositLedger, DateTimeOffset checkOutAt)
     {

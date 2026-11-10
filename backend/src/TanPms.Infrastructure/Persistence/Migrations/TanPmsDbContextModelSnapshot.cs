@@ -614,6 +614,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("IdentityDocumentFileKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("IdentityNumber")
                         .IsRequired()
                         .HasColumnType("text");
@@ -630,6 +634,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<string>("NationalityCode")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");
@@ -1966,11 +1974,18 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("GuestCount")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("HoldExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("PaymentSlipFileKey")
                         .HasColumnType("text");
@@ -2071,8 +2086,15 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("FolioId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsVoided")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("TaxMode")
                         .HasColumnType("integer");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.HasKey("Id");
 
@@ -2086,6 +2108,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<DateTimeOffset>("CheckInAt")
                         .HasColumnType("timestamp with time zone");
@@ -2122,6 +2148,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("KeyDepositAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");

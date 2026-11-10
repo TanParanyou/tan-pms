@@ -17,4 +17,5 @@ public static class DomainErrorCodes
     public const string InvoiceImmutableStatus = "invoice.immutable_status";
     public const string ShiftNotOpen = "shift.not_open";
     public const string MeterRolloverUnconfirmed = "meter.rollover_unconfirmed";
+    public const string MasterDataInUse = "master_data.in_use";
 }

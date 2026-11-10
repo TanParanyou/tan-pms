@@ -108,4 +108,10 @@
   <data name="internal.unexpected_error_DETAIL" xml:space="preserve">
     <value>ไม่สามารถดำเนินการตามคำขอได้ในขณะนี้</value>
   </data>
+  <data name="master_data.in_use_TITLE" xml:space="preserve">
+    <value>ข้อมูลหลักถูกใช้งานอยู่</value>
+  </data>
+  <data name="master_data.in_use_DETAIL" xml:space="preserve">
+    <value>ไม่สามารถลบได้เพราะข้อมูลนี้ถูกอ้างอิงโดยรายการอื่น (เช่น สัญญาเช่า การเข้าพัก การจอง หรือใบแจ้งหนี้)</value>
+  </data>
 </root>

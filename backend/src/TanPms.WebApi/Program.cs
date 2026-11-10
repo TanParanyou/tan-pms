@@ -119,6 +119,34 @@ builder.Services.AddScoped<RenewAdminLeaseHandler>();
 builder.Services.AddScoped<GiveAdminLeaseMoveOutNoticeHandler>();
 builder.Services.AddScoped<SettleAdminLeaseMoveOutHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
+builder.Services.AddScoped<GetAdminUserHandler>();
+builder.Services.AddScoped<DeactivateAdminUserHandler>();
+builder.Services.AddScoped<ReactivateAdminUserHandler>();
+builder.Services.AddScoped<GetAdminUnitHandler>();
+builder.Services.AddScoped<UpsertAdminBuildingHandler>();
+builder.Services.AddScoped<UpsertAdminFloorHandler>();
+builder.Services.AddScoped<UpsertAdminUnitTypeHandler>();
+builder.Services.AddScoped<DeleteAdminUnitHandler>();
+builder.Services.AddScoped<DeleteAdminBuildingHandler>();
+builder.Services.AddScoped<DeleteAdminFloorHandler>();
+builder.Services.AddScoped<DeleteAdminUnitTypeHandler>();
+builder.Services.AddScoped<GetAdminRatePlanHandler>();
+builder.Services.AddScoped<GetAdminUtilityTariffHandler>();
+builder.Services.AddScoped<GetAdminTaxProfileHandler>();
+builder.Services.AddScoped<DeleteAdminRatePlanHandler>();
+builder.Services.AddScoped<DeleteAdminUtilityTariffHandler>();
+builder.Services.AddScoped<DeleteAdminTaxProfileHandler>();
+builder.Services.AddScoped<GetAdminReservationHandler>();
+builder.Services.AddScoped<UpdateAdminReservationHandler>();
+builder.Services.AddScoped<DeleteAdminReservationHandler>();
+builder.Services.AddScoped<GetAdminStayHandler>();
+builder.Services.AddScoped<AddAdminStayOccupantHandler>();
+builder.Services.AddScoped<UpdateAdminStayOccupantHandler>();
+builder.Services.AddScoped<DeleteAdminStayOccupantHandler>();
+builder.Services.AddScoped<UpdateAdminStayHandler>();
+builder.Services.AddScoped<VoidAdminFolioChargeHandler>();
+builder.Services.AddScoped<ReverseAdminFolioPaymentHandler>();
+builder.Services.AddScoped<CancelAdminStayHandler>();
 builder.Services.AddScoped<GetClientLeasesHandler>();
 builder.Services.AddScoped<GetClientLeaseHandler>();
 builder.Services.AddScoped<GetClientInvoicesHandler>();
@@ -1498,6 +1526,350 @@ adminGroup.MapGet("/properties/{propertyId:guid}/analytics/deposits", (
     HttpContext httpContext) =>
 {
     var result = handler.Handle(new GetAdminDepositSummaryReportQuery(propertyId, from, to));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/users/{userId:guid}", (
+    Guid userId,
+    GetAdminUserHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminUserQuery(userId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/users/{userId:guid}/deactivate", (
+    Guid userId,
+    ReasonRequest request,
+    DeactivateAdminUserHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeactivateAdminUserCommand(userId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/users/{userId:guid}/reactivate", (
+    Guid userId,
+    ReactivateAdminUserHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ReactivateAdminUserCommand(userId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/units/{unitId:guid}", (
+    Guid propertyId,
+    Guid unitId,
+    GetAdminUnitHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminUnitQuery(propertyId, unitId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/units/{unitId:guid}", (
+    Guid propertyId,
+    Guid unitId,
+    DeleteAdminUnitHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminUnitCommand(propertyId, unitId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/buildings", (
+    Guid propertyId,
+    UpsertBuildingRequest request,
+    UpsertAdminBuildingHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminBuildingCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/buildings/{buildingId:guid}", (
+    Guid propertyId,
+    Guid buildingId,
+    DeleteAdminBuildingHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminBuildingCommand(propertyId, buildingId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/floors", (
+    Guid propertyId,
+    UpsertFloorRequest request,
+    UpsertAdminFloorHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminFloorCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/floors/{floorId:guid}", (
+    Guid propertyId,
+    Guid floorId,
+    DeleteAdminFloorHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminFloorCommand(propertyId, floorId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/unit-types", (
+    Guid propertyId,
+    UpsertUnitTypeRequest request,
+    UpsertAdminUnitTypeHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertAdminUnitTypeCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/unit-types/{unitTypeId:guid}", (
+    Guid propertyId,
+    Guid unitTypeId,
+    DeleteAdminUnitTypeHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminUnitTypeCommand(propertyId, unitTypeId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/rates/plans/{ratePlanId:guid}", (
+    Guid propertyId,
+    Guid ratePlanId,
+    GetAdminRatePlanHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminRatePlanQuery(propertyId, ratePlanId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/rates/plans/{ratePlanId:guid}", (
+    Guid propertyId,
+    Guid ratePlanId,
+    DeleteAdminRatePlanHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminRatePlanCommand(propertyId, ratePlanId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/rates/utilities/{tariffId:guid}", (
+    Guid propertyId,
+    Guid tariffId,
+    GetAdminUtilityTariffHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminUtilityTariffQuery(propertyId, tariffId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/rates/utilities/{tariffId:guid}", (
+    Guid propertyId,
+    Guid tariffId,
+    DeleteAdminUtilityTariffHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminUtilityTariffCommand(propertyId, tariffId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/rates/taxes/{taxProfileId:guid}", (
+    Guid propertyId,
+    Guid taxProfileId,
+    GetAdminTaxProfileHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminTaxProfileQuery(propertyId, taxProfileId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/rates/taxes/{taxProfileId:guid}", (
+    Guid propertyId,
+    Guid taxProfileId,
+    DeleteAdminTaxProfileHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminTaxProfileCommand(propertyId, taxProfileId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/reservations/{reservationId:guid}", (
+    Guid propertyId,
+    Guid reservationId,
+    GetAdminReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminReservationQuery(propertyId, reservationId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/reservations/{reservationId:guid}", (
+    Guid propertyId,
+    Guid reservationId,
+    UpdateReservationRequest request,
+    UpdateAdminReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminReservationCommand(propertyId, reservationId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/reservations/{reservationId:guid}", (
+    Guid propertyId,
+    Guid reservationId,
+    DeleteAdminReservationHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminReservationCommand(propertyId, reservationId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/stays/{stayId:guid}", (
+    Guid propertyId,
+    Guid stayId,
+    GetAdminStayHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminStayQuery(propertyId, stayId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/stays/{stayId:guid}", (
+    Guid propertyId,
+    Guid stayId,
+    UpdateStayRequest request,
+    UpdateAdminStayHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminStayCommand(propertyId, stayId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/cancel", (
+    Guid propertyId,
+    Guid stayId,
+    ReasonRequest request,
+    CancelAdminStayHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new CancelAdminStayCommand(propertyId, stayId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/occupants", (
+    Guid propertyId,
+    Guid stayId,
+    CheckInOccupantInputDto request,
+    AddAdminStayOccupantHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new AddAdminStayOccupantCommand(propertyId, stayId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/stays/{stayId:guid}/occupants/{occupantId:guid}", (
+    Guid propertyId,
+    Guid stayId,
+    Guid occupantId,
+    UpdateStayOccupantRequest request,
+    UpdateAdminStayOccupantHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminStayOccupantCommand(propertyId, stayId, occupantId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapDelete("/properties/{propertyId:guid}/stays/{stayId:guid}/occupants/{occupantId:guid}", (
+    Guid propertyId,
+    Guid stayId,
+    Guid occupantId,
+    DeleteAdminStayOccupantHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new DeleteAdminStayOccupantCommand(propertyId, stayId, occupantId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/folio/charges/{chargeId:guid}/void", (
+    Guid propertyId,
+    Guid stayId,
+    Guid chargeId,
+    ReasonRequest request,
+    VoidAdminFolioChargeHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new VoidAdminFolioChargeCommand(propertyId, stayId, chargeId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/folio/payments/reverse", (
+    Guid propertyId,
+    Guid stayId,
+    ReverseFolioPaymentRequest request,
+    ReverseAdminFolioPaymentHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ReverseAdminFolioPaymentCommand(propertyId, stayId, request));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

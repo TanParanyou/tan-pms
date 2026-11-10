@@ -269,6 +269,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 lease.UpdateTerms(request.MonthlyRentAmount, request.InitialWaterMeterReading, request.InitialElectricMeterReading);
+                Touch(lease);
                 return Result<LeaseItemDto>.Success(MapLeaseItemLocked(lease, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -403,6 +404,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 lease.Cancel(request.Reason);
+                Touch(lease, clockUtc);
                 var refunded = 0m;
                 var ledger = _depositLedgers.FirstOrDefault(l =>
                     l.LeaseId == lease.Id && l.DepositType == DepositType.LeaseSecurityDeposit);
@@ -457,6 +459,7 @@ public sealed partial class InMemoryOperationalService
                 }
 
                 lease.Renew(request.NewEndDate, request.NewMonthlyRentAmount);
+                Touch(lease);
                 return Result<LeaseItemDto>.Success(MapLeaseItemLocked(lease, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -479,6 +482,7 @@ public sealed partial class InMemoryOperationalService
             try
             {
                 lease.GiveMoveOutNotice();
+                Touch(lease);
                 return Result<LeaseItemDto>.Success(MapLeaseItemLocked(lease, unmaskPii: false));
             }
             catch (DomainRuleException ex)
@@ -552,6 +556,7 @@ public sealed partial class InMemoryOperationalService
             }
 
             lease.CompleteMoveOut();
+            Touch(lease, clockUtc);
             var housekeepingTask = _units[lease.UnitId].MarkCheckedOutOrMovedOut(lease.DocumentNumber);
             _housekeepingTasks.Add(housekeepingTask);
 

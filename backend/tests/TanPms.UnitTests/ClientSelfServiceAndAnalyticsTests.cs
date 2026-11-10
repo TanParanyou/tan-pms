@@ -217,7 +217,7 @@ public sealed class ClientSelfServiceAndAnalyticsTests
 
         var cashier = Admin(PermissionKeys.AdminStayCheckIn, PermissionKeys.AdminStayCheckOut, PermissionKeys.AdminCashierOperateShift, PermissionKeys.AdminLeasesManage);
         var shift = store.OpenAdminCashierShift(Bkk, cashier.UserId, new OpenCashierShiftRequest(1000m)).Value!;
-        var stay = new CheckInStayHandler(store, cashier).Handle(new CheckInStayCommand(
+        var stay = new CheckInStayHandler(store, cashier, store).Handle(new CheckInStayCommand(
             Bkk, PmsSeedConstants.CleanUnitA101Id, Primary, "Hourly", 300m)).Value!;
         var balance = store.GetAdminStays(Bkk, "Active", null).Value!.Items.Single(s => s.Id == stay.Id).Folio.BalanceDue;
         Assert.True(new RecordAdminFolioPaymentHandler(store, cashier, store)

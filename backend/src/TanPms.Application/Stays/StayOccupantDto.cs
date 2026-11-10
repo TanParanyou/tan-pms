@@ -6,4 +6,6 @@ public sealed record StayOccupantDto(
     string NationalityCode,
     string MaskedIdentityNumber,
     bool IsPrimaryOccupant,
-    string? VehicleLicensePlate);
+    string? VehicleLicensePlate,
+    string? PhoneNumber,
+    string? IdentityDocumentFileKey);

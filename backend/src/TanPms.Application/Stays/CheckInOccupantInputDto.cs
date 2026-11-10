@@ -5,4 +5,6 @@ public sealed record CheckInOccupantInputDto(
     string NationalityCode,
     string IdentityNumber,
     bool IsPrimaryOccupant,
-    string? VehicleLicensePlate = null);
+    string? VehicleLicensePlate = null,
+    string? PhoneNumber = null,
+    string? IdentityDocumentFileKey = null);

@@ -119,7 +119,7 @@ public static class AnalyticsCalculator
             .Where(x => x.Stay.Status != StayStatus.Cancelled && x.Folio is not null)
             .Where(x => AnalyticsPeriod.LocalDate(x.Stay.CheckInAt) is var d && d >= from && d <= to)
             .SelectMany(x => x.Folio!.Charges)
-            .Where(c => c.ChargeCategoryCode == UtilityChargeCategories.ShortStayRoom)
+            .Where(c => !c.IsVoided && c.ChargeCategoryCode == UtilityChargeCategories.ShortStayRoom)
             .Sum(c => ThaiTaxCalculator.CalculateLine(c.Amount, c.TaxMode).SubTotal);
 
         var rentRevenue = 0m;

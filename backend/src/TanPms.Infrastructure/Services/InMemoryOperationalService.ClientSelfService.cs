@@ -200,13 +200,16 @@ public sealed partial class InMemoryOperationalService
                 {
                     EnsureLeaseWindowAvailableLocked(_units[lease.UnitId], lease.EndDate.AddDays(1), intent.DesiredDate, clockUtc);
                     lease.Renew(intent.DesiredDate, null);
+                    Touch(lease, clockUtc);
                 }
                 else
                 {
                     lease.GiveMoveOutNotice();
+                    Touch(lease, clockUtc);
                 }
 
                 intent.Approve(reviewerUserId, clockUtc);
+                Touch(intent, clockUtc);
                 _notifications.Add(LeaseRecordMapper.BuildIntentNotification(intent, lease.DocumentNumber, clockUtc));
                 return Result<LeaseIntentDto>.Success(MapIntentLocked(intent, unmaskPii: false));
             }
@@ -247,6 +250,7 @@ public sealed partial class InMemoryOperationalService
         try
         {
             mutate(intent);
+            Touch(intent);
             return Result<LeaseIntentDto>.Success(MapIntentLocked(intent, unmaskPii: false));
         }
         catch (DomainRuleException ex)

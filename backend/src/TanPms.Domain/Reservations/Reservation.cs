@@ -18,6 +18,8 @@ public sealed class Reservation : AuditableEntity
     public string? PaymentSlipFileKey { get; set; }
     public string? CancellationReason { get; private set; }
     public ReservationStatus Status { get; private set; } = ReservationStatus.Hold;
+    public int? GuestCount { get; set; }
+    public string? Note { get; set; }
 
     public static Reservation CreateOnlineHold(
         Guid propertyId,
@@ -109,6 +111,45 @@ public sealed class Reservation : AuditableEntity
     public bool BlocksInventory(DateTimeOffset nowUtc) =>
         Status is ReservationStatus.PendingVerification or ReservationStatus.Confirmed or ReservationStatus.CheckedIn
         || (Status == ReservationStatus.Hold && !IsHoldExpired(nowUtc));
+
+    // Hold/Confirmed reservations may be moved; callers re-run availability excluding this reservation first.
+    public void Reschedule(Guid unitTypeId, Guid? unitId, DateTimeOffset slotStartAt, DateTimeOffset slotEndAt, int? guestCount, string? note)
+    {
+        if (Status is not (ReservationStatus.Hold or ReservationStatus.Confirmed))
+        {
+            throw new DomainRuleException(
+                DomainErrorCodes.ValidationFailed,
+                $"Reservation {DocumentNumber} in status {Status} cannot be edited.",
+                httpStatus: 400);
+        }
+
+        if (slotEndAt <= slotStartAt || guestCount is <= 0)
+        {
+            throw new DomainRuleException(
+                DomainErrorCodes.ValidationFailed,
+                "SlotEndAt must be after SlotStartAt and GuestCount must be positive.",
+                httpStatus: 400);
+        }
+
+        UnitTypeId = unitTypeId;
+        UnitId = unitId;
+        SlotStartAt = slotStartAt;
+        SlotEndAt = slotEndAt;
+        GuestCount = guestCount;
+        Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+    }
+
+    // Only an expired, never-paid Hold is purged; every other state keeps its audit trail via Cancel.
+    public void EnsureCanDelete()
+    {
+        if (Status != ReservationStatus.Expired)
+        {
+            throw new DomainRuleException(
+                DomainErrorCodes.ValidationFailed,
+                $"Only an Expired hold can be deleted (current: {Status}); cancel it instead.",
+                httpStatus: 400);
+        }
+    }
 
     public DateTimeOffset GetEffectiveBlockedEndAt(int turnaroundBufferMinutes = 30) =>
         StayMode == StayMode.Hourly
