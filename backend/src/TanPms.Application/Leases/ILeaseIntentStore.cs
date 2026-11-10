@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 
@@ -13,7 +14,7 @@ public interface ILeaseIntentStore
 
     Result<LeaseIntentDto> WithdrawClientLeaseIntent(Guid customerId, Guid intentId);
 
-    Result<LeaseIntentListResponse> GetAdminLeaseIntents(Guid propertyId, string? status, bool unmaskPii = false);
+    Result<LeaseIntentListResponse> GetAdminLeaseIntents(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null);
 
     Result<LeaseIntentDto> ApproveAdminLeaseIntent(Guid propertyId, Guid intentId, string reviewerUserId, DateTimeOffset? nowUtc = null);
 

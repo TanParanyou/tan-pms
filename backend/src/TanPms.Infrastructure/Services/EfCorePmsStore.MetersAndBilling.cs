@@ -1,5 +1,7 @@
+using TanPms.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
@@ -203,7 +205,8 @@ public sealed partial class EfCorePmsStore
         Guid propertyId,
         string? period,
         string? status,
-        bool unmaskPii = false)
+        bool unmaskPii = false,
+        PageRequest? paging = null)
     {
         string? periodFilter = null;
         if (!string.IsNullOrWhiteSpace(period))
@@ -248,8 +251,8 @@ public sealed partial class EfCorePmsStore
             query = query.Where(i => i.Status == statusFilter.Value);
         }
 
-        var invoices = query.OrderByDescending(i => i.DocumentNumber).ToList();
-        return Result<InvoiceListResponse>.Success(new InvoiceListResponse(MapInvoices(propertyId, invoices, unmaskPii)));
+        var (invoices, pagination) = query.OrderByDescending(i => i.DocumentNumber).ToPage(paging);
+        return Result<InvoiceListResponse>.Success(new InvoiceListResponse(MapInvoices(propertyId, invoices, unmaskPii), pagination));
     }
 
     public Result<InvoiceIssueResponse> IssueAdminInvoicesForPeriod(Guid propertyId, IssueInvoicesRequest request)
@@ -470,9 +473,49 @@ public sealed partial class EfCorePmsStore
         }
     }
 
+    public Result<BillingSettingsDto> GetBillingSettings(Guid propertyId)
+    {
+        var property = _dbContext.Properties.AsNoTracking().FirstOrDefault(p => p.Id == propertyId);
+        return property is null
+            ? Result<BillingSettingsDto>.Failure(MeterBillingComposer.PropertyNotFound(propertyId))
+            : Result<BillingSettingsDto>.Success(new BillingSettingsDto(property.Id, property.PaymentTermsDays, property.EffectivePaymentTermsDays));
+    }
+
+    public Result<BillingSettingsDto> UpdateBillingSettings(Guid propertyId, UpdateBillingSettingsRequest request)
+    {
+        var property = _dbContext.Properties.FirstOrDefault(p => p.Id == propertyId);
+        if (property is null)
+        {
+            return Result<BillingSettingsDto>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+        }
+
+        property.PaymentTermsDays = request.PaymentTermsDays;
+        _dbContext.SaveChanges();
+        return Result<BillingSettingsDto>.Success(new BillingSettingsDto(property.Id, property.PaymentTermsDays, property.EffectivePaymentTermsDays));
+    }
+
+    public int MarkOverdueInvoices(DateTimeOffset nowUtc)
+    {
+        var today = AnalyticsPeriod.LocalDate(nowUtc);
+        var candidates = _dbContext.Invoices.Include(i => i.Lines)
+            .Where(i => ((i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.PartiallyPaid) && i.DueDate != null && i.DueDate < today)
+                        || (i.Status == InvoiceStatus.Overdue && i.OverdueNotifiedAt == null))
+            .ToList();
+        var flipped = candidates.Count(i => i.MarkOverdueIfPastDue(today));
+        foreach (var invoice in candidates.Where(i => i.TryMarkOverdueNotified(nowUtc)))
+        {
+            _dbContext.NotificationMessages.Add(MeterBillingComposer.BuildOverdueNotification(invoice, nowUtc));
+        }
+
+        _dbContext.SaveChanges();
+        return flipped;
+    }
+
     private void IssueTracked(Invoice invoice)
     {
-        invoice.Issue();
+        var issuedAt = DateTimeOffset.UtcNow;
+        var terms = _dbContext.Properties.AsNoTracking().Where(p => p.Id == invoice.PropertyId).Select(p => p.PaymentTermsDays).First();
+        invoice.Issue(issuedAt, AnalyticsPeriod.LocalDate(issuedAt).AddDays(terms ?? Domain.Properties.Property.DefaultPaymentTermsDays));
         _dbContext.NotificationMessages.Add(new NotificationMessage
         {
             PropertyId = invoice.PropertyId,

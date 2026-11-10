@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
@@ -28,6 +29,6 @@ public sealed class GetAdminDepositLedgersHandler
         }
 
         var unmaskPii = _currentUser.Permissions.Contains(PermissionKeys.AdminCustomerUnmaskPii);
-        return _store.GetAdminDepositLedgers(query.PropertyId, query.DepositType, unmaskPii);
+        return _store.GetAdminDepositLedgers(query.PropertyId, query.DepositType, unmaskPii, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

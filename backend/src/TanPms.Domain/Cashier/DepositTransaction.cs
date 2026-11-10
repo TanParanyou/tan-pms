@@ -10,4 +10,5 @@ public sealed class DepositTransaction : AuditableEntity
     public required DepositTransactionType TransactionType { get; set; }
     public required decimal Amount { get; set; }
     public string? Reason { get; set; }
+    public string? PaymentMethod { get; set; }
 }

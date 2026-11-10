@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 
 namespace TanPms.Application.Reservations;
@@ -15,7 +16,8 @@ public interface IReservationStore
         Guid propertyId,
         string? status,
         string? stayMode,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null);
 
     Result<ReservationItemDto> CreateAdminReservation(
         Guid propertyId,
@@ -51,7 +53,8 @@ public interface IReservationStore
 
     Result<ReservationListResponse> GetClientReservations(
         Guid customerId,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null);
 
     Result<ReservationItemDto> CreateClientHoldReservation(
         Guid customerId,

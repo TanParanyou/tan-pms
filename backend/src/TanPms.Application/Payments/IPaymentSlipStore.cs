@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 
 namespace TanPms.Application.Payments;
@@ -10,7 +11,7 @@ public interface IPaymentSlipStore
         SubmitPaymentSlipRequest request,
         DateTimeOffset? nowUtc = null);
 
-    Result<ClientPaymentSlipListResponse> GetClientPaymentSlips(Guid customerId);
+    Result<ClientPaymentSlipListResponse> GetClientPaymentSlips(Guid customerId, PageRequest? paging = null);
 
     Result<ClientPaymentSlipListResponse> GetClientInvoiceSlips(Guid customerId, Guid invoiceId);
 
@@ -24,7 +25,7 @@ public interface IPaymentSlipStore
 
     Result<AdminPaymentSlipDto> GetAdminPaymentSlip(Guid propertyId, Guid slipId, bool unmaskPii = false);
 
-    Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false);
+    Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null);
 
     Result<AdminPaymentSlipDto> ApproveAdminPaymentSlip(
         Guid propertyId,

@@ -1,6 +1,8 @@
+using TanPms.Application.Common.Models;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using TanPms.Application.Cashier;
 using TanPms.Application.Billing;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
@@ -163,7 +165,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
 
     public Result<AdminUserListResponse> GetAdminUsers(
         Guid? propertyId,
-        IReadOnlySet<Guid> callerAllowedPropertyIds)
+        IReadOnlySet<Guid> callerAllowedPropertyIds,
+        PageRequest? paging = null)
     {
         var propertiesById = _dbContext.Properties
             .AsNoTracking()
@@ -174,13 +177,15 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             .OrderBy(u => u.Username)
             .ToList();
 
-        var items = users
+        // shortcut: AllowedPropertyIds is a list column, so scope filtering and paging run in memory; admin users are few.
+        var (pageUsers, pagination) = users
             .Where(u => u.AllowedPropertyIds.Any(callerAllowedPropertyIds.Contains))
             .Where(u => !propertyId.HasValue || u.AllowedPropertyIds.Contains(propertyId.Value))
-            .Select(u => MapAdminUserDto(u, propertiesById))
-            .ToList();
+            .AsQueryable()
+            .ToPage(paging);
+        var items = pageUsers.Select(u => MapAdminUserDto(u, propertiesById)).ToList();
 
-        return Result<AdminUserListResponse>.Success(new AdminUserListResponse(items));
+        return Result<AdminUserListResponse>.Success(new AdminUserListResponse(items, pagination));
     }
 
     public Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command)
@@ -302,16 +307,16 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         return Result<NotificationItemDto>.Success(MapNotificationDto(message));
     }
 
-    public Result<NotificationListResponse> GetClientNotifications(Guid customerId)
+    public Result<NotificationListResponse> GetClientNotifications(Guid customerId, PageRequest? paging = null)
     {
-        var items = _dbContext.NotificationMessages
+        var (messages, pagination) = _dbContext.NotificationMessages
             .AsNoTracking()
             .Where(n => n.CustomerId == customerId)
             .OrderByDescending(n => n.SentAtUtc)
-            .Select(MapNotificationDto)
-            .ToList();
+            .ThenByDescending(n => n.Id)
+            .ToPage(paging);
 
-        return Result<NotificationListResponse>.Success(new NotificationListResponse(items));
+        return Result<NotificationListResponse>.Success(new NotificationListResponse(messages.Select(MapNotificationDto).ToList(), pagination));
     }
 
     public Result<PropertyHierarchyResponse> GetPropertyHierarchy(Guid propertyId)
@@ -1106,7 +1111,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         Guid propertyId,
         string? status,
         string? stayMode,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null)
     {
         ReservationStatus? statusFilter = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -1159,13 +1165,13 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             query = query.Where(r => r.StayMode == stayModeFilter.Value);
         }
 
-        var reservations = query
+        var (reservations, pagination) = query
             .OrderByDescending(r => r.SlotStartAt)
             .ThenByDescending(r => r.DocumentNumber)
-            .ToList();
+            .ToPage(paging);
 
         var items = MapReservationItems(reservations);
-        return Result<ReservationListResponse>.Success(new ReservationListResponse(items));
+        return Result<ReservationListResponse>.Success(new ReservationListResponse(items, pagination));
     }
 
     public Result<ReservationItemDto> CreateAdminReservation(
@@ -1444,20 +1450,21 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
 
     public Result<ReservationListResponse> GetClientReservations(
         Guid customerId,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null)
     {
         var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
         ExpireStaleHolds(null, clockUtc);
 
-        var reservations = _dbContext.Reservations
+        var (reservations, pagination) = _dbContext.Reservations
             .AsNoTracking()
             .Where(r => r.CustomerId == customerId)
             .OrderByDescending(r => r.SlotStartAt)
             .ThenByDescending(r => r.DocumentNumber)
-            .ToList();
+            .ToPage(paging);
 
         return Result<ReservationListResponse>.Success(
-            new ReservationListResponse(MapReservationItems(reservations)));
+            new ReservationListResponse(MapReservationItems(reservations), pagination));
     }
 
     public Result<ReservationItemDto> CreateClientHoldReservation(
@@ -1897,7 +1904,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                     property.Code,
                     DocumentTypeCode.DEP,
                     clockUtc).GetAwaiter().GetResult();
-                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount, FindTrackedOpenShift(command.PropertyId, cashierUserId));
+                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount, FindTrackedOpenShift(command.PropertyId, cashierUserId), PaymentMethods.Cash);
                 _dbContext.DepositLedgers.Add(ledger);
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions);
             }
@@ -1955,7 +1962,8 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         string? status,
         string? stayMode,
         bool unmaskPii = false,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null)
     {
         StayStatus? statusFilter = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -2007,16 +2015,16 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
             query = query.Where(s => s.StayMode == modeFilter.Value);
         }
 
-        var stays = query
+        var (stays, pagination) = query
             .OrderByDescending(s => s.CheckInAt)
             .ThenByDescending(s => s.DocumentNumber)
-            .ToList();
+            .ToPage(paging);
 
         var items = stays
             .Select(s => MapStayDetailDto(s, clockUtc, unmaskPii))
             .ToList();
 
-        return Result<StayListResponse>.Success(new StayListResponse(items));
+        return Result<StayListResponse>.Success(new StayListResponse(items, pagination));
     }
 
     public Result<StayDetailDto> ExtendAdminStay(
@@ -2268,18 +2276,21 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         var property = _dbContext.Properties
             .AsNoTracking()
             .First(p => p.Id == propertyId);
-        _ = _documentNumberService.NextDocumentNumberAsync(
+        var receiptNumber = _documentNumberService.NextDocumentNumberAsync(
             property.Id,
             property.Code,
             DocumentTypeCode.RCT,
             clockUtc).GetAwaiter().GetResult();
 
         folio.RecordPayment(roundedAmount);
-        if (request.PaymentMethod == "Cash")
+        var shift = FindTrackedOpenShift(propertyId, cashierUserId);
+        if (request.PaymentMethod == PaymentMethods.Cash)
         {
             // Cash lands in the caller's Open drawer; transfers/PromptPay do not touch the shift.
-            FindTrackedOpenShift(propertyId, cashierUserId)?.RecordCashReceipt(roundedAmount);
+            shift?.RecordCashReceipt(roundedAmount);
         }
+
+        _dbContext.Receipts.Add(ReceiptRecordMapper.BuildFolioReceipt(stay, folio, receiptNumber, roundedAmount, request.PaymentMethod, shift, cashierUserId));
         _dbContext.SaveChanges();
 
         return Result<StayDetailDto>.Success(MapStayDetailDto(stay, clockUtc, unmaskPii: false));
@@ -2361,7 +2372,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                         property.Code,
                         DocumentTypeCode.DEP,
                         clockUtc).GetAwaiter().GetResult();
-                    ledger.RefundRemainingBalance(refundDocNo, reason, FindTrackedOpenShift(propertyId, cashierUserId));
+                    ledger.RefundRemainingBalance(refundDocNo, reason, FindTrackedOpenShift(propertyId, cashierUserId), PaymentMethods.Cash);
                 }
 
                 foreach (var newTx in ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)))

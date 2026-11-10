@@ -6,4 +6,5 @@ public sealed record DepositTransactionDto(
     string TransactionType,
     decimal Amount,
     string? Reason,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? PaymentMethod = null);

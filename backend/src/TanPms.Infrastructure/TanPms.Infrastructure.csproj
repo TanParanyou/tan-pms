@@ -17,5 +17,6 @@
   <ItemGroup>
     <!-- Sarabun (SIL OFL 1.1, Cadson Demak) embedded so Thai PDFs render identically on any host. -->
     <EmbeddedResource Include="Pdf\Fonts\*.ttf" />
+    <EmbeddedResource Include="Pdf\Fonts\OFL.txt" />
   </ItemGroup>
 </Project>

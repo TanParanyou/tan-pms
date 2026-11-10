@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 
@@ -13,7 +14,7 @@ public interface ICashierShiftStore
 
     Result<CurrentCashierShiftResponse> GetCurrentAdminCashierShift(Guid propertyId, string cashierUserId);
 
-    Result<CashierShiftListResponse> GetAdminCashierShifts(Guid propertyId, string? status);
+    Result<CashierShiftListResponse> GetAdminCashierShifts(Guid propertyId, string? status, PageRequest? paging = null);
 
     Result<CashierShiftDto> CloseAdminCashierShift(
         Guid propertyId,

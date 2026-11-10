@@ -25,7 +25,12 @@ public sealed class GetClientFileHandler
             return Result<StoredFileContent>.Failure(authError);
         }
 
-        var file = StoredFileRules.IsValidFileKey(query.FileKey) ? _store.FindStoredFile(query.FileKey) : null;
+        if (!StoredFileRules.IsValidFileKey(query.FileKey))
+        {
+            return Result<StoredFileContent>.Failure(StoredFileRules.FileNotFound(query.FileKey));
+        }
+
+        var file = _store.FindStoredFile(query.FileKey);
         if (file is null
             || (file.UploadedByCustomerId != customerId && !_store.IsFileAttachedToCustomer(file.FileKey, customerId)))
         {

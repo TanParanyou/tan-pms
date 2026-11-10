@@ -140,7 +140,11 @@ public static class StoredFileRules
         return null;
     }
 
-    public static Error FileNotFound(string fileKey) => Invalid($"File '{fileKey}' was not found.");
+    // Legacy keys (e.g. "slips/x.jpg" written before the file service existed) are reported as not found, never as a 500.
+    public static Error FileNotFound(string fileKey) =>
+        new(DomainErrorCodes.FileNotFound, IsValidFileKey(fileKey)
+            ? $"File '{fileKey}' was not found."
+            : $"File key '{fileKey}' is a legacy key that cannot be downloaded through the file service.");
 
     public static StoredFileDto Map(StoredFile file) =>
         new(file.FileKey, file.Purpose.ToString(), file.ContentType, file.SizeBytes, file.CreatedAt);

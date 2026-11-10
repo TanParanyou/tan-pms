@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using TanPms.Application.Cashier;
@@ -64,7 +65,7 @@ public sealed partial class EfCorePmsStore
             shift is null ? null : CashierRecordMapper.MapShift(shift, UserRefs())));
     }
 
-    public Result<CashierShiftListResponse> GetAdminCashierShifts(Guid propertyId, string? status)
+    public Result<CashierShiftListResponse> GetAdminCashierShifts(Guid propertyId, string? status, PageRequest? paging = null)
     {
         if (CashierRequestValidation.ParseShiftStatus(status, out var statusFilter) is { } statusError)
         {
@@ -78,12 +79,9 @@ public sealed partial class EfCorePmsStore
         }
 
         var users = UserRefs();
-        var items = query
-            .OrderByDescending(s => s.DocumentNumber)
-            .ToList()
-            .Select(s => CashierRecordMapper.MapShift(s, users))
-            .ToList();
-        return Result<CashierShiftListResponse>.Success(new CashierShiftListResponse(items));
+        var (shifts, pagination) = query.OrderByDescending(s => s.DocumentNumber).ToPage(paging);
+        return Result<CashierShiftListResponse>.Success(new CashierShiftListResponse(
+            shifts.Select(s => CashierRecordMapper.MapShift(s, users)).ToList(), pagination));
     }
 
     public Result<CashierShiftDto> CloseAdminCashierShift(
@@ -218,7 +216,7 @@ public sealed partial class EfCorePmsStore
             s.CashierUserId == cashierUserId && s.Status == CashierShiftStatus.Open && ids.Contains(s.PropertyId));
     }
 
-    public Result<DepositLedgerListResponse> GetAdminDepositLedgers(Guid propertyId, string? depositType, bool unmaskPii = false)
+    public Result<DepositLedgerListResponse> GetAdminDepositLedgers(Guid propertyId, string? depositType, bool unmaskPii = false, PageRequest? paging = null)
     {
         if (CashierRequestValidation.ParseDepositType(depositType, out var typeFilter) is { } typeError)
         {
@@ -236,8 +234,13 @@ public sealed partial class EfCorePmsStore
             query = query.Where(l => l.DepositType == typeFilter.Value);
         }
 
-        var items = MapLedgers(propertyId, query.OrderByDescending(l => l.CreatedAt).ToList(), unmaskPii);
-        return Result<DepositLedgerListResponse>.Success(new DepositLedgerListResponse(items, items.Sum(i => i.CurrentBalance)));
+        // The held-balance total always covers the whole filtered register, not only the current page.
+        var totalHeld = query.SelectMany(l => l.Transactions)
+            .Select(t => t.TransactionType == Domain.Cashier.DepositTransactionType.Received ? t.Amount : -t.Amount)
+            .Sum();
+        var (ledgers, pagination) = query.OrderByDescending(l => l.CreatedAt).ThenByDescending(l => l.Id).ToPage(paging);
+        var items = MapLedgers(propertyId, ledgers, unmaskPii);
+        return Result<DepositLedgerListResponse>.Success(new DepositLedgerListResponse(items, totalHeld, pagination));
     }
 
     public Result<DepositLedgerItemDto> GetAdminDepositLedger(Guid propertyId, Guid ledgerId, bool unmaskPii = false)
@@ -398,7 +401,7 @@ public sealed partial class EfCorePmsStore
             : Result<AdminPaymentSlipDto>.Success(MapAdminSlips(propertyId, [slip], unmaskPii)[0]);
     }
 
-    public Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false)
+    public Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null)
     {
         if (PaymentSlipRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -411,8 +414,8 @@ public sealed partial class EfCorePmsStore
             query = query.Where(s => s.Status == statusFilter.Value);
         }
 
-        var slips = query.OrderBy(s => s.CreatedAt).ToList();
-        return Result<PaymentSlipQueueResponse>.Success(new PaymentSlipQueueResponse(MapAdminSlips(propertyId, slips, unmaskPii)));
+        var (slips, pagination) = query.OrderBy(s => s.CreatedAt).ThenBy(s => s.Id).ToPage(paging);
+        return Result<PaymentSlipQueueResponse>.Success(new PaymentSlipQueueResponse(MapAdminSlips(propertyId, slips, unmaskPii), pagination));
     }
 
     public Result<AdminPaymentSlipDto> ApproveAdminPaymentSlip(
@@ -515,7 +518,7 @@ public sealed partial class EfCorePmsStore
         var invoices = _dbContext.Invoices.AsNoTracking().Include(i => i.Lines).Where(i => invoiceIds.Contains(i.Id)).ToList();
         var invoiceDtos = MapInvoices(propertyId, invoices, unmaskPii: false).ToDictionary(i => i.Id);
         var invoicesById = invoices.ToDictionary(i => i.Id);
-        var receipts = _dbContext.Receipts.AsNoTracking().Where(r => invoiceIds.Contains(r.InvoiceId)).ToList();
+        var receipts = _dbContext.Receipts.AsNoTracking().Where(r => r.InvoiceId != null && invoiceIds.Contains(r.InvoiceId.Value)).ToList();
         var customerIds = slips.Select(s => s.CustomerId).Distinct().ToList();
         var customers = _dbContext.Customers.AsNoTracking().Where(c => customerIds.Contains(c.Id)).ToDictionary(c => c.Id);
         var users = UserRefs();

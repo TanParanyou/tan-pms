@@ -1,3 +1,5 @@
+using TanPms.Application.Common.Models;
+using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
@@ -172,7 +174,8 @@ public sealed partial class InMemoryOperationalService
         Guid propertyId,
         string? period,
         string? status,
-        bool unmaskPii = false)
+        bool unmaskPii = false,
+        PageRequest? paging = null)
     {
         string? periodFilter = null;
         if (!string.IsNullOrWhiteSpace(period))
@@ -210,9 +213,9 @@ public sealed partial class InMemoryOperationalService
                             && (periodFilter is null || i.BillingPeriodYearMonth == periodFilter)
                             && (!statusFilter.HasValue || i.Status == statusFilter.Value))
                 .OrderByDescending(i => i.DocumentNumber, StringComparer.Ordinal)
-                .Select(i => MapInvoiceLocked(i, unmaskPii))
-                .ToList();
-            return Result<InvoiceListResponse>.Success(new InvoiceListResponse(items));
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<InvoiceListResponse>.Success(new InvoiceListResponse(items.Items.Select(i => MapInvoiceLocked(i, unmaskPii)).ToList(), items.Pagination));
         }
     }
 
@@ -416,9 +419,59 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
+    public Result<BillingSettingsDto> GetBillingSettings(Guid propertyId)
+    {
+        lock (_syncRoot)
+        {
+            return _properties.TryGetValue(propertyId, out var property)
+                ? Result<BillingSettingsDto>.Success(new BillingSettingsDto(property.Id, property.PaymentTermsDays, property.EffectivePaymentTermsDays))
+                : Result<BillingSettingsDto>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+        }
+    }
+
+    public Result<BillingSettingsDto> UpdateBillingSettings(Guid propertyId, UpdateBillingSettingsRequest request)
+    {
+        lock (_syncRoot)
+        {
+            if (!_properties.TryGetValue(propertyId, out var property))
+            {
+                return Result<BillingSettingsDto>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
+            }
+
+            property.PaymentTermsDays = request.PaymentTermsDays;
+            Touch(property);
+            return Result<BillingSettingsDto>.Success(new BillingSettingsDto(property.Id, property.PaymentTermsDays, property.EffectivePaymentTermsDays));
+        }
+    }
+
+    public int MarkOverdueInvoices(DateTimeOffset nowUtc)
+    {
+        var today = AnalyticsPeriod.LocalDate(nowUtc);
+        lock (_syncRoot)
+        {
+            var flipped = 0;
+            foreach (var invoice in _invoices)
+            {
+                if (invoice.MarkOverdueIfPastDue(today))
+                {
+                    flipped++;
+                    Touch(invoice, nowUtc);
+                }
+
+                if (invoice.TryMarkOverdueNotified(nowUtc))
+                {
+                    _notifications.Add(MeterBillingComposer.BuildOverdueNotification(invoice, nowUtc));
+                }
+            }
+
+            return flipped;
+        }
+    }
+
     private void IssueLocked(Invoice invoice)
     {
-        invoice.Issue();
+        var issuedAt = DateTimeOffset.UtcNow;
+        invoice.Issue(issuedAt, AnalyticsPeriod.LocalDate(issuedAt).AddDays(_properties[invoice.PropertyId].EffectivePaymentTermsDays));
         Touch(invoice);
         _notifications.Add(new NotificationMessage
         {

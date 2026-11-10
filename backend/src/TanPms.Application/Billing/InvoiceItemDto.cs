@@ -14,4 +14,6 @@ public sealed record InvoiceItemDto(
     decimal SubTotal,
     decimal TotalVatAmount,
     decimal TotalAmount,
-    string? VoidReason);
+    string? VoidReason,
+    DateOnly? DueDate = null,
+    DateTimeOffset? IssuedAt = null);

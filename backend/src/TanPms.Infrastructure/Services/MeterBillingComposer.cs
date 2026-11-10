@@ -7,6 +7,7 @@ using TanPms.Domain.Common;
 using TanPms.Domain.Customers;
 using TanPms.Domain.Leases;
 using TanPms.Domain.Meters;
+using TanPms.Domain.Notifications;
 using TanPms.Domain.Rates;
 
 namespace TanPms.Infrastructure.Services;
@@ -308,7 +309,9 @@ internal static class MeterBillingComposer
             SubTotal: invoice.SubTotal,
             TotalVatAmount: invoice.TotalVatAmount,
             TotalAmount: invoice.TotalAmount,
-            VoidReason: invoice.VoidReason);
+            VoidReason: invoice.VoidReason,
+            DueDate: invoice.DueDate,
+            IssuedAt: invoice.IssuedAt);
 
     // Unlocked periods need only the record permission; a locked period needs the override permission plus a reason.
     internal static Error? CheckDeletable(LeaseMeterContext? context, int readingCount, string? overrideReason, bool callerCanOverrideLocked)
@@ -401,6 +404,17 @@ internal static class MeterBillingComposer
             .ToList();
         return new ClientUtilityUsageResponse(lease.Id, lease.DocumentNumber, rows);
     }
+
+    internal static NotificationMessage BuildOverdueNotification(Invoice invoice, DateTimeOffset sentAt) => new()
+    {
+        PropertyId = invoice.PropertyId,
+        CustomerId = invoice.CustomerId,
+        Channel = NotificationChannel.InApp,
+        TemplateKey = InvoiceOverdueNotification.TemplateKey,
+        Title = InvoiceOverdueNotification.Title(invoice.DocumentNumber),
+        Body = InvoiceOverdueNotification.Body(invoice.DocumentNumber, invoice.DueDate!.Value, invoice.TotalAmount),
+        SentAtUtc = sentAt
+    };
 
     internal static Error PropertyNotFound(Guid propertyId) =>
         new(DomainErrorCodes.ValidationFailed, $"Property '{propertyId}' was not found.");

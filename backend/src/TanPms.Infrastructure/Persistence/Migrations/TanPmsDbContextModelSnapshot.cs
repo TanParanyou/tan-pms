@@ -53,6 +53,9 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -61,6 +64,9 @@ namespace TanPms.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("LeaseId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("OverdueNotifiedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");
@@ -85,6 +91,8 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.HasIndex("LeaseId", "BillingPeriodYearMonth")
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false AND \"Status\" <> 6 AND \"LeaseId\" IS NOT NULL AND \"BillingPeriodYearMonth\" IS NOT NULL");
+
+                    b.HasIndex("Status", "DueDate");
 
                     b.ToTable("Invoices");
                 });
@@ -219,6 +227,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CashierShiftId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CashierUserId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -239,7 +251,7 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("InvoiceId")
+                    b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("InvoiceTotalAmount")
@@ -256,10 +268,17 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<Guid?>("PaymentSlipId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("PropertyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StayId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
@@ -282,6 +301,8 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.HasIndex("PaymentSlipId")
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false AND \"PaymentSlipId\" IS NOT NULL");
+
+                    b.HasIndex("StayId");
 
                     b.ToTable("Receipts");
                 });
@@ -455,6 +476,10 @@ namespace TanPms.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");
@@ -1495,6 +1520,9 @@ namespace TanPms.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("jsonb");
+
+                    b.Property<int?>("PaymentTermsDays")
+                        .HasColumnType("integer");
 
                     b.Property<string>("TaxBranchCode")
                         .IsRequired()

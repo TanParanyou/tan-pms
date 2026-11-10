@@ -8,6 +8,13 @@ public sealed class Property : AuditableEntity
     public required LocalizedText Name { get; set; }
     public required string TaxBranchCode { get; set; }
     public LocalizedText? Address { get; set; }
+
+    // Days after the (Bangkok) issue date an invoice falls due; null means DefaultPaymentTermsDays.
+    public int? PaymentTermsDays { get; set; }
+
+    public const int DefaultPaymentTermsDays = 7;
+
+    public int EffectivePaymentTermsDays => PaymentTermsDays ?? DefaultPaymentTermsDays;
     public List<Building> Buildings { get; init; } = [];
     public List<UnitType> UnitTypes { get; init; } = [];
 

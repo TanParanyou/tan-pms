@@ -105,11 +105,11 @@ public sealed class CrudLifecycleGapTests
         var lease = CreateA102Lease(store, new DateOnly(2026, 12, 1));
 
         Assert.Equal(DomainErrorCodes.PermissionDenied, new CancelAdminLeaseHandler(store, Admin(PermissionKeys.AdminLeasesManage), store)
-            .Handle(new CancelAdminLeaseCommand(Bkk, lease.Id, new ReasonRequest("x"))).Error!.Code);
-        Assert.Equal(DomainErrorCodes.ValidationFailed, store.CancelAdminLease(Bkk, lease.Id, new ReasonRequest("")).Error!.Code);
+            .Handle(new CancelAdminLeaseCommand(Bkk, lease.Id, new CancelLeaseRequest("x"))).Error!.Code);
+        Assert.Equal(DomainErrorCodes.ValidationFailed, store.CancelAdminLease(Bkk, lease.Id, new CancelLeaseRequest("")).Error!.Code);
 
         var cancelled = new CancelAdminLeaseHandler(store, settler, store)
-            .Handle(new CancelAdminLeaseCommand(Bkk, lease.Id, new ReasonRequest("Tenant withdrew before move-in")));
+            .Handle(new CancelAdminLeaseCommand(Bkk, lease.Id, new CancelLeaseRequest("Tenant withdrew before move-in")));
         Assert.True(cancelled.IsSuccess, cancelled.Error?.Message);
         Assert.Equal("Cancelled", cancelled.Value!.Lease.Status);
         Assert.Equal(13000m, cancelled.Value.RefundedAmount);
@@ -119,7 +119,7 @@ public sealed class CrudLifecycleGapTests
 
         // The seeded A-201 lease already has an Issued invoice, so it must go through move-out settlement.
         var seeded = store.GetAdminLeases(Bkk, "Active", null).Value!.Items.Single(l => l.Unit.Id == A201);
-        Assert.Equal(DomainErrorCodes.InvoiceImmutableStatus, store.CancelAdminLease(Bkk, seeded.Id, new ReasonRequest("x")).Error!.Code);
+        Assert.Equal(DomainErrorCodes.InvoiceImmutableStatus, store.CancelAdminLease(Bkk, seeded.Id, new CancelLeaseRequest("x")).Error!.Code);
     }
 
     [Fact]

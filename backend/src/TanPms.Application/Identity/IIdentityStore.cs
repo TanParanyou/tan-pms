@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
 
@@ -8,7 +9,7 @@ public interface IIdentityStore
     Result<AuthSessionResponse> Login(LoginAuthSessionCommand command);
     Result<AuthSessionResponse> GetCurrentAuthSession(ICurrentUserContext currentUser);
     Result<RoleCatalogResponse> GetRoleCatalog();
-    Result<AdminUserListResponse> GetAdminUsers(Guid? propertyId, IReadOnlySet<Guid> callerAllowedPropertyIds);
+    Result<AdminUserListResponse> GetAdminUsers(Guid? propertyId, IReadOnlySet<Guid> callerAllowedPropertyIds, PageRequest? paging = null);
     Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command);
 
     Result<AdminUserDto> GetAdminUser(Guid userId);

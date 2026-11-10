@@ -1,10 +1,11 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 
 namespace TanPms.Application.Housekeeping;
 
 public interface IHousekeepingStore
 {
-    Result<HousekeepingTaskListResponse> GetAdminHousekeepingTasks(Guid propertyId, string? status, Guid? buildingId);
+    Result<HousekeepingTaskListResponse> GetAdminHousekeepingTasks(Guid propertyId, string? status, Guid? buildingId, PageRequest? paging = null);
 
     Result<HousekeepingTaskDto> StartAdminHousekeepingTask(Guid propertyId, Guid taskId);
 

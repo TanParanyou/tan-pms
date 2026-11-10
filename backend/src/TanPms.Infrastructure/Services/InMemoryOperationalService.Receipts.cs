@@ -61,17 +61,27 @@ public sealed partial class InMemoryOperationalService
 
     private ReceiptDocumentDto BuildReceiptDocumentLocked(Receipt receipt, bool unmaskPii)
     {
-        var invoice = MapInvoiceLocked(_invoices.First(i => i.Id == receipt.InvoiceId), unmaskPii);
-        return new ReceiptDocumentDto(
-            ReceiptRecordMapper.MapLetterhead(_properties[receipt.PropertyId]),
-            ReceiptRecordMapper.MapReceipt(receipt, invoice, _customers[receipt.CustomerId], unmaskPii),
-            invoice);
+        var letterhead = ReceiptRecordMapper.MapLetterhead(_properties[receipt.PropertyId]);
+        var item = MapReceiptLocked(receipt, unmaskPii);
+        if (receipt.InvoiceId is { } invoiceId)
+        {
+            return new ReceiptDocumentDto(letterhead, item, MapInvoiceLocked(_invoices.First(i => i.Id == invoiceId), unmaskPii), []);
+        }
+
+        var charges = _foliosByStayId.TryGetValue(receipt.StayId!.Value, out var folio)
+            ? folio.Charges.Select(StayRecordMapper.MapCharge).ToList()
+            : [];
+        return new ReceiptDocumentDto(letterhead, item, null, charges);
     }
 
-    private ReceiptItemDto MapReceiptLocked(Receipt receipt, bool unmaskPii) =>
-        ReceiptRecordMapper.MapReceipt(
+    private ReceiptItemDto MapReceiptLocked(Receipt receipt, bool unmaskPii)
+    {
+        var stay = receipt.StayId is { } stayId ? _stays.First(s => s.Id == stayId) : null;
+        return ReceiptRecordMapper.MapReceipt(
             receipt,
-            MapInvoiceLocked(_invoices.First(i => i.Id == receipt.InvoiceId), unmaskPii),
+            receipt.InvoiceId is { } invoiceId ? MapInvoiceLocked(_invoices.First(i => i.Id == invoiceId), unmaskPii) : null,
+            stay is null ? null : (stay.DocumentNumber, _unitRefs[stay.UnitId]),
             _customers[receipt.CustomerId],
             unmaskPii);
+    }
 }

@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
@@ -27,6 +28,6 @@ public sealed class GetAdminReservationsHandler
             return Result<ReservationListResponse>.Failure(authError);
         }
 
-        return _store.GetAdminReservations(query.PropertyId, query.Status, query.StayMode);
+        return _store.GetAdminReservations(query.PropertyId, query.Status, query.StayMode, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

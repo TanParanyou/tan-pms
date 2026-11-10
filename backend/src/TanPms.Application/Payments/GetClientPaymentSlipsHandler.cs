@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 
@@ -19,6 +20,6 @@ public sealed class GetClientPaymentSlipsHandler
     {
         return ScopeAuthorizationGuard.CheckClientScope(_currentUser, out var customerId) is { } authError
             ? Result<ClientPaymentSlipListResponse>.Failure(authError)
-            : _store.GetClientPaymentSlips(customerId);
+            : _store.GetClientPaymentSlips(customerId, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

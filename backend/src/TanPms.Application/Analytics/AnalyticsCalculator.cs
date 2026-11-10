@@ -150,9 +150,9 @@ public static class AnalyticsCalculator
         return new RevParReportDto(from, to, available, folioRevenue, rentRevenue, roomRevenue, available == 0 ? 0m : Money(roomRevenue / available));
     }
 
-    // Receivables aging as of a date. Invoices have no separate due date, so they are due on issue:
-    // age = asOf - issue date (IssuedAt, or CreatedAt for invoices issued before IssuedAt existed).
-    // Buckets: Current (age 0), 1-30, 31-60, 61-90, 90+ days. Outstanding = TotalAmount - receipts applied so far;
+    // Receivables aging as of a date by days past due: age = asOf - DueDate (issue date + property payment terms).
+    // Invoices without a DueDate (issued before due dates existed) age from their issue date (IssuedAt, else CreatedAt).
+    // Buckets: Current (not yet due, age <= 0), 1-30, 31-60, 61-90, 90+ days. Outstanding = TotalAmount - receipts applied;
     // invoices issued after asOf are not yet receivable and are left out.
     public static AgingReportDto Aging(
         DateOnly asOf,
@@ -161,18 +161,32 @@ public static class AnalyticsCalculator
         IReadOnlyDictionary<Guid, Customer> customers,
         bool unmaskPii)
     {
-        var paidByInvoice = receipts.GroupBy(r => r.InvoiceId).ToDictionary(g => g.Key, g => g.Sum(r => r.NetPayableAmount));
+        var paidByInvoice = receipts.Where(r => r.InvoiceId.HasValue).GroupBy(r => r.InvoiceId!.Value).ToDictionary(g => g.Key, g => g.Sum(r => r.NetPayableAmount));
         var rows = invoices
             .Where(i => i.Status is InvoiceStatus.Issued or InvoiceStatus.PartiallyPaid or InvoiceStatus.Overdue)
-            .Select(i => (
-                Invoice: i,
-                Outstanding: i.TotalAmount - paidByInvoice.GetValueOrDefault(i.Id),
-                Age: asOf.DayNumber - AnalyticsPeriod.LocalDate(i.IssuedAt ?? i.CreatedAt).DayNumber))
-            .Where(x => x.Outstanding > 0m && x.Age >= 0)
+            .Select(i => new AgingInvoiceRow(
+                i.CustomerId,
+                i.TotalAmount - paidByInvoice.GetValueOrDefault(i.Id),
+                AnalyticsPeriod.LocalDate(i.IssuedAt ?? i.CreatedAt),
+                i.DueDate))
+            .ToList();
+        return AgingFromRows(asOf, rows, customers, unmaskPii);
+    }
+
+    // Row-level core shared with the EF store, which computes totals and paid amounts with SQL aggregates.
+    public static AgingReportDto AgingFromRows(
+        DateOnly asOf,
+        IReadOnlyList<AgingInvoiceRow> invoices,
+        IReadOnlyDictionary<Guid, Customer> customers,
+        bool unmaskPii)
+    {
+        var rows = invoices
+            .Where(i => i.IssueDate <= asOf && i.Outstanding > 0m)
+            .Select(i => (i.CustomerId, i.Outstanding, Age: asOf.DayNumber - (i.DueDate ?? i.IssueDate).DayNumber))
             .ToList();
 
         var customerRows = rows
-            .GroupBy(x => x.Invoice.CustomerId)
+            .GroupBy(x => x.CustomerId)
             .Select(g =>
             {
                 var customer = customers[g.Key];
@@ -246,7 +260,7 @@ public static class AnalyticsCalculator
         var list = items.ToList();
         decimal Sum(Func<int, bool> inBucket) => list.Where(x => inBucket(x.Age)).Sum(x => x.Outstanding);
         return new AgingBucketsDto(
-            Sum(a => a == 0),
+            Sum(a => a <= 0),
             Sum(a => a is >= 1 and <= 30),
             Sum(a => a is >= 31 and <= 60),
             Sum(a => a is >= 61 and <= 90),

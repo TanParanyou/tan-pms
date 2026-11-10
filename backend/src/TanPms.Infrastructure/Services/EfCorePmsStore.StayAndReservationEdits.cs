@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TanPms.Application.Cashier;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Reservations;
@@ -223,7 +224,8 @@ public sealed partial class EfCorePmsStore
                 ledger.RefundRemainingBalance(
                     _documentNumberService.NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
                     request.Reason.Trim(),
-                    FindTrackedOpenShift(propertyId, cashierUserId));
+                    FindTrackedOpenShift(propertyId, cashierUserId),
+                    PaymentMethods.Cash);
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)));
             }
 

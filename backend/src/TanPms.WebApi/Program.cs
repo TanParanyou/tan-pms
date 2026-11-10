@@ -22,6 +22,7 @@ using TanPms.Application.WorkOrders;
 using Microsoft.AspNetCore.Mvc;
 using TanPms.Infrastructure;
 using TanPms.Infrastructure.Services;
+using TanPms.WebApi.Background;
 using TanPms.WebApi.ErrorHandling;
 using TanPms.WebApi.Security;
 
@@ -119,6 +120,10 @@ builder.Services.AddScoped<RenewAdminLeaseHandler>();
 builder.Services.AddScoped<GiveAdminLeaseMoveOutNoticeHandler>();
 builder.Services.AddScoped<SettleAdminLeaseMoveOutHandler>();
 builder.Services.AddScoped<GetClientDashboardHandler>();
+builder.Services.AddScoped<GetAdminBillingSettingsHandler>();
+builder.Services.AddScoped<UpdateAdminBillingSettingsHandler>();
+builder.Services.AddScoped<LogoutAuthSessionHandler>();
+builder.Services.AddHostedService<OverdueInvoiceSweeper>();
 builder.Services.AddScoped<GetAdminUserHandler>();
 builder.Services.AddScoped<DeactivateAdminUserHandler>();
 builder.Services.AddScoped<ReactivateAdminUserHandler>();
@@ -261,10 +266,12 @@ adminGroup.MapGet("/roles", (
 
 adminGroup.MapGet("/users", (
     Guid? propertyId,
+    int? page,
+    int? pageSize,
     GetAdminUsersHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminUsersQuery(propertyId));
+    var result = handler.Handle(new GetAdminUsersQuery(propertyId, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -411,10 +418,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/reservations", (
     Guid propertyId,
     string? status,
     string? stayMode,
+    int? page,
+    int? pageSize,
     GetAdminReservationsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminReservationsQuery(propertyId, status, stayMode));
+    var result = handler.Handle(new GetAdminReservationsQuery(propertyId, status, stayMode, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -509,10 +518,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/stays", (
     Guid propertyId,
     string? status,
     string? stayMode,
+    int? page,
+    int? pageSize,
     GetAdminStaysHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminStaysQuery(propertyId, status, stayMode));
+    var result = handler.Handle(new GetAdminStaysQuery(propertyId, status, stayMode, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -590,10 +601,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/leases", (
     Guid propertyId,
     string? status,
     string? licensePlate,
+    int? page,
+    int? pageSize,
     GetAdminLeasesHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminLeasesQuery(propertyId, status, licensePlate));
+    var result = handler.Handle(new GetAdminLeasesQuery(propertyId, status, licensePlate, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -752,10 +765,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/invoices", (
     Guid propertyId,
     string? period,
     string? status,
+    int? page,
+    int? pageSize,
     GetAdminInvoicesHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminInvoicesQuery(propertyId, period, status));
+    var result = handler.Handle(new GetAdminInvoicesQuery(propertyId, period, status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -811,10 +826,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/cashier/shifts/current", (
 adminGroup.MapGet("/properties/{propertyId:guid}/cashier/shifts", (
     Guid propertyId,
     string? status,
+    int? page,
+    int? pageSize,
     GetAdminCashierShiftsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminCashierShiftsQuery(propertyId, status));
+    var result = handler.Handle(new GetAdminCashierShiftsQuery(propertyId, status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -849,10 +866,12 @@ adminGroup.MapPost("/properties/{propertyId:guid}/cashier/shifts/{shiftId:guid}/
 adminGroup.MapGet("/properties/{propertyId:guid}/deposit-ledgers", (
     Guid propertyId,
     string? type,
+    int? page,
+    int? pageSize,
     GetAdminDepositLedgersHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminDepositLedgersQuery(propertyId, type));
+    var result = handler.Handle(new GetAdminDepositLedgersQuery(propertyId, type, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -861,10 +880,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/deposit-ledgers", (
 adminGroup.MapGet("/properties/{propertyId:guid}/payments/slips", (
     Guid propertyId,
     string? status,
+    int? page,
+    int? pageSize,
     GetAdminPaymentSlipsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminPaymentSlipsQuery(propertyId, status));
+    var result = handler.Handle(new GetAdminPaymentSlipsQuery(propertyId, status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -899,10 +920,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/housekeeping/tasks", (
     Guid propertyId,
     string? status,
     Guid? buildingId,
+    int? page,
+    int? pageSize,
     GetAdminHousekeepingTasksHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminHousekeepingTasksQuery(propertyId, status, buildingId));
+    var result = handler.Handle(new GetAdminHousekeepingTasksQuery(propertyId, status, buildingId, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -949,10 +972,12 @@ adminGroup.MapPost("/properties/{propertyId:guid}/housekeeping/tasks/{taskId:gui
 adminGroup.MapGet("/properties/{propertyId:guid}/work-orders", (
     Guid propertyId,
     string? status,
+    int? page,
+    int? pageSize,
     GetAdminWorkOrdersHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminWorkOrdersQuery(propertyId, status));
+    var result = handler.Handle(new GetAdminWorkOrdersQuery(propertyId, status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -999,10 +1024,12 @@ adminGroup.MapPost("/properties/{propertyId:guid}/work-orders/{workOrderId:guid}
 adminGroup.MapGet("/properties/{propertyId:guid}/parcels", (
     Guid propertyId,
     string? status,
+    int? page,
+    int? pageSize,
     GetAdminParcelsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminParcelsQuery(propertyId, status));
+    var result = handler.Handle(new GetAdminParcelsQuery(propertyId, status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -1049,7 +1076,7 @@ adminGroup.MapPut("/properties/{propertyId:guid}/leases/{leaseId:guid}", (
 adminGroup.MapPost("/properties/{propertyId:guid}/leases/{leaseId:guid}/cancel", (
     Guid propertyId,
     Guid leaseId,
-    ReasonRequest request,
+    CancelLeaseRequest request,
     CancelAdminLeaseHandler handler,
     HttpContext httpContext) =>
 {
@@ -1382,7 +1409,7 @@ adminGroup.MapPost("/files", (
         : Results.Created($"/api/v1/admin/files/{result.Value!.FileKey}", result.Value);
 }).DisableAntiforgery();
 
-adminGroup.MapGet("/files/{fileKey}", (
+adminGroup.MapGet("/files/{**fileKey}", (
     string fileKey,
     GetAdminFileHandler handler,
     HttpContext httpContext) =>
@@ -1432,10 +1459,12 @@ adminGroup.MapGet("/properties/{propertyId:guid}/receipts/{receiptId:guid}/pdf",
 adminGroup.MapGet("/properties/{propertyId:guid}/lease-intents", (
     Guid propertyId,
     string? status,
+    int? page,
+    int? pageSize,
     GetAdminLeaseIntentsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetAdminLeaseIntentsQuery(propertyId, status));
+    var result = handler.Handle(new GetAdminLeaseIntentsQuery(propertyId, status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -1875,6 +1904,39 @@ adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/folio/paym
         : Results.Ok(result.Value);
 });
 
+authGroup.MapPost("/logout", (
+    LogoutAuthSessionHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new LogoutAuthSessionCommand());
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.NoContent();
+});
+
+adminGroup.MapGet("/properties/{propertyId:guid}/billing-settings", (
+    Guid propertyId,
+    GetAdminBillingSettingsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new GetAdminBillingSettingsQuery(propertyId));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPut("/properties/{propertyId:guid}/billing-settings", (
+    Guid propertyId,
+    UpdateBillingSettingsRequest request,
+    UpdateAdminBillingSettingsHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpdateAdminBillingSettingsCommand(propertyId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
 var clientGroup = app.MapGroup("/api/v1/client");
 
 clientGroup.MapPost("/invoices/{invoiceId:guid}/slips", (
@@ -1902,10 +1964,12 @@ clientGroup.MapGet("/invoices/{invoiceId:guid}/slips", (
 
 clientGroup.MapGet("/work-orders", (
     string? status,
+    int? page,
+    int? pageSize,
     GetClientWorkOrdersHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetClientWorkOrdersQuery(status));
+    var result = handler.Handle(new GetClientWorkOrdersQuery(status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -1924,10 +1988,12 @@ clientGroup.MapPost("/work-orders", (
 
 clientGroup.MapGet("/parcels", (
     string? status,
+    int? page,
+    int? pageSize,
     GetClientParcelsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetClientParcelsQuery(status));
+    var result = handler.Handle(new GetClientParcelsQuery(status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -2017,7 +2083,7 @@ clientGroup.MapPost("/files", (
         : Results.Created($"/api/v1/client/files/{result.Value!.FileKey}", result.Value);
 }).DisableAntiforgery();
 
-clientGroup.MapGet("/files/{fileKey}", (
+clientGroup.MapGet("/files/{**fileKey}", (
     string fileKey,
     GetClientFileHandler handler,
     HttpContext httpContext) =>
@@ -2117,10 +2183,12 @@ clientGroup.MapDelete("/lease-intents/{intentId:guid}", (
 
 clientGroup.MapGet("/invoices", (
     string? status,
+    int? page,
+    int? pageSize,
     GetClientInvoicesHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetClientInvoicesQuery(status));
+    var result = handler.Handle(new GetClientInvoicesQuery(status, Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -2150,10 +2218,12 @@ clientGroup.MapGet("/utility-usage", (
 });
 
 clientGroup.MapGet("/payment-slips", (
+    int? page,
+    int? pageSize,
     GetClientPaymentSlipsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetClientPaymentSlipsQuery());
+    var result = handler.Handle(new GetClientPaymentSlipsQuery(Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -2193,10 +2263,12 @@ clientGroup.MapGet("/dashboard", (
 });
 
 clientGroup.MapGet("/notifications", (
+    int? page,
+    int? pageSize,
     GetClientNotificationsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetClientNotificationsQuery());
+    var result = handler.Handle(new GetClientNotificationsQuery(Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
@@ -2221,10 +2293,12 @@ clientGroup.MapGet("/availability", (
 });
 
 clientGroup.MapGet("/reservations", (
+    int? page,
+    int? pageSize,
     GetClientReservationsHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new GetClientReservationsQuery());
+    var result = handler.Handle(new GetClientReservationsQuery(Page: page, PageSize: pageSize));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);

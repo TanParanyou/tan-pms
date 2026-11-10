@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 
@@ -22,6 +23,6 @@ public sealed class GetClientWorkOrdersHandler
             return Result<WorkOrderListResponse>.Failure(authError);
         }
 
-        return _store.GetClientWorkOrders(customerId, query.Status);
+        return _store.GetClientWorkOrders(customerId, query.Status, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

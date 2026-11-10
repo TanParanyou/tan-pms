@@ -30,6 +30,7 @@ public static class ProblemDetailsMapper
         DomainErrorCodes.ShiftNotOpen => StatusCodes.Status409Conflict,
         DomainErrorCodes.MeterRolloverUnconfirmed => StatusCodes.Status409Conflict,
         DomainErrorCodes.MasterDataInUse => StatusCodes.Status409Conflict,
+        DomainErrorCodes.FileNotFound => StatusCodes.Status404NotFound,
         _ => StatusCodes.Status500InternalServerError
     };
 

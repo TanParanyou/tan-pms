@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 
@@ -9,9 +10,9 @@ public interface IWorkOrderStore
 
     Result<WorkOrderItemDto> CreateClientWorkOrder(Guid customerId, CreateWorkOrderRequest request, DateTimeOffset? nowUtc = null);
 
-    Result<WorkOrderListResponse> GetAdminWorkOrders(Guid propertyId, string? status, bool unmaskPii = false);
+    Result<WorkOrderListResponse> GetAdminWorkOrders(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null);
 
-    Result<WorkOrderListResponse> GetClientWorkOrders(Guid customerId, string? status);
+    Result<WorkOrderListResponse> GetClientWorkOrders(Guid customerId, string? status, PageRequest? paging = null);
 
     Result<WorkOrderItemDto> GetAdminWorkOrder(Guid propertyId, Guid workOrderId, bool unmaskPii = false);
 

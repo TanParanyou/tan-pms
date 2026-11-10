@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Domain.Billing;
@@ -76,6 +77,7 @@ public static class PmsDatabaseInitializer
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await BackfillLegacyBillingColumnsAsync(dbContext, cancellationToken);
 
         var propertyIdsByCode = await dbContext.Properties.IgnoreQueryFilters().AsNoTracking()
             .ToDictionaryAsync(p => p.Code.ToUpperInvariant(), p => p.Id, cancellationToken);
@@ -113,6 +115,58 @@ public static class PmsDatabaseInitializer
                               updated_at = clock_timestamp()
                 """, cancellationToken);
         }
+    }
+
+    // 3) legacy rows written before IssuedAt/DueDate/ChargeCategoryCode existed get the values later code relies on.
+    // Every statement only touches NULL columns, so re-running is a no-op. Status ints: 2 Issued, 3 PartiallyPaid, 4 Paid, 5 Overdue.
+    private static async Task BackfillLegacyBillingColumnsAsync(TanPmsDbContext dbContext, CancellationToken cancellationToken)
+    {
+        await dbContext.Database.ExecuteSqlRawAsync("""
+            UPDATE "Invoices" SET "IssuedAt" = "CreatedAt"
+            WHERE "IssuedAt" IS NULL AND "Status" IN (2, 3, 4, 5);
+            """, cancellationToken);
+
+        // Due date = Bangkok issue date + property payment terms (default 7), same as Issue() for new invoices.
+        await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "Invoices" AS i
+            SET "DueDate" = (i."IssuedAt" AT TIME ZONE 'Asia/Bangkok')::date + COALESCE(p."PaymentTermsDays", {Property.DefaultPaymentTermsDays})
+            FROM "Properties" AS p
+            WHERE p."Id" = i."PropertyId" AND i."DueDate" IS NULL AND i."IssuedAt" IS NOT NULL AND i."Status" IN (2, 3, 4, 5);
+            """, cancellationToken);
+
+        // Lines of lease billing-period invoices are recognisable by the Thai descriptions the batch run has always written;
+        // anything else (manual lines, repair charges) stays uncategorised.
+        await dbContext.Database.ExecuteSqlRawAsync("""
+            UPDATE "InvoiceLine" AS l
+            SET "ChargeCategoryCode" = CASE
+                WHEN l."Description"->>'th' LIKE 'ค่าเช่าห้อง%' THEN 'MONTHLY_ROOM_RENT'
+                WHEN l."Description"->>'th' LIKE 'ค่าน้ำประปา%' THEN 'UTILITY_WATER'
+                WHEN l."Description"->>'th' LIKE 'ค่าไฟฟ้า%' THEN 'UTILITY_ELECTRIC'
+            END
+            FROM "Invoices" AS i
+            WHERE i."Id" = l."InvoiceId" AND i."LeaseId" IS NOT NULL AND i."BillingPeriodYearMonth" IS NOT NULL
+              AND l."ChargeCategoryCode" IS NULL
+              AND (l."Description"->>'th' LIKE 'ค่าเช่าห้อง%' OR l."Description"->>'th' LIKE 'ค่าน้ำประปา%' OR l."Description"->>'th' LIKE 'ค่าไฟฟ้า%');
+            """, cancellationToken);
+
+        // The first room charge of a legacy folio (UUIDv7 ids sort by creation) becomes SHORT_STAY_ROOM, but only for folios
+        // that have no tagged room charge yet and only when its description is a check-in room charge.
+        await dbContext.Database.ExecuteSqlRawAsync("""
+            UPDATE "FolioCharge" AS c
+            SET "ChargeCategoryCode" = 'SHORT_STAY_ROOM'
+            FROM (
+                SELECT DISTINCT ON ("FolioId") "Id"
+                FROM "FolioCharge"
+                WHERE "FolioId" IS NOT NULL
+                ORDER BY "FolioId", "Id"
+            ) AS firstCharge
+            WHERE c."Id" = firstCharge."Id"
+              AND c."ChargeCategoryCode" IS NULL
+              AND (c."Description"->>'th' LIKE 'ค่าห้องพัก%' OR c."Description"->>'th' LIKE 'ค่าแพ็กเกจห้องพัก%')
+              AND NOT EXISTS (
+                  SELECT 1 FROM "FolioCharge" AS tagged
+                  WHERE tagged."FolioId" = c."FolioId" AND tagged."ChargeCategoryCode" = 'SHORT_STAY_ROOM');
+            """, cancellationToken);
     }
 
     // Utilities resold to tenants are not pure room rent (docs/01-business/pricing-meter-and-tax-rules.md section 3),
@@ -439,6 +493,7 @@ public static class PmsDatabaseInitializer
         lease1.Activate();
         dbContext.Leases.Add(lease1);
 
+        var seedIssuedAt = DateTimeOffset.UtcNow;
         var invoice1 = new Invoice
         {
             PropertyId = bkk.Id,
@@ -449,7 +504,7 @@ public static class PmsDatabaseInitializer
         };
         invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)", UtilityChargeCategories.MonthlyRoomRent);
         invoice1.AddLine("ค่าเช่าเฟอร์นิเจอร์", 1000.00m, TaxMode.VatExcluded, "Furniture Rental");
-        invoice1.Issue();
+        invoice1.Issue(seedIssuedAt, AnalyticsPeriod.LocalDate(seedIssuedAt).AddDays(Property.DefaultPaymentTermsDays));
 
         var invoice2 = new Invoice
         {
@@ -458,7 +513,7 @@ public static class PmsDatabaseInitializer
             CustomerId = customer2.Id
         };
         invoice2.AddLine("ยอดค้างค่าห้องรายวัน", 1200.00m, TaxMode.VatIncluded, "Daily Stay Balance");
-        invoice2.Issue();
+        invoice2.Issue(seedIssuedAt, AnalyticsPeriod.LocalDate(seedIssuedAt).AddDays(Property.DefaultPaymentTermsDays));
 
         dbContext.Invoices.AddRange(invoice1, invoice2);
         dbContext.Set<InvoiceLine>().AddRange(invoice1.Lines);

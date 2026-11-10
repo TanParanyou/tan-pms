@@ -16,7 +16,7 @@ public sealed class DepositLedger : AuditableEntity
         Transactions.Where(t => t.TransactionType == DepositTransactionType.Received).Sum(t => t.Amount)
         - Transactions.Where(t => t.TransactionType != DepositTransactionType.Received).Sum(t => t.Amount);
 
-    public DepositTransaction RecordReceipt(string documentNumber, decimal amount, CashierShift? cashShift = null)
+    public DepositTransaction RecordReceipt(string documentNumber, decimal amount, CashierShift? cashShift = null, string? paymentMethod = null)
     {
         cashShift?.RecordCashDepositReceived(amount);
         var tx = new DepositTransaction
@@ -25,7 +25,8 @@ public sealed class DepositLedger : AuditableEntity
             DepositLedgerId = Id,
             DocumentNumber = documentNumber,
             TransactionType = DepositTransactionType.Received,
-            Amount = decimal.Round(amount, 2, MidpointRounding.AwayFromZero)
+            Amount = decimal.Round(amount, 2, MidpointRounding.AwayFromZero),
+            PaymentMethod = paymentMethod
         };
         Transactions.Add(tx);
         return tx;
@@ -55,7 +56,7 @@ public sealed class DepositLedger : AuditableEntity
         return tx;
     }
 
-    public DepositTransaction RefundRemainingBalance(string documentNumber, string reason, CashierShift? cashShift = null)
+    public DepositTransaction RefundRemainingBalance(string documentNumber, string reason, CashierShift? cashShift = null, string? paymentMethod = null)
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
@@ -74,7 +75,8 @@ public sealed class DepositLedger : AuditableEntity
             DocumentNumber = documentNumber,
             TransactionType = DepositTransactionType.Refunded,
             Amount = refundable,
-            Reason = reason
+            Reason = reason,
+            PaymentMethod = paymentMethod
         };
         Transactions.Add(tx);
         return tx;

@@ -21,4 +21,5 @@ public sealed record AdminPaymentSlipDto(
     DateTimeOffset? ReviewedAt,
     string? RejectReason,
     string? ReceiptDocumentNumber,
-    UserRefDto? ReviewedBy);
+    UserRefDto? ReviewedBy,
+    DateOnly? InvoiceDueDate = null);

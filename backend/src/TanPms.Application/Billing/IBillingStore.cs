@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 
@@ -14,7 +15,8 @@ public interface IBillingStore
         Guid propertyId,
         string? period,
         string? status,
-        bool unmaskPii = false);
+        bool unmaskPii = false,
+        PageRequest? paging = null);
 
     Result<InvoiceIssueResponse> IssueAdminInvoicesForPeriod(
         Guid propertyId,
@@ -28,9 +30,16 @@ public interface IBillingStore
         Guid propertyId,
         Guid invoiceId);
 
-    Result<ClientInvoiceListResponse> GetClientInvoices(Guid customerId, string? status);
+    Result<ClientInvoiceListResponse> GetClientInvoices(Guid customerId, string? status, PageRequest? paging = null);
 
     Result<ClientInvoiceDto> GetClientInvoice(Guid customerId, Guid invoiceId);
+
+    Result<BillingSettingsDto> GetBillingSettings(Guid propertyId);
+
+    Result<BillingSettingsDto> UpdateBillingSettings(Guid propertyId, UpdateBillingSettingsRequest request);
+
+    // Flips Issued/PartiallyPaid invoices past their due date to Overdue and notifies each client once. Idempotent.
+    int MarkOverdueInvoices(DateTimeOffset nowUtc);
 
     Result<InvoiceItemDto> GetAdminInvoice(Guid propertyId, Guid invoiceId, bool unmaskPii = false);
 

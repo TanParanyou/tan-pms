@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
 using TanPms.Application.Common.Contracts;
@@ -38,7 +39,7 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<ClientInvoiceListResponse> GetClientInvoices(Guid customerId, string? status)
+    public Result<ClientInvoiceListResponse> GetClientInvoices(Guid customerId, string? status, PageRequest? paging = null)
     {
         if (ClientInvoiceRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -47,11 +48,12 @@ public sealed partial class InMemoryOperationalService
 
         lock (_syncRoot)
         {
-            return Result<ClientInvoiceListResponse>.Success(new ClientInvoiceListResponse(_invoices
+            var (page, pagination) = _invoices
                 .Where(i => i.CustomerId == customerId && ClientInvoiceRules.IsVisible(i) && (statusFilter == null || i.Status == statusFilter))
                 .OrderByDescending(i => i.DocumentNumber, StringComparer.Ordinal)
-                .Select(BuildClientInvoiceLocked)
-                .ToList()));
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<ClientInvoiceListResponse>.Success(new ClientInvoiceListResponse(page.Select(BuildClientInvoiceLocked).ToList(), pagination));
         }
     }
 
@@ -80,15 +82,19 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<ClientPaymentSlipListResponse> GetClientPaymentSlips(Guid customerId)
+    public Result<ClientPaymentSlipListResponse> GetClientPaymentSlips(Guid customerId, PageRequest? paging = null)
     {
         lock (_syncRoot)
         {
-            return Result<ClientPaymentSlipListResponse>.Success(new ClientPaymentSlipListResponse(_paymentSlips
+            var (page, pagination) = _paymentSlips
                 .Where(s => s.CustomerId == customerId)
                 .OrderByDescending(s => s.CreatedAt)
-                .Select(s => CashierRecordMapper.MapClientSlip(s, _invoices.First(i => i.Id == s.InvoiceId).DocumentNumber))
-                .ToList()));
+                .ThenByDescending(s => s.Id)
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<ClientPaymentSlipListResponse>.Success(new ClientPaymentSlipListResponse(
+                page.Select(s => CashierRecordMapper.MapClientSlip(s, _invoices.First(i => i.Id == s.InvoiceId).DocumentNumber)).ToList(),
+                pagination));
         }
     }
 
@@ -163,7 +169,7 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<LeaseIntentListResponse> GetAdminLeaseIntents(Guid propertyId, string? status, bool unmaskPii = false)
+    public Result<LeaseIntentListResponse> GetAdminLeaseIntents(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null)
     {
         if (LeaseIntentRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -172,11 +178,13 @@ public sealed partial class InMemoryOperationalService
 
         lock (_syncRoot)
         {
-            return Result<LeaseIntentListResponse>.Success(new LeaseIntentListResponse(_leaseIntents
+            var (page, pagination) = _leaseIntents
                 .Where(i => i.PropertyId == propertyId && (statusFilter == null || i.Status == statusFilter))
                 .OrderByDescending(i => i.CreatedAt)
-                .Select(i => MapIntentLocked(i, unmaskPii))
-                .ToList()));
+                .ThenByDescending(i => i.Id)
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<LeaseIntentListResponse>.Success(new LeaseIntentListResponse(page.Select(i => MapIntentLocked(i, unmaskPii)).ToList(), pagination));
         }
     }
 

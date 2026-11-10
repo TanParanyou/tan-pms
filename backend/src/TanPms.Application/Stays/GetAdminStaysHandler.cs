@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
@@ -29,6 +30,6 @@ public sealed class GetAdminStaysHandler
         }
 
         var unmaskPii = _currentUser.Permissions.Contains(PermissionKeys.AdminCustomerUnmaskPii);
-        return _store.GetAdminStays(query.PropertyId, query.Status, query.StayMode, unmaskPii);
+        return _store.GetAdminStays(query.PropertyId, query.Status, query.StayMode, unmaskPii, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

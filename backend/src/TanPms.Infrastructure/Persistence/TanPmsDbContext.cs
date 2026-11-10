@@ -268,6 +268,23 @@ public sealed class TanPmsDbContext : DbContext
             b.Property(x => x.Note).HasMaxLength(1000);
         });
 
+        modelBuilder.Entity<DepositTransaction>(b =>
+        {
+            b.Property(x => x.PaymentMethod).HasMaxLength(16);
+        });
+
+        modelBuilder.Entity<Receipt>(b =>
+        {
+            b.Property(x => x.PaymentMethod).HasMaxLength(16);
+            b.Property(x => x.CashierUserId).HasMaxLength(128);
+            b.HasIndex(x => x.StayId);
+        });
+
+        modelBuilder.Entity<Invoice>(b =>
+        {
+            b.HasIndex(x => new { x.Status, x.DueDate });
+        });
+
         modelBuilder.Entity<StoredFile>(b =>
         {
             b.Property(x => x.FileKey).HasMaxLength(32);

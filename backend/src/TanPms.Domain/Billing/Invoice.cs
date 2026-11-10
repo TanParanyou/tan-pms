@@ -15,6 +15,8 @@ public sealed class Invoice : AuditableEntity
     public InvoiceStatus Status { get; private set; } = InvoiceStatus.Draft;
     public string? VoidReason { get; private set; }
     public DateTimeOffset? IssuedAt { get; private set; }
+    public DateOnly? DueDate { get; private set; }
+    public DateTimeOffset? OverdueNotifiedAt { get; private set; }
 
     public decimal SubTotal => Lines.Sum(l => l.SubTotal);
     public decimal TotalVatAmount => Lines.Sum(l => l.VatAmount);
@@ -50,11 +52,13 @@ public sealed class Invoice : AuditableEntity
     public InvoiceLine AddLine(string thaiDescription, decimal lineAmount, TaxMode taxMode, string? englishDescription = null, string? chargeCategoryCode = null) =>
         AddLine(LocalizedText.Create(thaiDescription, englishDescription), lineAmount, taxMode, chargeCategoryCode);
 
-    public void Issue(DateTimeOffset? issuedAt = null)
+    // dueDate is computed by the caller from the property's payment terms (property-local issue date + terms).
+    public void Issue(DateTimeOffset? issuedAt = null, DateOnly? dueDate = null)
     {
         EnsureMutable();
         Status = InvoiceStatus.Issued;
         IssuedAt = issuedAt ?? DateTimeOffset.UtcNow;
+        DueDate = dueDate;
     }
 
     public bool AcceptsPayment =>
@@ -83,6 +87,30 @@ public sealed class Invoice : AuditableEntity
         }
 
         Status = InvoiceStatus.Paid;
+    }
+
+    // Issued/PartiallyPaid past the due date become Overdue; idempotent. Returns true only when the status flipped.
+    public bool MarkOverdueIfPastDue(DateOnly today)
+    {
+        if (Status is not (InvoiceStatus.Issued or InvoiceStatus.PartiallyPaid) || DueDate is not { } due || today <= due)
+        {
+            return false;
+        }
+
+        Status = InvoiceStatus.Overdue;
+        return true;
+    }
+
+    // The client is told once per invoice, even if a partial payment later flips it back and forth.
+    public bool TryMarkOverdueNotified(DateTimeOffset at)
+    {
+        if (Status != InvoiceStatus.Overdue || OverdueNotifiedAt.HasValue)
+        {
+            return false;
+        }
+
+        OverdueNotifiedAt = at;
+        return true;
     }
 
     public void EnsureCanDelete()

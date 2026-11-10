@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
@@ -27,6 +28,6 @@ public sealed class GetAdminHousekeepingTasksHandler
             return Result<HousekeepingTaskListResponse>.Failure(authError);
         }
 
-        return _store.GetAdminHousekeepingTasks(query.PropertyId, query.Status, query.BuildingId);
+        return _store.GetAdminHousekeepingTasks(query.PropertyId, query.Status, query.BuildingId, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

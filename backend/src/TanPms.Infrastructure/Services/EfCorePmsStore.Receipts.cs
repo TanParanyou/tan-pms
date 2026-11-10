@@ -48,28 +48,45 @@ public sealed partial class EfCorePmsStore
 
     private ReceiptDocumentDto BuildReceiptDocument(Receipt receipt, bool unmaskPii)
     {
-        var invoice = _dbContext.Invoices.AsNoTracking().Include(i => i.Lines).First(i => i.Id == receipt.InvoiceId);
-        var invoiceDto = MapInvoices(receipt.PropertyId, [invoice], unmaskPii)[0];
-        var customer = _dbContext.Customers.AsNoTracking().First(c => c.Id == receipt.CustomerId);
         var property = _dbContext.Properties.AsNoTracking().First(p => p.Id == receipt.PropertyId);
-        return new ReceiptDocumentDto(
-            ReceiptRecordMapper.MapLetterhead(property),
-            ReceiptRecordMapper.MapReceipt(receipt, invoiceDto, customer, unmaskPii),
-            invoiceDto);
+        var item = MapReceipts([receipt], unmaskPii)[0];
+        if (receipt.InvoiceId is { } invoiceId)
+        {
+            var invoice = _dbContext.Invoices.AsNoTracking().Include(i => i.Lines).First(i => i.Id == invoiceId);
+            return new ReceiptDocumentDto(ReceiptRecordMapper.MapLetterhead(property), item, MapInvoices(receipt.PropertyId, [invoice], unmaskPii)[0], []);
+        }
+
+        var charges = _dbContext.Folios.AsNoTracking().Include(f => f.Charges)
+            .Where(f => f.StayId == receipt.StayId)
+            .SelectMany(f => f.Charges)
+            .ToList()
+            .Select(StayRecordMapper.MapCharge)
+            .ToList();
+        return new ReceiptDocumentDto(ReceiptRecordMapper.MapLetterhead(property), item, null, charges);
     }
 
     private List<ReceiptItemDto> MapReceipts(IReadOnlyList<Receipt> receipts, bool unmaskPii)
     {
-        var invoiceIds = receipts.Select(r => r.InvoiceId).Distinct().ToList();
+        var invoiceIds = receipts.Where(r => r.InvoiceId.HasValue).Select(r => r.InvoiceId!.Value).Distinct().ToList();
+        var stayIds = receipts.Where(r => r.StayId.HasValue).Select(r => r.StayId!.Value).Distinct().ToList();
         var customerIds = receipts.Select(r => r.CustomerId).Distinct().ToList();
         var invoices = _dbContext.Invoices.AsNoTracking().Include(i => i.Lines).Where(i => invoiceIds.Contains(i.Id)).ToList();
         var invoiceDtos = invoices
             .GroupBy(i => i.PropertyId)
             .SelectMany(g => MapInvoices(g.Key, g.ToList(), unmaskPii))
             .ToDictionary(i => i.Id);
+        var stays = _dbContext.Stays.AsNoTracking().Where(s => stayIds.Contains(s.Id)).ToList();
+        var stayUnitIds = stays.Select(s => s.UnitId).Distinct().ToList();
+        var stayUnits = _dbContext.Units.AsNoTracking().Where(u => stayUnitIds.Contains(u.Id)).ToList().ToDictionary(u => u.Id, BuildSingleUnitRef);
+        var stayRefs = stays.ToDictionary(s => s.Id, s => (s.DocumentNumber, stayUnits[s.UnitId]));
         var customers = _dbContext.Customers.AsNoTracking().Where(c => customerIds.Contains(c.Id)).ToDictionary(c => c.Id);
         return receipts
-            .Select(r => ReceiptRecordMapper.MapReceipt(r, invoiceDtos[r.InvoiceId], customers[r.CustomerId], unmaskPii))
+            .Select(r => ReceiptRecordMapper.MapReceipt(
+                r,
+                r.InvoiceId is { } invoiceId ? invoiceDtos[invoiceId] : null,
+                r.StayId is { } stayId ? stayRefs[stayId] : null,
+                customers[r.CustomerId],
+                unmaskPii))
             .ToList();
     }
 }

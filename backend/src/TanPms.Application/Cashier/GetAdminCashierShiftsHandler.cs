@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
@@ -27,6 +28,6 @@ public sealed class GetAdminCashierShiftsHandler
             return Result<CashierShiftListResponse>.Failure(authError);
         }
 
-        return _store.GetAdminCashierShifts(query.PropertyId, query.Status);
+        return _store.GetAdminCashierShifts(query.PropertyId, query.Status, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Cashier;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
@@ -61,7 +62,7 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<CashierShiftListResponse> GetAdminCashierShifts(Guid propertyId, string? status)
+    public Result<CashierShiftListResponse> GetAdminCashierShifts(Guid propertyId, string? status, PageRequest? paging = null)
     {
         if (CashierRequestValidation.ParseShiftStatus(status, out var statusFilter) is { } statusError)
         {
@@ -73,9 +74,10 @@ public sealed partial class InMemoryOperationalService
             var items = _cashierShifts
                 .Where(s => s.PropertyId == propertyId && (!statusFilter.HasValue || s.Status == statusFilter.Value))
                 .OrderByDescending(s => s.DocumentNumber, StringComparer.Ordinal)
-                .Select(s => CashierRecordMapper.MapShift(s, UserRefsLocked()))
-                .ToList();
-            return Result<CashierShiftListResponse>.Success(new CashierShiftListResponse(items));
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<CashierShiftListResponse>.Success(new CashierShiftListResponse(
+                items.Items.Select(s => CashierRecordMapper.MapShift(s, UserRefsLocked())).ToList(), items.Pagination));
         }
     }
 
@@ -227,7 +229,7 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<DepositLedgerListResponse> GetAdminDepositLedgers(Guid propertyId, string? depositType, bool unmaskPii = false)
+    public Result<DepositLedgerListResponse> GetAdminDepositLedgers(Guid propertyId, string? depositType, bool unmaskPii = false, PageRequest? paging = null)
     {
         if (CashierRequestValidation.ParseDepositType(depositType, out var typeFilter) is { } typeError)
         {
@@ -241,9 +243,13 @@ public sealed partial class InMemoryOperationalService
                 return Result<DepositLedgerListResponse>.Failure(MeterBillingComposer.PropertyNotFound(propertyId));
             }
 
-            var items = _depositLedgers
+            var filtered = _depositLedgers
                 .Where(l => l.PropertyId == propertyId && (!typeFilter.HasValue || l.DepositType == typeFilter.Value))
                 .OrderByDescending(l => l.CreatedAt)
+                .ThenByDescending(l => l.Id)
+                .ToList();
+            var (page, pagination) = filtered.AsQueryable().ToPage(paging);
+            var items = page
                 .Select(l =>
                 {
                     var (ownerDoc, unitId) = ResolveLedgerOwnerLocked(l);
@@ -255,7 +261,7 @@ public sealed partial class InMemoryOperationalService
                         unmaskPii);
                 })
                 .ToList();
-            return Result<DepositLedgerListResponse>.Success(new DepositLedgerListResponse(items, items.Sum(i => i.CurrentBalance)));
+            return Result<DepositLedgerListResponse>.Success(new DepositLedgerListResponse(items, filtered.Sum(l => l.CurrentBalance), pagination));
         }
     }
 
@@ -398,7 +404,7 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false)
+    public Result<PaymentSlipQueueResponse> GetAdminPaymentSlips(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null)
     {
         if (PaymentSlipRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -410,9 +416,10 @@ public sealed partial class InMemoryOperationalService
             var items = _paymentSlips
                 .Where(s => s.PropertyId == propertyId && (!statusFilter.HasValue || s.Status == statusFilter.Value))
                 .OrderBy(s => s.CreatedAt)
-                .Select(s => MapAdminSlipLocked(s, unmaskPii))
-                .ToList();
-            return Result<PaymentSlipQueueResponse>.Success(new PaymentSlipQueueResponse(items));
+                .ThenBy(s => s.Id)
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<PaymentSlipQueueResponse>.Success(new PaymentSlipQueueResponse(items.Items.Select(s => MapAdminSlipLocked(s, unmaskPii)).ToList(), items.Pagination));
         }
     }
 

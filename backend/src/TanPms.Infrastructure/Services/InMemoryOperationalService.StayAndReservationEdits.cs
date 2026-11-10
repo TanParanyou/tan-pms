@@ -1,3 +1,4 @@
+using TanPms.Application.Cashier;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Reservations;
@@ -220,7 +221,8 @@ public sealed partial class InMemoryOperationalService
                     ledger.RefundRemainingBalance(
                         NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
                         request.Reason.Trim(),
-                        FindOpenShiftForCashLocked(propertyId, cashierUserId));
+                        FindOpenShiftForCashLocked(propertyId, cashierUserId),
+                        PaymentMethods.Cash);
                 }
 
                 _units[stay.UnitId].MarkVacantAfterCancelledCheckIn();

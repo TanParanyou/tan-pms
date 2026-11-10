@@ -1,3 +1,5 @@
+using TanPms.Application.Common.Models;
+using TanPms.Application.Cashier;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Leases;
@@ -20,7 +22,8 @@ public sealed partial class InMemoryOperationalService
         Guid propertyId,
         string? status,
         string? licensePlate,
-        bool unmaskPii = false)
+        bool unmaskPii = false,
+        PageRequest? paging = null)
     {
         if (LeaseRequestValidation.ParseStatusFilter(status, out var statusFilter) is { } statusError)
         {
@@ -54,13 +57,13 @@ public sealed partial class InMemoryOperationalService
                 leases = leases.Where(l => matchingLeaseIds.Contains(l.Id));
             }
 
-            var items = leases
+            var (page, pagination) = leases
                 .OrderByDescending(l => l.StartDate)
                 .ThenByDescending(l => l.DocumentNumber)
-                .Select(l => MapLeaseItemLocked(l, unmaskPii))
-                .ToList();
+                .AsQueryable()
+                .ToPage(paging);
 
-            return Result<LeaseListResponse>.Success(new LeaseListResponse(items));
+            return Result<LeaseListResponse>.Success(new LeaseListResponse(page.Select(l => MapLeaseItemLocked(l, unmaskPii)).ToList(), pagination));
         }
     }
 
@@ -176,7 +179,12 @@ public sealed partial class InMemoryOperationalService
                         property.Code,
                         DocumentTypeCode.DEP,
                         clockUtc).GetAwaiter().GetResult();
-                    ledger.RecordReceipt(depDocNo, lease.SecurityDepositAmount, FindOpenShiftForCashLocked(propertyId, cashierUserId));
+                    var depositMethod = request.PaymentMethod ?? PaymentMethods.Cash;
+                ledger.RecordReceipt(
+                    depDocNo,
+                    lease.SecurityDepositAmount,
+                    depositMethod == PaymentMethods.Cash ? FindOpenShiftForCashLocked(propertyId, cashierUserId) : null,
+                    depositMethod);
                     _depositLedgers.Add(ledger);
                 }
 
@@ -377,7 +385,7 @@ public sealed partial class InMemoryOperationalService
     public Result<LeaseSettlementDto> CancelAdminLease(
         Guid propertyId,
         Guid leaseId,
-        ReasonRequest request,
+        CancelLeaseRequest request,
         DateTimeOffset? nowUtc = null,
         string? cashierUserId = null)
     {
@@ -414,7 +422,8 @@ public sealed partial class InMemoryOperationalService
                     refunded = ledger.RefundRemainingBalance(
                         NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
                         request.Reason.Trim(),
-                        FindOpenShiftForCashLocked(propertyId, cashierUserId)).Amount;
+                        RefundShiftLocked(request.RefundPaymentMethod, propertyId, cashierUserId),
+                        request.RefundPaymentMethod ?? PaymentMethods.Cash).Amount;
                 }
 
                 _invoices.RemoveAll(i => i.LeaseId == lease.Id && i.Status == InvoiceStatus.Draft);
@@ -551,7 +560,8 @@ public sealed partial class InMemoryOperationalService
                     refunded = ledger.RefundRemainingBalance(
                         NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
                         reason,
-                        FindOpenShiftForCashLocked(propertyId, cashierUserId)).Amount;
+                        RefundShiftLocked(request.RefundPaymentMethod, propertyId, cashierUserId),
+                        request.RefundPaymentMethod ?? PaymentMethods.Cash).Amount;
                 }
             }
 
@@ -567,6 +577,9 @@ public sealed partial class InMemoryOperationalService
                 GeneratedHousekeepingTaskStatus: housekeepingTask.Status.ToString()));
         }
     }
+
+    private Domain.Cashier.CashierShift? RefundShiftLocked(string? paymentMethod, Guid propertyId, string? cashierUserId) =>
+        (paymentMethod ?? PaymentMethods.Cash) == PaymentMethods.Cash ? FindOpenShiftForCashLocked(propertyId, cashierUserId) : null;
 
     private void EnsureLeaseWindowAvailableLocked(Unit unit, DateOnly startDate, DateOnly endDateInclusive, DateTimeOffset clockUtc)
     {

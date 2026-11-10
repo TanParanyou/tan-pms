@@ -10,4 +10,5 @@ public sealed record CreateLeaseRequest(
     decimal InitialWaterMeterReading,
     decimal InitialElectricMeterReading,
     IReadOnlyList<LeaseOccupantRequest>? Occupants = null,
-    IReadOnlyList<LeaseVehicleRequest>? Vehicles = null);
+    IReadOnlyList<LeaseVehicleRequest>? Vehicles = null,
+    string? PaymentMethod = null);

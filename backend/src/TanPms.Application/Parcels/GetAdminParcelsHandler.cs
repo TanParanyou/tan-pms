@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 using TanPms.Domain.Identity;
@@ -27,6 +28,6 @@ public sealed class GetAdminParcelsHandler
         }
 
         var unmaskPii = _currentUser.Permissions.Contains(PermissionKeys.AdminCustomerUnmaskPii);
-        return _store.GetAdminParcels(query.PropertyId, query.Status, unmaskPii);
+        return _store.GetAdminParcels(query.PropertyId, query.Status, unmaskPii, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

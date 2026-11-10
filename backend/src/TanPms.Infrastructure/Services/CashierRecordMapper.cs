@@ -69,7 +69,8 @@ internal static class CashierRecordMapper
         slip.ReviewedAt,
         slip.RejectReason,
         receiptDocumentNumber,
-        users(slip.ReviewedByUserId));
+        users(slip.ReviewedByUserId),
+        invoice.DueDate);
 
     internal static DepositLedgerItemDto MapLedger(
         DepositLedger ledger,
@@ -91,7 +92,8 @@ internal static class CashierRecordMapper
                 t.TransactionType.ToString(),
                 t.Amount,
                 t.Reason,
-                t.CreatedAt))
+                t.CreatedAt,
+                t.PaymentMethod))
             .ToList());
 
     internal static PaymentSlip BuildSlip(Invoice invoice, Guid customerId, SubmitPaymentSlipRequest request) => new()

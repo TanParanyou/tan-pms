@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 
@@ -16,7 +17,8 @@ public interface IStayStore
         string? status,
         string? stayMode,
         bool unmaskPii = false,
-        DateTimeOffset? nowUtc = null);
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null);
 
     Result<StayDetailDto> ExtendAdminStay(
         Guid propertyId,

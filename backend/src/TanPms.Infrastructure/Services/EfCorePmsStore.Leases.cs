@@ -1,4 +1,6 @@
+using TanPms.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
+using TanPms.Application.Cashier;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Leases;
@@ -18,7 +20,8 @@ public sealed partial class EfCorePmsStore
         Guid propertyId,
         string? status,
         string? licensePlate,
-        bool unmaskPii = false)
+        bool unmaskPii = false,
+        PageRequest? paging = null)
     {
         if (LeaseRequestValidation.ParseStatusFilter(status, out var statusFilter) is { } statusError)
         {
@@ -40,11 +43,6 @@ public sealed partial class EfCorePmsStore
             query = query.Where(l => l.Status == statusFilter.Value);
         }
 
-        var leases = query
-            .OrderByDescending(l => l.StartDate)
-            .ThenByDescending(l => l.DocumentNumber)
-            .ToList();
-
         var plateQuery = LicensePlateNormalizer.Normalize(licensePlate);
         if (plateQuery.Length > 0)
         {
@@ -64,11 +62,15 @@ public sealed partial class EfCorePmsStore
                 .Where(x => LicensePlateNormalizer.Normalize(x.Plate).Contains(plateQuery, StringComparison.Ordinal))
                 .Select(x => x.LeaseId)
                 .ToHashSet();
-            leases = leases.Where(l => matchingLeaseIds.Contains(l.Id)).ToList();
+            query = query.Where(l => matchingLeaseIds.Contains(l.Id));
         }
 
+        var (leases, pagination) = query
+            .OrderByDescending(l => l.StartDate)
+            .ThenByDescending(l => l.DocumentNumber)
+            .ToPage(paging);
         var items = leases.Select(l => MapLeaseItemDto(l, unmaskPii)).ToList();
-        return Result<LeaseListResponse>.Success(new LeaseListResponse(items));
+        return Result<LeaseListResponse>.Success(new LeaseListResponse(items, pagination));
     }
 
     public Result<LeaseItemDto> GetAdminLease(Guid propertyId, Guid leaseId, bool unmaskPii = false)
@@ -191,7 +193,12 @@ public sealed partial class EfCorePmsStore
                     property.Code,
                     DocumentTypeCode.DEP,
                     clockUtc).GetAwaiter().GetResult();
-                ledger.RecordReceipt(depDocNo, lease.SecurityDepositAmount, FindTrackedOpenShift(propertyId, cashierUserId));
+                var depositMethod = request.PaymentMethod ?? PaymentMethods.Cash;
+                ledger.RecordReceipt(
+                    depDocNo,
+                    lease.SecurityDepositAmount,
+                    depositMethod == PaymentMethods.Cash ? FindTrackedOpenShift(propertyId, cashierUserId) : null,
+                    depositMethod);
                 _dbContext.DepositLedgers.Add(ledger);
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions);
             }
@@ -395,7 +402,7 @@ public sealed partial class EfCorePmsStore
     public Result<LeaseSettlementDto> CancelAdminLease(
         Guid propertyId,
         Guid leaseId,
-        ReasonRequest request,
+        CancelLeaseRequest request,
         DateTimeOffset? nowUtc = null,
         string? cashierUserId = null)
     {
@@ -437,7 +444,9 @@ public sealed partial class EfCorePmsStore
                 var property = _dbContext.Properties.AsNoTracking().First(p => p.Id == propertyId);
                 refunded = ledger.RefundRemainingBalance(
                     _documentNumberService.NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
-                    reason, FindTrackedOpenShift(propertyId, cashierUserId)).Amount;
+                    reason,
+                    RefundShift(request.RefundPaymentMethod, propertyId, cashierUserId),
+                    request.RefundPaymentMethod ?? PaymentMethods.Cash).Amount;
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)));
             }
 
@@ -596,7 +605,9 @@ public sealed partial class EfCorePmsStore
                 {
                     refunded = ledger.RefundRemainingBalance(
                         _documentNumberService.NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.DEP, clockUtc).GetAwaiter().GetResult(),
-                        reason, FindTrackedOpenShift(propertyId, cashierUserId)).Amount;
+                        reason,
+                        RefundShift(request.RefundPaymentMethod, propertyId, cashierUserId),
+                        request.RefundPaymentMethod ?? PaymentMethods.Cash).Amount;
                 }
 
                 _dbContext.DepositTransactions.AddRange(ledger.Transactions.Where(t => !existingTxIds.Contains(t.Id)));
@@ -621,6 +632,10 @@ public sealed partial class EfCorePmsStore
             return Result<LeaseSettlementDto>.Failure(new Error(ex.ErrorCode, ex.Message));
         }
     }
+
+    // Only a Cash refund leaves the caller's drawer.
+    private Domain.Cashier.CashierShift? RefundShift(string? paymentMethod, Guid propertyId, string? cashierUserId) =>
+        (paymentMethod ?? PaymentMethods.Cash) == PaymentMethods.Cash ? FindTrackedOpenShift(propertyId, cashierUserId) : null;
 
     private void EnsureLeaseWindowAvailable(Unit unit, DateOnly startDate, DateOnly endDateInclusive, DateTimeOffset clockUtc)
     {

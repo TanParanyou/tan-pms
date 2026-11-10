@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Housekeeping;
@@ -16,7 +17,7 @@ public sealed partial class InMemoryOperationalService
 {
     private readonly List<WorkOrder> _workOrders = [];
 
-    public Result<HousekeepingTaskListResponse> GetAdminHousekeepingTasks(Guid propertyId, string? status, Guid? buildingId)
+    public Result<HousekeepingTaskListResponse> GetAdminHousekeepingTasks(Guid propertyId, string? status, Guid? buildingId, PageRequest? paging = null)
     {
         HousekeepingTaskStatus? statusFilter = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -41,9 +42,11 @@ public sealed partial class InMemoryOperationalService
                 .ThenBy(x => _floors.TryGetValue(x.Unit.FloorId, out var f) ? f.FloorNumber : 0)
                 .ThenBy(x => x.Unit.UnitNumber, StringComparer.Ordinal)
                 .ThenBy(x => x.Task.CreatedAt)
-                .Select(x => OperationsRecordMapper.MapHousekeepingTask(x.Task, _unitRefs[x.Unit.Id], x.Unit, UserRefsLocked()))
-                .ToList();
-            return Result<HousekeepingTaskListResponse>.Success(new HousekeepingTaskListResponse(items));
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<HousekeepingTaskListResponse>.Success(new HousekeepingTaskListResponse(
+                items.Items.Select(x => OperationsRecordMapper.MapHousekeepingTask(x.Task, _unitRefs[x.Unit.Id], x.Unit, UserRefsLocked())).ToList(),
+                items.Pagination));
         }
     }
 
@@ -93,11 +96,11 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<WorkOrderListResponse> GetAdminWorkOrders(Guid propertyId, string? status, bool unmaskPii = false) =>
-        ListWorkOrders(w => w.PropertyId == propertyId, status, unmaskPii);
+    public Result<WorkOrderListResponse> GetAdminWorkOrders(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null) =>
+        ListWorkOrders(w => w.PropertyId == propertyId, status, unmaskPii, paging);
 
-    public Result<WorkOrderListResponse> GetClientWorkOrders(Guid customerId, string? status) =>
-        ListWorkOrders(w => w.ReportedByCustomerId == customerId, status, unmaskPii: false);
+    public Result<WorkOrderListResponse> GetClientWorkOrders(Guid customerId, string? status, PageRequest? paging = null) =>
+        ListWorkOrders(w => w.ReportedByCustomerId == customerId, status, unmaskPii: false, paging);
 
     public Result<WorkOrderItemDto> AssignAdminWorkOrder(Guid propertyId, Guid workOrderId, AssignWorkOrderRequest request)
     {
@@ -230,11 +233,11 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<ParcelListResponse> GetAdminParcels(Guid propertyId, string? status, bool unmaskPii = false) =>
-        ListParcels(p => p.PropertyId == propertyId, status, unmaskPii);
+    public Result<ParcelListResponse> GetAdminParcels(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null) =>
+        ListParcels(p => p.PropertyId == propertyId, status, unmaskPii, paging);
 
-    public Result<ParcelListResponse> GetClientParcels(Guid customerId, string? status) =>
-        ListParcels(p => p.CustomerId == customerId, status, unmaskPii: false);
+    public Result<ParcelListResponse> GetClientParcels(Guid customerId, string? status, PageRequest? paging = null) =>
+        ListParcels(p => p.CustomerId == customerId, status, unmaskPii: false, paging);
 
     public Result<ParcelItemDto> PickUpAdminParcel(Guid propertyId, Guid parcelId, PickUpParcelRequest request, DateTimeOffset? nowUtc = null)
     {
@@ -488,7 +491,7 @@ public sealed partial class InMemoryOperationalService
         return MapWorkOrderLocked(workOrder, unmaskPii: false);
     }
 
-    private Result<WorkOrderListResponse> ListWorkOrders(Func<WorkOrder, bool> scope, string? status, bool unmaskPii)
+    private Result<WorkOrderListResponse> ListWorkOrders(Func<WorkOrder, bool> scope, string? status, bool unmaskPii, PageRequest? paging = null)
     {
         if (WorkOrderRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -501,13 +504,14 @@ public sealed partial class InMemoryOperationalService
                 .Where(scope)
                 .Where(w => !statusFilter.HasValue || w.Status == statusFilter.Value)
                 .OrderByDescending(w => w.DocumentNumber, StringComparer.Ordinal)
-                .Select(w => MapWorkOrderLocked(w, unmaskPii))
-                .ToList();
-            return Result<WorkOrderListResponse>.Success(new WorkOrderListResponse(items));
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<WorkOrderListResponse>.Success(new WorkOrderListResponse(
+                items.Items.Select(w => MapWorkOrderLocked(w, unmaskPii)).ToList(), items.Pagination));
         }
     }
 
-    private Result<ParcelListResponse> ListParcels(Func<Parcel, bool> scope, string? status, bool unmaskPii)
+    private Result<ParcelListResponse> ListParcels(Func<Parcel, bool> scope, string? status, bool unmaskPii, PageRequest? paging = null)
     {
         if (ParcelRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -520,9 +524,11 @@ public sealed partial class InMemoryOperationalService
                 .Where(scope)
                 .Where(p => !statusFilter.HasValue || p.Status == statusFilter.Value)
                 .OrderByDescending(p => p.ArrivedAt)
-                .Select(p => MapParcelLocked(p, unmaskPii))
-                .ToList();
-            return Result<ParcelListResponse>.Success(new ParcelListResponse(items));
+                .ThenByDescending(p => p.DocumentNumber, StringComparer.Ordinal)
+                .AsQueryable()
+                .ToPage(paging);
+            return Result<ParcelListResponse>.Success(new ParcelListResponse(
+                items.Items.Select(p => MapParcelLocked(p, unmaskPii)).ToList(), items.Pagination));
         }
     }
 

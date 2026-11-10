@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using TanPms.Application.Common.Contracts;
@@ -17,7 +18,7 @@ namespace TanPms.Infrastructure.Services;
 
 public sealed partial class EfCorePmsStore
 {
-    public Result<HousekeepingTaskListResponse> GetAdminHousekeepingTasks(Guid propertyId, string? status, Guid? buildingId)
+    public Result<HousekeepingTaskListResponse> GetAdminHousekeepingTasks(Guid propertyId, string? status, Guid? buildingId, PageRequest? paging = null)
     {
         HousekeepingTaskStatus? statusFilter = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -38,24 +39,24 @@ public sealed partial class EfCorePmsStore
             query = query.Where(t => t.Status == statusFilter.Value);
         }
 
-        var tasks = query.ToList();
+        // Ordered by building, floor and unit in SQL so Skip/Take pages are stable.
+        var ordered =
+            from t in query
+            join u in _dbContext.Units.AsNoTracking() on t.UnitId equals u.Id
+            join b in _dbContext.Buildings.AsNoTracking() on u.BuildingId equals b.Id
+            join f in _dbContext.Floors.AsNoTracking() on u.FloorId equals f.Id
+            where !buildingId.HasValue || u.BuildingId == buildingId.Value
+            orderby b.Code, f.FloorNumber, u.UnitNumber, t.CreatedAt, t.Id
+            select t;
+        var (tasks, pagination) = ordered.ToPage(paging);
         var unitIds = tasks.Select(t => t.UnitId).Distinct().ToList();
         var units = _dbContext.Units.AsNoTracking().Where(u => unitIds.Contains(u.Id)).ToDictionary(u => u.Id);
         var unitRefs = BuildUnitRefsForProperty(propertyId, units.Values.ToList());
-        var buildingCodes = _dbContext.Buildings.AsNoTracking().Where(b => b.PropertyId == propertyId).ToDictionary(b => b.Id, b => b.Code);
-        var floorNumbers = _dbContext.Floors.AsNoTracking().Where(f => f.PropertyId == propertyId).ToDictionary(f => f.Id, f => f.FloorNumber);
-
         var users = UserRefs();
         var items = tasks
-            .Select(t => (Task: t, Unit: units[t.UnitId]))
-            .Where(x => !buildingId.HasValue || x.Unit.BuildingId == buildingId.Value)
-            .OrderBy(x => buildingCodes.GetValueOrDefault(x.Unit.BuildingId, string.Empty), StringComparer.Ordinal)
-            .ThenBy(x => floorNumbers.GetValueOrDefault(x.Unit.FloorId))
-            .ThenBy(x => x.Unit.UnitNumber, StringComparer.Ordinal)
-            .ThenBy(x => x.Task.CreatedAt)
-            .Select(x => OperationsRecordMapper.MapHousekeepingTask(x.Task, unitRefs[x.Unit.Id], x.Unit, users))
+            .Select(t => OperationsRecordMapper.MapHousekeepingTask(t, unitRefs[t.UnitId], units[t.UnitId], users))
             .ToList();
-        return Result<HousekeepingTaskListResponse>.Success(new HousekeepingTaskListResponse(items));
+        return Result<HousekeepingTaskListResponse>.Success(new HousekeepingTaskListResponse(items, pagination));
     }
 
     public Result<HousekeepingTaskDto> StartAdminHousekeepingTask(Guid propertyId, Guid taskId) =>
@@ -99,11 +100,11 @@ public sealed partial class EfCorePmsStore
         return Result<WorkOrderItemDto>.Success(AddWorkOrder(unit.PropertyId, request, priority, customerId, nowUtc));
     }
 
-    public Result<WorkOrderListResponse> GetAdminWorkOrders(Guid propertyId, string? status, bool unmaskPii = false) =>
-        ListWorkOrders(w => w.PropertyId == propertyId, status, unmaskPii);
+    public Result<WorkOrderListResponse> GetAdminWorkOrders(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null) =>
+        ListWorkOrders(w => w.PropertyId == propertyId, status, unmaskPii, paging);
 
-    public Result<WorkOrderListResponse> GetClientWorkOrders(Guid customerId, string? status) =>
-        ListWorkOrders(w => w.ReportedByCustomerId == customerId, status, unmaskPii: false);
+    public Result<WorkOrderListResponse> GetClientWorkOrders(Guid customerId, string? status, PageRequest? paging = null) =>
+        ListWorkOrders(w => w.ReportedByCustomerId == customerId, status, unmaskPii: false, paging);
 
     public Result<WorkOrderItemDto> AssignAdminWorkOrder(Guid propertyId, Guid workOrderId, AssignWorkOrderRequest request)
     {
@@ -239,11 +240,11 @@ public sealed partial class EfCorePmsStore
         return Result<ParcelItemDto>.Success(MapParcels([parcel], unmaskPii: false)[0]);
     }
 
-    public Result<ParcelListResponse> GetAdminParcels(Guid propertyId, string? status, bool unmaskPii = false) =>
-        ListParcels(p => p.PropertyId == propertyId, status, unmaskPii);
+    public Result<ParcelListResponse> GetAdminParcels(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null) =>
+        ListParcels(p => p.PropertyId == propertyId, status, unmaskPii, paging);
 
-    public Result<ParcelListResponse> GetClientParcels(Guid customerId, string? status) =>
-        ListParcels(p => p.CustomerId == customerId, status, unmaskPii: false);
+    public Result<ParcelListResponse> GetClientParcels(Guid customerId, string? status, PageRequest? paging = null) =>
+        ListParcels(p => p.CustomerId == customerId, status, unmaskPii: false, paging);
 
     public Result<ParcelItemDto> PickUpAdminParcel(Guid propertyId, Guid parcelId, PickUpParcelRequest request, DateTimeOffset? nowUtc = null)
     {
@@ -498,7 +499,7 @@ public sealed partial class EfCorePmsStore
         return MapWorkOrders([workOrder], unmaskPii: false)[0];
     }
 
-    private Result<WorkOrderListResponse> ListWorkOrders(Expression<Func<WorkOrder, bool>> scope, string? status, bool unmaskPii)
+    private Result<WorkOrderListResponse> ListWorkOrders(Expression<Func<WorkOrder, bool>> scope, string? status, bool unmaskPii, PageRequest? paging = null)
     {
         if (WorkOrderRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -511,11 +512,11 @@ public sealed partial class EfCorePmsStore
             query = query.Where(w => w.Status == statusFilter.Value);
         }
 
-        var workOrders = query.OrderByDescending(w => w.DocumentNumber).ToList();
-        return Result<WorkOrderListResponse>.Success(new WorkOrderListResponse(MapWorkOrders(workOrders, unmaskPii)));
+        var (workOrders, pagination) = query.OrderByDescending(w => w.DocumentNumber).ToPage(paging);
+        return Result<WorkOrderListResponse>.Success(new WorkOrderListResponse(MapWorkOrders(workOrders, unmaskPii), pagination));
     }
 
-    private Result<ParcelListResponse> ListParcels(Expression<Func<Parcel, bool>> scope, string? status, bool unmaskPii)
+    private Result<ParcelListResponse> ListParcels(Expression<Func<Parcel, bool>> scope, string? status, bool unmaskPii, PageRequest? paging = null)
     {
         if (ParcelRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -528,8 +529,8 @@ public sealed partial class EfCorePmsStore
             query = query.Where(p => p.Status == statusFilter.Value);
         }
 
-        var parcels = query.OrderByDescending(p => p.ArrivedAt).ToList();
-        return Result<ParcelListResponse>.Success(new ParcelListResponse(MapParcels(parcels, unmaskPii)));
+        var (parcels, pagination) = query.OrderByDescending(p => p.ArrivedAt).ThenByDescending(p => p.DocumentNumber).ToPage(paging);
+        return Result<ParcelListResponse>.Success(new ParcelListResponse(MapParcels(parcels, unmaskPii), pagination));
     }
 
     private (Stay? Stay, Lease? Lease) FindActiveOccupancy(Guid unitId) =>

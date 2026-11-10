@@ -114,4 +114,10 @@
   <data name="master_data.in_use_DETAIL" xml:space="preserve">
     <value>ไม่สามารถลบได้เพราะข้อมูลนี้ถูกอ้างอิงโดยรายการอื่น (เช่น สัญญาเช่า การเข้าพัก การจอง หรือใบแจ้งหนี้)</value>
   </data>
+  <data name="file.not_found_TITLE" xml:space="preserve">
+    <value>ไม่พบไฟล์</value>
+  </data>
+  <data name="file.not_found_DETAIL" xml:space="preserve">
+    <value>ไม่พบไฟล์ที่ร้องขอ หรือเป็นรหัสไฟล์รูปแบบเก่าที่ไม่ได้อัปโหลดผ่านระบบไฟล์จึงไม่สามารถดาวน์โหลดได้</value>
+  </data>
 </root>

@@ -2,4 +2,6 @@ namespace TanPms.Application.Payments;
 
 public sealed record GetAdminPaymentSlipsQuery(
     Guid PropertyId,
-    string? Status);
+    string? Status,
+    int? Page = null,
+    int? PageSize = null);

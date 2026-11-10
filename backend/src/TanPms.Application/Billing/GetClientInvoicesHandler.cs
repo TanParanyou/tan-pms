@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 
@@ -19,6 +20,6 @@ public sealed class GetClientInvoicesHandler
     {
         return ScopeAuthorizationGuard.CheckClientScope(_currentUser, out var customerId) is { } authError
             ? Result<ClientInvoiceListResponse>.Failure(authError)
-            : _store.GetClientInvoices(customerId, query.Status);
+            : _store.GetClientInvoices(customerId, query.Status, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

@@ -1,5 +1,8 @@
+using TanPms.Application.Common.Models;
 using System.Collections.Concurrent;
 using System.Text;
+using TanPms.Application.Analytics;
+using TanPms.Application.Cashier;
 using TanPms.Application.Billing;
 using TanPms.Application.Client;
 using TanPms.Application.Common.Abstractions;
@@ -208,17 +211,19 @@ public sealed partial class InMemoryOperationalService
 
     public Result<AdminUserListResponse> GetAdminUsers(
         Guid? propertyId,
-        IReadOnlySet<Guid> callerAllowedPropertyIds)
+        IReadOnlySet<Guid> callerAllowedPropertyIds,
+        PageRequest? paging = null)
     {
         lock (_syncRoot)
         {
-            var items = _adminUsers
+            var (users, pagination) = _adminUsers
                 .Where(u => u.AllowedPropertyIds.Any(callerAllowedPropertyIds.Contains))
                 .Where(u => !propertyId.HasValue || u.AllowedPropertyIds.Contains(propertyId.Value))
-                .Select(MapAdminUserDto)
-                .ToList();
+                .OrderBy(u => u.Username, StringComparer.Ordinal)
+                .AsQueryable()
+                .ToPage(paging);
 
-            return Result<AdminUserListResponse>.Success(new AdminUserListResponse(items));
+            return Result<AdminUserListResponse>.Success(new AdminUserListResponse(users.Select(MapAdminUserDto).ToList(), pagination));
         }
     }
 
@@ -337,17 +342,18 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<NotificationListResponse> GetClientNotifications(Guid customerId)
+    public Result<NotificationListResponse> GetClientNotifications(Guid customerId, PageRequest? paging = null)
     {
         lock (_syncRoot)
         {
-            var items = _notifications
+            var (messages, pagination) = _notifications
                 .Where(n => n.CustomerId == customerId)
                 .OrderByDescending(n => n.SentAtUtc)
-                .Select(MapNotificationDto)
-                .ToList();
+                .ThenByDescending(n => n.Id)
+                .AsQueryable()
+                .ToPage(paging);
 
-            return Result<NotificationListResponse>.Success(new NotificationListResponse(items));
+            return Result<NotificationListResponse>.Success(new NotificationListResponse(messages.Select(MapNotificationDto).ToList(), pagination));
         }
     }
 
@@ -1137,7 +1143,8 @@ public sealed partial class InMemoryOperationalService
         Guid propertyId,
         string? status,
         string? stayMode,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null)
     {
         ReservationStatus? statusFilter = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -1184,10 +1191,10 @@ public sealed partial class InMemoryOperationalService
                 .Where(r => !stayModeFilter.HasValue || r.StayMode == stayModeFilter.Value)
                 .OrderByDescending(r => r.SlotStartAt)
                 .ThenByDescending(r => r.DocumentNumber)
-                .Select(MapReservationItemDtoLocked)
-                .ToList();
+                .AsQueryable()
+                .ToPage(paging);
 
-            return Result<ReservationListResponse>.Success(new ReservationListResponse(items));
+            return Result<ReservationListResponse>.Success(new ReservationListResponse(items.Items.Select(MapReservationItemDtoLocked).ToList(), items.Pagination));
         }
     }
 
@@ -1449,7 +1456,8 @@ public sealed partial class InMemoryOperationalService
 
     public Result<ReservationListResponse> GetClientReservations(
         Guid customerId,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null)
     {
         var clockUtc = nowUtc ?? DateTimeOffset.UtcNow;
 
@@ -1461,10 +1469,10 @@ public sealed partial class InMemoryOperationalService
                 .Where(r => r.CustomerId == customerId)
                 .OrderByDescending(r => r.SlotStartAt)
                 .ThenByDescending(r => r.DocumentNumber)
-                .Select(MapReservationItemDtoLocked)
-                .ToList();
+                .AsQueryable()
+                .ToPage(paging);
 
-            return Result<ReservationListResponse>.Success(new ReservationListResponse(items));
+            return Result<ReservationListResponse>.Success(new ReservationListResponse(items.Items.Select(MapReservationItemDtoLocked).ToList(), items.Pagination));
         }
     }
 
@@ -1961,7 +1969,7 @@ public sealed partial class InMemoryOperationalService
                     property.Code,
                     DocumentTypeCode.DEP,
                     clockUtc).GetAwaiter().GetResult();
-                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount, FindOpenShiftForCashLocked(command.PropertyId, cashierUserId));
+                ledger.RecordReceipt(depDocNo, stay.KeyDepositAmount, FindOpenShiftForCashLocked(command.PropertyId, cashierUserId), PaymentMethods.Cash);
                 _depositLedgers.Add(ledger);
             }
 
@@ -2005,7 +2013,8 @@ public sealed partial class InMemoryOperationalService
         string? status,
         string? stayMode,
         bool unmaskPii = false,
-        DateTimeOffset? nowUtc = null)
+        DateTimeOffset? nowUtc = null,
+        PageRequest? paging = null)
     {
         StayStatus? statusFilter = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -2051,10 +2060,11 @@ public sealed partial class InMemoryOperationalService
                 .Where(s => !modeFilter.HasValue || s.StayMode == modeFilter.Value)
                 .OrderByDescending(s => s.CheckInAt)
                 .ThenByDescending(s => s.DocumentNumber)
-                .Select(s => MapStayDetailDtoLocked(s, clockUtc, unmaskPii))
-                .ToList();
+                .AsQueryable()
+                .ToPage(paging);
 
-            return Result<StayListResponse>.Success(new StayListResponse(items));
+            return Result<StayListResponse>.Success(new StayListResponse(
+                items.Items.Select(s => MapStayDetailDtoLocked(s, clockUtc, unmaskPii)).ToList(), items.Pagination));
         }
     }
 
@@ -2285,7 +2295,7 @@ public sealed partial class InMemoryOperationalService
             }
 
             var property = _properties[propertyId];
-            _ = NextDocumentNumberAsync(
+            var receiptNumber = NextDocumentNumberAsync(
                 property.Id,
                 property.Code,
                 DocumentTypeCode.RCT,
@@ -2293,11 +2303,14 @@ public sealed partial class InMemoryOperationalService
 
             folio.RecordPayment(roundedAmount);
             Touch(folio);
-        if (request.PaymentMethod == "Cash")
-        {
-            // Cash lands in the caller's Open drawer; transfers/PromptPay do not touch the shift.
-            FindOpenShiftForCashLocked(propertyId, cashierUserId)?.RecordCashReceipt(roundedAmount);
-        }
+            var shift = FindOpenShiftForCashLocked(propertyId, cashierUserId);
+            if (request.PaymentMethod == PaymentMethods.Cash)
+            {
+                // Cash lands in the caller's Open drawer; transfers/PromptPay do not touch the shift.
+                shift?.RecordCashReceipt(roundedAmount);
+            }
+
+            _receipts.Add(ReceiptRecordMapper.BuildFolioReceipt(stay, folio, receiptNumber, roundedAmount, request.PaymentMethod, shift, cashierUserId));
             return Result<StayDetailDto>.Success(MapStayDetailDtoLocked(stay, clockUtc, unmaskPii: false));
         }
     }
@@ -2372,7 +2385,7 @@ public sealed partial class InMemoryOperationalService
                             property.Code,
                             DocumentTypeCode.DEP,
                             clockUtc).GetAwaiter().GetResult();
-                        ledger.RefundRemainingBalance(refundDocNo, reason, FindOpenShiftForCashLocked(propertyId, cashierUserId));
+                        ledger.RefundRemainingBalance(refundDocNo, reason, FindOpenShiftForCashLocked(propertyId, cashierUserId), PaymentMethods.Cash);
                     }
                 }
 
@@ -3049,6 +3062,7 @@ public sealed partial class InMemoryOperationalService
         lease1.Activate();
         _leases.Add(lease1);
 
+        var seedIssuedAt = DateTimeOffset.UtcNow;
         var invoice1 = new Invoice
         {
             PropertyId = bkk.Id,
@@ -3059,7 +3073,7 @@ public sealed partial class InMemoryOperationalService
         };
         invoice1.AddLine("ค่าเช่าห้องรายเดือน (พ.ย. 2569)", 8500.00m, TaxMode.Exempt, "Monthly Room Rent (Nov 2026)", UtilityChargeCategories.MonthlyRoomRent);
         invoice1.AddLine("ค่าเช่าเฟอร์นิเจอร์", 1000.00m, TaxMode.VatExcluded, "Furniture Rental");
-        invoice1.Issue();
+        invoice1.Issue(seedIssuedAt, AnalyticsPeriod.LocalDate(seedIssuedAt).AddDays(Property.DefaultPaymentTermsDays));
         _invoices.Add(invoice1);
 
         var invoice2 = new Invoice
@@ -3069,7 +3083,7 @@ public sealed partial class InMemoryOperationalService
             CustomerId = customer2.Id
         };
         invoice2.AddLine("ยอดค้างค่าห้องรายวัน", 1200.00m, TaxMode.VatIncluded, "Daily Stay Balance");
-        invoice2.Issue();
+        invoice2.Issue(seedIssuedAt, AnalyticsPeriod.LocalDate(seedIssuedAt).AddDays(Property.DefaultPaymentTermsDays));
         _invoices.Add(invoice2);
 
         _parcels.Add(new Parcel

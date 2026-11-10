@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 
@@ -22,6 +23,6 @@ public sealed class GetClientParcelsHandler
             return Result<ParcelListResponse>.Failure(authError);
         }
 
-        return _store.GetClientParcels(customerId, query.Status);
+        return _store.GetClientParcels(customerId, query.Status, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

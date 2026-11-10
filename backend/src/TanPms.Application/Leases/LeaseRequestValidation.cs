@@ -1,3 +1,4 @@
+using TanPms.Application.Cashier;
 using TanPms.Application.Common.Results;
 using TanPms.Domain.Common;
 using TanPms.Domain.Leases;
@@ -39,6 +40,11 @@ public static class LeaseRequestValidation
         if (request.InitialWaterMeterReading < 0m || request.InitialElectricMeterReading < 0m)
         {
             return Invalid("Initial meter readings cannot be negative.");
+        }
+
+        if (request.PaymentMethod is not null && PaymentMethods.Validate(request.PaymentMethod) is { } methodError)
+        {
+            return methodError;
         }
 
         foreach (var occupant in request.Occupants ?? [])
@@ -113,6 +119,11 @@ public static class LeaseRequestValidation
         if (request.UtilityDeductionAmount < 0m || request.DamageDeductionAmount < 0m)
         {
             return Invalid("Deduction amounts cannot be negative.");
+        }
+
+        if (request.RefundPaymentMethod is not null && PaymentMethods.Validate(request.RefundPaymentMethod) is { } methodError)
+        {
+            return methodError;
         }
 
         return string.IsNullOrWhiteSpace(request.Reason)

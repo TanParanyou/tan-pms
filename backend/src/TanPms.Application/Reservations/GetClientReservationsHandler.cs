@@ -1,4 +1,5 @@
 using TanPms.Application.Common.Abstractions;
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
 
@@ -15,13 +16,13 @@ public sealed class GetClientReservationsHandler
         _currentUser = currentUser;
     }
 
-    public Result<ReservationListResponse> Handle(GetClientReservationsQuery _)
+    public Result<ReservationListResponse> Handle(GetClientReservationsQuery query)
     {
         if (ScopeAuthorizationGuard.CheckClientScope(_currentUser, out var customerId) is { } authError)
         {
             return Result<ReservationListResponse>.Failure(authError);
         }
 
-        return _store.GetClientReservations(customerId);
+        return _store.GetClientReservations(customerId, paging: PageRequest.From(query.Page, query.PageSize));
     }
 }

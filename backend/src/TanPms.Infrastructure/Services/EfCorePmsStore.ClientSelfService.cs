@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using TanPms.Application.Analytics;
 using TanPms.Application.Billing;
@@ -32,7 +33,7 @@ public sealed partial class EfCorePmsStore
             : Result<LeaseItemDto>.Success(MapLeaseItemDto(lease, unmaskPii: false));
     }
 
-    public Result<ClientInvoiceListResponse> GetClientInvoices(Guid customerId, string? status)
+    public Result<ClientInvoiceListResponse> GetClientInvoices(Guid customerId, string? status, PageRequest? paging = null)
     {
         if (ClientInvoiceRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -42,8 +43,8 @@ public sealed partial class EfCorePmsStore
         var invoices = _dbContext.Invoices.AsNoTracking().Include(i => i.Lines)
             .Where(i => i.CustomerId == customerId && i.Status != InvoiceStatus.Draft && (statusFilter == null || i.Status == statusFilter))
             .OrderByDescending(i => i.DocumentNumber)
-            .ToList();
-        return Result<ClientInvoiceListResponse>.Success(new ClientInvoiceListResponse(BuildClientInvoices(invoices)));
+            .ToPage(paging);
+        return Result<ClientInvoiceListResponse>.Success(new ClientInvoiceListResponse(BuildClientInvoices(invoices.Items), invoices.Pagination));
     }
 
     public Result<ClientInvoiceDto> GetClientInvoice(Guid customerId, Guid invoiceId)
@@ -72,18 +73,20 @@ public sealed partial class EfCorePmsStore
         return Result<ClientUtilityUsageResponse>.Success(MeterBillingComposer.BuildUtilityUsage(lease, readings, months));
     }
 
-    public Result<ClientPaymentSlipListResponse> GetClientPaymentSlips(Guid customerId)
+    public Result<ClientPaymentSlipListResponse> GetClientPaymentSlips(Guid customerId, PageRequest? paging = null)
     {
-        var slips = _dbContext.PaymentSlips.AsNoTracking()
+        var (slips, pagination) = _dbContext.PaymentSlips.AsNoTracking()
             .Where(s => s.CustomerId == customerId)
             .OrderByDescending(s => s.CreatedAt)
-            .ToList();
+            .ThenByDescending(s => s.Id)
+            .ToPage(paging);
         var invoiceIds = slips.Select(s => s.InvoiceId).Distinct().ToList();
         var invoiceNumbers = _dbContext.Invoices.AsNoTracking()
             .Where(i => invoiceIds.Contains(i.Id))
             .ToDictionary(i => i.Id, i => i.DocumentNumber);
         return Result<ClientPaymentSlipListResponse>.Success(new ClientPaymentSlipListResponse(
-            slips.Select(s => CashierRecordMapper.MapClientSlip(s, invoiceNumbers[s.InvoiceId])).ToList()));
+            slips.Select(s => CashierRecordMapper.MapClientSlip(s, invoiceNumbers[s.InvoiceId])).ToList(),
+            pagination));
     }
 
     public Result<LeaseIntentDto> CreateClientLeaseIntent(Guid customerId, Guid leaseId, CreateLeaseIntentRequest request, DateTimeOffset? nowUtc = null)
@@ -145,7 +148,7 @@ public sealed partial class EfCorePmsStore
             : SaveIntent(intent, i => i.Withdraw());
     }
 
-    public Result<LeaseIntentListResponse> GetAdminLeaseIntents(Guid propertyId, string? status, bool unmaskPii = false)
+    public Result<LeaseIntentListResponse> GetAdminLeaseIntents(Guid propertyId, string? status, bool unmaskPii = false, PageRequest? paging = null)
     {
         if (LeaseIntentRules.ParseStatus(status, out var statusFilter) is { } statusError)
         {
@@ -155,8 +158,9 @@ public sealed partial class EfCorePmsStore
         var intents = _dbContext.LeaseIntentRequests.AsNoTracking()
             .Where(i => i.PropertyId == propertyId && (statusFilter == null || i.Status == statusFilter))
             .OrderByDescending(i => i.CreatedAt)
-            .ToList();
-        return Result<LeaseIntentListResponse>.Success(new LeaseIntentListResponse(MapIntents(intents, unmaskPii)));
+            .ThenByDescending(i => i.Id)
+            .ToPage(paging);
+        return Result<LeaseIntentListResponse>.Success(new LeaseIntentListResponse(MapIntents(intents.Items, unmaskPii), intents.Pagination));
     }
 
     public Result<LeaseIntentDto> ApproveAdminLeaseIntent(Guid propertyId, Guid intentId, string reviewerUserId, DateTimeOffset? nowUtc = null)
@@ -250,7 +254,7 @@ public sealed partial class EfCorePmsStore
     {
         var invoiceIds = invoices.Select(i => i.Id).ToList();
         var invoiceDtos = invoices.GroupBy(i => i.PropertyId).SelectMany(g => MapInvoices(g.Key, g.ToList(), unmaskPii: false)).ToDictionary(i => i.Id);
-        var receipts = _dbContext.Receipts.AsNoTracking().Where(r => invoiceIds.Contains(r.InvoiceId)).OrderBy(r => r.CreatedAt).ToList();
+        var receipts = _dbContext.Receipts.AsNoTracking().Where(r => r.InvoiceId != null && invoiceIds.Contains(r.InvoiceId.Value)).OrderBy(r => r.CreatedAt).ToList();
         var receiptDtos = MapReceipts(receipts, unmaskPii: false);
         var slips = _dbContext.PaymentSlips.AsNoTracking().Where(s => invoiceIds.Contains(s.InvoiceId)).OrderByDescending(s => s.CreatedAt).ToList();
         return invoices.Select(invoice =>

@@ -1,3 +1,4 @@
+using TanPms.Application.Common.Models;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Common.Results;
 
@@ -9,7 +10,8 @@ public interface ILeaseStore
         Guid propertyId,
         string? status,
         string? licensePlate,
-        bool unmaskPii = false);
+        bool unmaskPii = false,
+        PageRequest? paging = null);
 
     Result<LeaseItemDto> GetAdminLease(
         Guid propertyId,
@@ -71,7 +73,7 @@ public interface ILeaseStore
     Result<LeaseSettlementDto> CancelAdminLease(
         Guid propertyId,
         Guid leaseId,
-        ReasonRequest request,
+        CancelLeaseRequest request,
         DateTimeOffset? nowUtc = null,
         string? cashierUserId = null);
 

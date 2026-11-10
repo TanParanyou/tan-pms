@@ -7,10 +7,13 @@ using TanPms.Application.Billing;
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Leases;
+using TanPms.Domain.Rates;
 
 namespace TanPms.Infrastructure.Pdf;
 
-// QuestPDF renderer for printable documents. Thai text uses the embedded Sarabun font; labels are bilingual (th / en)
+// QuestPDF renderer for printable documents. Thai text uses the embedded Sarabun font
+// (Copyright 2018 The Sarabun Project Authors, SIL Open Font License 1.1 - see Pdf/Fonts/OFL.txt, not printed on documents);
+// labels are bilingual (th / en)
 // because the PDF is a legal document, not a localized UI screen.
 public sealed class QuestPdfDocumentRenderer : IPdfDocumentRenderer
 {
@@ -93,7 +96,9 @@ public sealed class QuestPdfDocumentRenderer : IPdfDocumentRenderer
                     rows.Add(("ได้รับเงินจาก / Received from", receipt.Customer.FullName));
                     rows.Add(("เลขประจำตัว / ID", receipt.Customer.MaskedNationalId));
                     rows.Add(("ห้อง / Unit", receipt.Unit?.UnitNumber ?? "-"));
-                    rows.Add(("อ้างอิงใบแจ้งหนี้ / Invoice", receipt.InvoiceDocumentNumber));
+                    rows.Add(receipt.InvoiceDocumentNumber is { } invoiceNumber
+                        ? ("อ้างอิงใบแจ้งหนี้ / Invoice", invoiceNumber)
+                        : ("อ้างอิงการเข้าพัก / Stay", receipt.StayDocumentNumber ?? "-"));
                     rows.Add(("วันที่ / Date", FormatDate(DateOnly.FromDateTime(receipt.IssuedAt.UtcDateTime))));
                     rows.Add(("วิธีชำระ / Method", receipt.IsCashPayment ? "เงินสด / Cash" : "โอน / Transfer"));
                 }));
@@ -101,9 +106,20 @@ public sealed class QuestPdfDocumentRenderer : IPdfDocumentRenderer
                 {
                     table.ColumnsDefinition(c => { c.RelativeColumn(4); c.RelativeColumn(1); c.RelativeColumn(1); c.RelativeColumn(1); });
                     HeaderRow(table, "รายการ / Description", "ก่อนภาษี / Net", "VAT", "รวม / Total");
-                    foreach (var line in document.Invoice.Lines)
+                    if (document.Invoice is { } invoice)
                     {
-                        BodyRow(table, line.Description.Th, Money(line.SubTotal), Money(line.VatAmount), Money(line.NetAmount));
+                        foreach (var line in invoice.Lines)
+                        {
+                            BodyRow(table, line.Description.Th, Money(line.SubTotal), Money(line.VatAmount), Money(line.NetAmount));
+                        }
+                    }
+                    else
+                    {
+                        foreach (var charge in document.FolioCharges.Where(c => !c.IsVoided))
+                        {
+                            var tax = ThaiTaxCalculator.CalculateLine(charge.Amount, Enum.Parse<TaxMode>(charge.TaxMode));
+                            BodyRow(table, charge.Description.Th, Money(tax.SubTotal), Money(tax.VatAmount), Money(tax.TotalAmount));
+                        }
                     }
                 });
                 col.Item().AlignRight().Column(totals =>

@@ -526,7 +526,7 @@ public sealed class PostgresPersistenceIntegrationTests
 
             // Only a Draft invoice exists, so cancel is allowed: full deposit refund and the draft is soft-deleted.
             var cancelledLease = await (await crudClient.PostAsJsonAsync(
-                $"{leasesUrl}/{crudLease.Id}/cancel", new ReasonRequest("Tenant withdrew before move-in")))
+                $"{leasesUrl}/{crudLease.Id}/cancel", new CancelLeaseRequest("Tenant withdrew before move-in")))
                 .Content.ReadFromJsonAsync<LeaseSettlementDto>();
             Assert.Equal("Cancelled", cancelledLease!.Lease.Status);
             Assert.Equal(9000m, cancelledLease.RefundedAmount);
@@ -611,7 +611,7 @@ public sealed class PostgresPersistenceIntegrationTests
             cnxAdmin.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.CnxPropertyId.ToString());
             Assert.Equal(HttpStatusCode.Forbidden, (await cnxAdmin.GetAsync($"/api/v1/admin/files/{parcelPhoto}")).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, (await clientApp.GetAsync($"/api/v1/client/files/{parcelPhoto}")).StatusCode);
-            Assert.Equal(HttpStatusCode.BadRequest, (await crudClient.GetAsync("/api/v1/admin/files/..%2F..%2Fappsettings.json")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await crudClient.GetAsync("/api/v1/admin/files/..%2F..%2Fappsettings.json")).StatusCode);
             Assert.Equal(HttpStatusCode.Created, (await crudClient.PostAsJsonAsync($"{bkkUrl}/parcels",
                 new ReceiveParcelRequest(PmsSeedConstants.OccupiedMonthlyUnitA201Id, "J&T", null, parcelPhoto))).StatusCode);
             // Attached to the tenant's own parcel, so the tenant may now download it.
@@ -829,6 +829,69 @@ public sealed class PostgresPersistenceIntegrationTests
             var parity = await masterClient.GetFromJsonAsync<OccupancyReportDto>(
                 string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{bkkUrl}/analytics/occupancy?from={parityToday.AddDays(-10):yyyy-MM-dd}&to={parityToday:yyyy-MM-dd}"));
             Assert.Equal(22, parity!.ByStayMode.Single(m => m.StayMode == "Monthly").OccupiedUnitNights);
+
+            // 13. Round B4: due dates, Overdue sweep, backfill, paging, payment methods, folio receipts
+            Assert.Equal(10, (await (await masterClient.PutAsJsonAsync($"{bkkUrl}/billing-settings", new UpdateBillingSettingsRequest(10)))
+                .Content.ReadFromJsonAsync<BillingSettingsDto>())!.EffectivePaymentTermsDays);
+            var repairDraftToIssue = (await billingClient.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices?status=Draft"))!.Items.First();
+            var issuedRepair = await (await billingClient.PostAsync($"{bkkUrl}/invoices/{repairDraftToIssue.Id}/issue", null)).Content.ReadFromJsonAsync<InvoiceItemDto>();
+            Assert.Equal(AnalyticsPeriod.Today().AddDays(10), issuedRepair!.DueDate);
+            using (var scope = factory.Services.CreateScope())
+            {
+                var billing = scope.ServiceProvider.GetRequiredService<IBillingStore>();
+                Assert.True(billing.MarkOverdueInvoices(DateTimeOffset.UtcNow.AddDays(30)) >= 1);
+                Assert.Equal(0, billing.MarkOverdueInvoices(DateTimeOffset.UtcNow.AddDays(30)));
+            }
+
+            Assert.Equal("Overdue", (await billingClient.GetFromJsonAsync<InvoiceItemDto>($"{bkkUrl}/invoices/{issuedRepair.Id}"))!.Status);
+            Assert.Single((await clientApp.GetFromJsonAsync<NotificationListResponse>("/api/v1/client/notifications"))!.Items,
+                n => n.TemplateKey == InvoiceOverdueNotification.TemplateKey && n.Title.En!.Contains(issuedRepair.DocumentNumber, StringComparison.Ordinal));
+
+            var pagedInvoices = await billingClient.GetFromJsonAsync<InvoiceListResponse>($"{bkkUrl}/invoices?page=1&pageSize=1");
+            Assert.Single(pagedInvoices!.Items);
+            Assert.True(pagedInvoices.Pagination!.TotalCount > 1);
+            Assert.Equal(pagedInvoices.Pagination.TotalCount, pagedInvoices.Pagination.TotalPages);
+
+            // Folio payment from step 10 produced a real stay receipt with a PDF, visible to the guest.
+            var stayReceipt = (await cashierClient.GetFromJsonAsync<ReceiptListResponse>($"{bkkUrl}/receipts"))!.Items.First(r => r.StayId != null);
+            Assert.Equal("Cash", stayReceipt.PaymentMethod);
+            var stayReceiptPdf = await cashierClient.GetByteArrayAsync($"{bkkUrl}/receipts/{stayReceipt.Id}/pdf");
+            Assert.StartsWith("%PDF", System.Text.Encoding.ASCII.GetString(stayReceiptPdf[..4]), StringComparison.Ordinal);
+            Assert.Contains((await clientApp.GetFromJsonAsync<ReceiptListResponse>("/api/v1/client/receipts"))!.Items, r => r.Id == stayReceipt.Id);
+
+            // A transfer-paid deposit and a PromptPay refund leave the cash drawer untouched; the method is recorded.
+            var drawerBefore = (await masterClient.GetFromJsonAsync<CurrentCashierShiftResponse>($"{bkkUrl}/cashier/shifts/current"))!.Shift!;
+            var transferLease = await (await masterClient.PostAsJsonAsync(leasesUrl, new CreateLeaseRequest(
+                PmsSeedConstants.DirtyUnitA102Id, PmsSeedConstants.SecondaryCustomerId, new DateOnly(2028, 1, 1), new DateOnly(2028, 12, 31), 6000m, 5000m, 0m, 0m,
+                PaymentMethod: "BankTransfer"))).Content.ReadFromJsonAsync<LeaseItemDto>();
+            Assert.Equal(HttpStatusCode.OK, (await masterClient.PostAsJsonAsync($"{leasesUrl}/{transferLease!.Id}/cancel",
+                new CancelLeaseRequest("Changed mind", "PromptPay"))).StatusCode);
+            var drawerAfter = (await masterClient.GetFromJsonAsync<CurrentCashierShiftResponse>($"{bkkUrl}/cashier/shifts/current"))!.Shift!;
+            Assert.Equal(drawerBefore.CashDepositsReceivedInShift, drawerAfter.CashDepositsReceivedInShift);
+            Assert.Equal(drawerBefore.CashDepositsRefundedInShift, drawerAfter.CashDepositsRefundedInShift);
+            var transferLedger = (await cashierClient.GetFromJsonAsync<DepositLedgerListResponse>($"{bkkUrl}/deposit-ledgers?type=LeaseSecurityDeposit"))!
+                .Items.Single(l => l.OwnerDocumentNumber == transferLease.DocumentNumber);
+            Assert.Equal(new[] { "BankTransfer", "PromptPay" }, transferLedger.Transactions.Select(t => t.PaymentMethod ?? "-").ToArray());
+
+            // Old-database backfill: wipe the new columns on legacy-looking rows and let the idempotent upgrade restore them.
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<TanPmsDbContext>();
+                await db.Database.ExecuteSqlRawAsync("UPDATE \"Invoices\" SET \"IssuedAt\" = NULL, \"DueDate\" = NULL WHERE \"Status\" IN (2, 3, 4, 5)");
+                await db.Database.ExecuteSqlRawAsync("UPDATE \"InvoiceLine\" SET \"ChargeCategoryCode\" = NULL");
+                await db.Database.ExecuteSqlRawAsync("UPDATE \"FolioCharge\" SET \"ChargeCategoryCode\" = NULL");
+                await PmsDatabaseInitializer.ApplySeedUpgradesAsync(db);
+                await PmsDatabaseInitializer.ApplySeedUpgradesAsync(db);
+                Assert.False(await db.Invoices.AnyAsync(i => (int)i.Status >= 2 && (int)i.Status <= 5 && (i.IssuedAt == null || i.DueDate == null)));
+                var octLines = await db.Invoices.AsNoTracking().Include(i => i.Lines).Where(i => i.BillingPeriodYearMonth == "2026-10").SelectMany(i => i.Lines).ToListAsync();
+                Assert.Contains(octLines, l => l.ChargeCategoryCode == "MONTHLY_ROOM_RENT");
+                Assert.Contains(octLines, l => l.ChargeCategoryCode == "UTILITY_WATER");
+                Assert.Contains(octLines, l => l.ChargeCategoryCode == "UTILITY_ELECTRIC");
+                Assert.True(await db.Set<Domain.Stays.FolioCharge>().AnyAsync(c => c.ChargeCategoryCode == "SHORT_STAY_ROOM"));
+            }
+
+            // RevPAR for October is unchanged by the backfill (seeded room charge re-tagged; rent line re-tagged).
+            Assert.Equal(115.52m, (await analyticsClient.GetFromJsonAsync<RevParReportDto>($"{bkkUrl}/analytics/revpar?from=2026-10-01&to=2026-10-31"))!.RevPar);
         }
         finally
         {
