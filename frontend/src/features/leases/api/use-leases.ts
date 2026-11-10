@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type {
@@ -23,10 +23,11 @@ export interface LeaseListFilters {
   licensePlate?: string;
 }
 
-export function useAdminLeases(propertyId: string, filters: LeaseListFilters = {}) {
+export function useAdminLeases(propertyId: string, filters: LeaseListFilters = {}, paging: PagingParams = {}) {
   return useQuery<LeaseListResponse>({
-    queryKey: queryKeys.leases.list(propertyId, filters.status, filters.licensePlate),
-    queryFn: () => apiClient.getAdminLeases(propertyId, filters),
+    queryKey: [...queryKeys.leases.list(propertyId, filters.status, filters.licensePlate), paging],
+    queryFn: () => apiClient.getAdminLeases(propertyId, { ...filters, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -105,8 +106,8 @@ export function useUpdateLeaseMutation(propertyId: string) {
 export function useCancelLeaseMutation(propertyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ leaseId, reason }: { leaseId: string; reason: string }) =>
-      apiClient.cancelAdminLease(propertyId, leaseId, reason),
+    mutationFn: ({ leaseId, reason, refundPaymentMethod }: { leaseId: string; reason: string; refundPaymentMethod?: string }) =>
+      apiClient.cancelAdminLease(propertyId, leaseId, reason, refundPaymentMethod),
     onSuccess: () => invalidateOperationalCaches(queryClient),
   });
 }

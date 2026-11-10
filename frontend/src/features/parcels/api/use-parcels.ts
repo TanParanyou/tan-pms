@@ -1,15 +1,16 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type { ParcelItemDto, ParcelListResponse, ReceiveParcelRequest, PickUpParcelRequest } from "../types";
 
-export function useAdminParcels(propertyId: string, status?: string) {
+export function useAdminParcels(propertyId: string, status?: string, paging: PagingParams = {}) {
   return useQuery<ParcelListResponse>({
-    queryKey: queryKeys.parcels.list(propertyId, status),
-    queryFn: () => apiClient.getAdminParcels(propertyId, { status }),
+    queryKey: [...queryKeys.parcels.list(propertyId, status), paging],
+    queryFn: () => apiClient.getAdminParcels(propertyId, { status, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 

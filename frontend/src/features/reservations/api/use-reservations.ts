@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type { UpdateReservationRequest } from "@/features/client/types";
@@ -14,10 +14,11 @@ import type {
   AvailabilitySearchResponse,
 } from "@/generated/api";
 
-export function useAdminReservations(propertyId: string, filters: { status?: string; stayMode?: string } = {}) {
+export function useAdminReservations(propertyId: string, filters: { status?: string; stayMode?: string } = {}, paging: PagingParams = {}) {
   return useQuery<ReservationListResponse>({
-    queryKey: queryKeys.reservations.list(propertyId, filters.status, filters.stayMode),
-    queryFn: () => apiClient.getAdminReservations(propertyId, filters),
+    queryKey: [...queryKeys.reservations.list(propertyId, filters.status, filters.stayMode), paging],
+    queryFn: () => apiClient.getAdminReservations(propertyId, { ...filters, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 

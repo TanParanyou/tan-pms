@@ -16,6 +16,7 @@ import { formatDateTime } from "@/lib/formatters";
 import { useAdminParcels } from "../api/use-parcels";
 import { PERMISSION_PARCELS_MANAGE, PARCEL_STATUS_OPTIONS, PARCEL_STATUS_BADGE_VARIANT } from "../constants";
 import type { ParcelItemDto, ParcelStatusType } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function ParcelsListSection() {
   const router = useRouter();
@@ -26,7 +27,8 @@ export function ParcelsListSection() {
   const canManage = hasPermission(PERMISSION_PARCELS_MANAGE);
   const [status, setStatus] = useState<ParcelStatusType | "">("");
 
-  const { data, isLoading, isError, refetch } = useAdminParcels(activeProperty.id, status || undefined);
+  const pg = useServerPagination([status]);
+  const { data, isLoading, isError, refetch } = useAdminParcels(activeProperty.id, status || undefined, pg.paging);
   const items = useMemo(() => data?.items ?? [], [data]);
 
   const columns: ColumnDef<ParcelItemDto>[] = [
@@ -96,6 +98,7 @@ export function ParcelsListSection() {
         </div>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(p) => p.id}

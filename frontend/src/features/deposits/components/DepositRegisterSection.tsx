@@ -17,15 +17,18 @@ import { PageLoading } from "@/components/ui/mono-spinner";
 import { useAdminDepositLedgers, useAdminDepositLedger } from "../api/use-deposits";
 import { DEPOSIT_TYPE_OPTIONS } from "../constants";
 import type { DepositLedgerItemDto, DepositTypeValue } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function DepositRegisterSection() {
   const locale = useLocale() as "th" | "en";
   const t = useTranslations("admin.deposits");
+  const tStays = useTranslations("admin.stays");
   const { activeProperty } = useAdminWorkspace();
   const [type, setType] = useState<DepositTypeValue | "">("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch } = useAdminDepositLedgers(activeProperty.id, type || undefined);
+  const pg = useServerPagination([type]);
+  const { data, isLoading, isError, refetch } = useAdminDepositLedgers(activeProperty.id, type || undefined, pg.paging);
   const items = useMemo(() => data?.items ?? [], [data]);
 
   // Expanded ledger is fetched through the single-ledger endpoint.
@@ -125,6 +128,7 @@ export function DepositRegisterSection() {
         </div>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(d) => d.id}
@@ -147,6 +151,7 @@ export function DepositRegisterSection() {
                 <TableHead>{t("txDocument")}</TableHead>
                 <TableHead>{t("txType")}</TableHead>
                 <TableHead>{t("txAmount")}</TableHead>
+                <TableHead>{t("txPaymentMethod")}</TableHead>
                 <TableHead>{t("txReason")}</TableHead>
                 <TableHead>{t("txDate")}</TableHead>
               </TableRow>
@@ -154,7 +159,7 @@ export function DepositRegisterSection() {
             <TableBody>
               {d.transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-mute">
+                  <TableCell colSpan={6} className="text-center text-mute">
                     {t("noTransactions")}
                   </TableCell>
                 </TableRow>
@@ -164,6 +169,7 @@ export function DepositRegisterSection() {
                     <TableCell className="font-mono text-xs">{tx.documentNumber}</TableCell>
                     <TableCell>{t(`txTypes.${tx.transactionType}`)}</TableCell>
                     <TableCell className="font-mono text-xs tabular-nums">{formatCurrencyThb(tx.amount)}</TableCell>
+                    <TableCell data-testid="tx-payment-method">{tx.paymentMethod ? tStays(`method${tx.paymentMethod}`) : "-"}</TableCell>
                     <TableCell>{tx.reason ?? "-"}</TableCell>
                     <TableCell className="text-xs">{formatDateTime(tx.createdAt, locale)}</TableCell>
                   </TableRow>

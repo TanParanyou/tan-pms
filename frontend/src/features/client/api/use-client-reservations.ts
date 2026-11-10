@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import type {
   AvailabilitySearchResponse,
@@ -26,10 +26,11 @@ export function useClientAvailability(params: ClientAvailabilityParams | null) {
   });
 }
 
-export function useClientReservations() {
+export function useClientReservations(paging: PagingParams = {}) {
   return useQuery<ReservationListResponse>({
-    queryKey: queryKeys.clientPortal.reservations(),
-    queryFn: () => apiClient.getClientReservations(),
+    queryKey: [...queryKeys.clientPortal.reservations(), paging],
+    queryFn: () => apiClient.getClientReservations(paging),
+    placeholderData: keepPreviousData,
   });
 }
 

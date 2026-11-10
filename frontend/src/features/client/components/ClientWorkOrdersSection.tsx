@@ -17,6 +17,7 @@ import {
 } from "@/features/work-orders/constants";
 import type { WorkOrderItemDto, WorkOrderPriorityType, WorkOrderStatusType } from "@/features/work-orders/types";
 import { useClientWorkOrders } from "../api/use-client-operations";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function ClientWorkOrdersSection() {
   const router = useRouter();
@@ -24,7 +25,8 @@ export function ClientWorkOrdersSection() {
   const t = useTranslations("client.portal.workOrders");
   const tWo = useTranslations("admin.workOrders");
   const [status, setStatus] = useState("");
-  const { data, isLoading, isError, refetch } = useClientWorkOrders(status || undefined);
+  const pg = useServerPagination([status]);
+  const { data, isLoading, isError, refetch } = useClientWorkOrders(status || undefined, pg.paging);
 
   const columns: ColumnDef<WorkOrderItemDto>[] = [
     { id: "doc", header: t("colDocument"), cell: (w) => <span className="font-mono text-xs">{w.documentNumber}</span> },
@@ -73,6 +75,7 @@ export function ClientWorkOrdersSection() {
         </div>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={data?.items ?? []}
         getRowId={(w) => w.id}

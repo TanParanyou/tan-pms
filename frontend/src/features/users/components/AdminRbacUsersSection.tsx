@@ -16,6 +16,7 @@ import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { useAdminUsers, useAdminRoles } from "../api/use-users";
 import { ALL_ROLES_FILTER, PERMISSION_USERS_MANAGE, USER_STATUS_FILTERS, type UserStatusFilter } from "../constants";
 import type { AdminUserDto } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function AdminRbacUsersSection() {
   const router = useRouter();
@@ -29,7 +30,8 @@ export function AdminRbacUsersSection() {
   const [status, setStatus] = useState<UserStatusFilter>("All");
   const debounced = useDebouncedValue(search.trim().toLowerCase(), 200);
 
-  const users = useAdminUsers();
+  const pg = useServerPagination([role, status, debounced]);
+  const users = useAdminUsers(pg.paging);
   const roles = useAdminRoles();
 
   const items = useMemo(
@@ -115,6 +117,7 @@ export function AdminRbacUsersSection() {
         </SelectPill>
       </div>
       <DataTable
+        {...pg.tableProps(users.data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(u) => u.id}

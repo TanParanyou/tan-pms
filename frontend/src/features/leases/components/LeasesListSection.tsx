@@ -23,6 +23,7 @@ import {
   PLATE_SEARCH_DEBOUNCE_MS,
 } from "../constants";
 import type { LeaseItemDto, LeaseStatusType } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function LeasesListSection() {
   const router = useRouter();
@@ -36,10 +37,11 @@ export function LeasesListSection() {
   const [plateInput, setPlateInput] = useState("");
   const licensePlate = useDebouncedValue(plateInput.trim(), PLATE_SEARCH_DEBOUNCE_MS);
 
+  const pg = useServerPagination([status, licensePlate]);
   const { data, isLoading, isError, refetch } = useAdminLeases(activeProperty.id, {
     status: status === "All" ? undefined : status,
     licensePlate: licensePlate || undefined,
-  });
+  }, pg.paging);
   const items = useMemo(() => data?.items ?? [], [data]);
 
   const kpis = useMemo(
@@ -184,6 +186,7 @@ export function LeasesListSection() {
         }
       />
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(l) => l.id}

@@ -112,7 +112,8 @@
       "showing": "Showing",
       "previous": "Previous",
       "next": "Next",
-      "rowsPerPage": "Rows per page"
+      "rowsPerPage": "Rows per page",
+      "pagination": "Pagination"
     },
     "placeholders": {
       "search": "Type to search...",
@@ -162,6 +163,11 @@
       "errorThaiRequired": "Thai text is required",
       "labelDescTh": "Description (Thai)",
       "labelDescEn": "Description (English)"
+    },
+    "dueDate": {
+      "overdue": "Overdue",
+      "overdueDays": "Overdue by {count} days",
+      "label": "Due date"
     }
   },
   "home": {
@@ -1112,7 +1118,11 @@
       "csvCopyFailed": "Failed to copy the CSV",
       "fieldPhoneNumber": "Phone number",
       "keyDepositTitle": "Key deposit (paid / balance)",
-      "overtimeLabel": "Overtime"
+      "overtimeLabel": "Overtime",
+      "sectionReceipts": "Receipts",
+      "noReceipts": "No receipts for this stay yet",
+      "receiptsLoadError": "Failed to load receipts",
+      "btnDownloadReceipt": "Download receipt (PDF)"
     },
     "leases": {
       "title": "Monthly Leases",
@@ -1233,7 +1243,9 @@
       "confirmDeleteVehicleTitle": "Confirm Vehicle Removal",
       "confirmDeleteVehicleMessage": "Remove vehicle {plate} from this lease?",
       "btnPrintContract": "Print contract (PDF)",
-      "cancelReason": "Cancel reason"
+      "cancelReason": "Cancel reason",
+      "fieldDepositPaymentMethod": "Deposit payment method",
+      "fieldRefundPaymentMethod": "Refund payment method"
     },
     "billing": {
       "title": "Batch Monthly Billing",
@@ -1318,7 +1330,19 @@
       "receiptsLoadError": "Failed to load receipts",
       "noReceipts": "No receipts for this invoice yet",
       "btnDownloadReceipt": "Download receipt (PDF)",
-      "voidReason": "Void reason"
+      "voidReason": "Void reason",
+      "colDueDate": "Due date",
+      "btnSettings": "Billing settings",
+      "settingsTitle": "Property billing settings",
+      "settingsDescription": "Set the payment terms (days) used to compute due dates of new invoices",
+      "settingsLoadError": "Failed to load settings",
+      "fieldPaymentTerms": "Payment terms (days)",
+      "paymentTermsHint": "Leave empty to use the system default (0 to 365 days)",
+      "placeholderPaymentTerms": "e.g. 7",
+      "errorPaymentTerms": "Enter a number of days between 0 and 365",
+      "effectiveTerms": "Effective value: {days} days",
+      "settingsSaved": "Settings saved",
+      "settingsReadOnly": "You do not have permission to edit settings"
     },
     "payments": {
       "title": "Payment Slip Verification",
@@ -1356,7 +1380,8 @@
       "errorReasonRequired": "A reject reason is required.",
       "toastApproved": "Slip approved",
       "toastRejected": "Slip rejected",
-      "slipImage": "Slip image"
+      "slipImage": "Slip image",
+      "colDueDate": "Due date"
     },
     "deposits": {
       "title": "Deposit Register",
@@ -1393,7 +1418,8 @@
       "emptyTitle": "No deposit ledgers",
       "emptyDescription": "No ledgers match this filter.",
       "readOnlyHint": "The deposit register is derived from receipts and refunds, so it cannot be edited or deleted directly.",
-      "loadingLedger": "Loading deposit ledger..."
+      "loadingLedger": "Loading deposit ledger...",
+      "txPaymentMethod": "Payment method"
     },
     "housekeeping": {
       "title": "Housekeeping",
@@ -1764,7 +1790,14 @@
       "markAsRead": "Mark Read",
       "emptyTitle": "No Notifications",
       "emptyDesc": "You have no notifications in this channel.",
-      "loadError": "Failed to load notifications"
+      "loadError": "Failed to load notifications",
+      "templates": {
+        "invoiceIssued": "A new invoice was issued",
+        "invoiceOverdue": "An invoice is overdue",
+        "parcelArrived": "A parcel has arrived",
+        "leaseIntentApproved": "Your lease request was approved",
+        "leaseIntentRejected": "Your lease request was rejected"
+      }
     },
     "booking": {
       "title": "Online Room Booking",
@@ -1805,7 +1838,8 @@
         "invoices": "Invoices",
         "usage": "Utilities",
         "workOrders": "Repairs",
-        "parcels": "Parcels"
+        "parcels": "Parcels",
+        "badge": "CLIENT"
       },
       "booking": {
         "fieldProperty": "Property",
@@ -1947,7 +1981,15 @@
         "noLines": "No lines",
         "sectionReceipts": "Receipts",
         "noReceipts": "No receipts yet",
-        "btnDownloadReceipt": "Download receipt (PDF)"
+        "btnDownloadReceipt": "Download receipt (PDF)",
+        "colDueDate": "Due date",
+        "tabReceipts": "My receipts",
+        "colInvoice": "Invoice",
+        "colStay": "Stay",
+        "colIssuedAt": "Issued",
+        "receiptsLoadError": "Failed to load receipts",
+        "receiptsEmptyTitle": "No receipts yet",
+        "receiptsEmptyDescription": "Receipts for invoice and stay payments appear here"
       },
       "slip": {
         "status": {
@@ -2068,7 +2110,13 @@
         "colStatus": "Status",
         "colArrivedAt": "Arrived",
         "colPickedUpAt": "Picked up",
-        "pickupInstructions": "Show this screen at the front desk to collect your parcel."
+        "pickupInstructions": "Show this screen at the front desk to collect your parcel.",
+        "detailDescription": "Parcel details and pick-up status",
+        "detailLoadError": "Failed to load the parcel",
+        "notFound": "Parcel not found",
+        "recipientName": "Picked up by",
+        "voidReason": "Void reason",
+        "photo": "Parcel photo"
       },
       "reservations": {
         "status": {

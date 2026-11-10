@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type {
@@ -13,10 +13,11 @@ import type {
   ResolveWorkOrderRequest,
 } from "../types";
 
-export function useAdminWorkOrders(propertyId: string, status?: string) {
+export function useAdminWorkOrders(propertyId: string, status?: string, paging: PagingParams = {}) {
   return useQuery<WorkOrderListResponse>({
-    queryKey: queryKeys.workOrders.list(propertyId, status),
-    queryFn: () => apiClient.getAdminWorkOrders(propertyId, { status }),
+    queryKey: [...queryKeys.workOrders.list(propertyId, status), paging],
+    queryFn: () => apiClient.getAdminWorkOrders(propertyId, { status, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 

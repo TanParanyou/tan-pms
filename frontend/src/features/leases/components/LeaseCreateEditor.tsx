@@ -36,6 +36,7 @@ import {
   EMPTY_VEHICLE,
   CUSTOMER_SEARCH_DEBOUNCE_MS,
 } from "../constants";
+import { PaymentMethodSelect } from "@/components/forms/payment-method-select";
 
 export function LeaseCreateEditor() {
   const router = useRouter();
@@ -128,6 +129,7 @@ export function LeaseCreateEditor() {
         endDate: v.endDate,
         monthlyRentAmount: v.monthlyRentAmount,
         securityDepositAmount: v.securityDepositAmount,
+        paymentMethod: v.paymentMethod,
         initialWaterMeterReading: v.initialWaterMeterReading,
         initialElectricMeterReading: v.initialElectricMeterReading,
         occupants: v.occupants,
@@ -289,6 +291,13 @@ export function LeaseCreateEditor() {
                 )}
               />
             </FormField>
+            <Controller
+              name="paymentMethod"
+              control={control}
+              render={({ field }) => (
+                <PaymentMethodSelect id="lease-payment-method" label={t("fieldDepositPaymentMethod")} value={field.value} onChange={field.onChange} />
+              )}
+            />
           </div>
         </div>
       ),

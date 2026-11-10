@@ -100,7 +100,7 @@ export function ClientDashboardSection() {
                     className="flex items-center justify-between gap-2 rounded-full border border-hairline bg-surface-soft px-4 py-1.5 text-xs"
                   >
                     <span className="font-mono text-ink">{inv.documentNumber}</span>
-                    <Badge variant="warning">{tBilling(`status.${inv.status}`)}</Badge>
+                    <Badge variant={inv.status === "Overdue" ? "overdue" : "warning"}>{tBilling(`status.${inv.status}`)}</Badge>
                     <span className="font-mono tabular-nums">{formatCurrencyThb(inv.totalAmount)}</span>
                   </Link>
                 </li>

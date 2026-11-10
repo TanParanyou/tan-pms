@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageLoading } from "@/components/ui/mono-spinner";
+import { NOTIFICATION_TEMPLATE_I18N_KEYS } from "../constants";
+import { PAGE_SIZE_OPTIONS, useServerPagination } from "@/hooks/use-server-pagination";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useClientNotifications } from "@/features/client/api/use-client-operations";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { formatDateTime } from "@/lib/formatters";
@@ -19,7 +22,8 @@ export function ClientNotificationsSection() {
   const t = useTranslations("client.notifications");
   const tCommon = useTranslations("common");
   const [channel, setChannel] = useState<ChannelFilter>("All");
-  const { data, isLoading, isError, refetch } = useClientNotifications();
+  const pg = useServerPagination([]);
+  const { data, isLoading, isError, refetch } = useClientNotifications(pg.paging);
 
   const items = useMemo(() => {
     const all = data?.items ?? [];
@@ -68,7 +72,7 @@ export function ClientNotificationsSection() {
               <Bell className="mt-0.5 h-4 w-4 shrink-0 text-mute" aria-hidden="true" />
               <div className="min-w-0 flex-1 space-y-0.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-ink">{resolveLocalizedText(n.title, locale)}</span>
+                  <span className="text-sm font-medium text-ink">{n.templateKey in NOTIFICATION_TEMPLATE_I18N_KEYS ? t(`templates.${NOTIFICATION_TEMPLATE_I18N_KEYS[n.templateKey]}`) : resolveLocalizedText(n.title, locale)}</span>
                   <Badge variant="outline" className="text-[10px]">
                     {t(`channel${n.channel}`)}
                   </Badge>
@@ -80,6 +84,16 @@ export function ClientNotificationsSection() {
             </li>
           ))}
         </ul>
+      )}
+      {data?.pagination && data.pagination.totalCount > 0 && (
+        <PaginationControls
+          page={pg.page}
+          pageSize={pg.pageSize}
+          totalItems={data.pagination.totalCount}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageChange={pg.setPage}
+          onPageSizeChange={pg.setPageSize}
+        />
       )}
     </section>
   );

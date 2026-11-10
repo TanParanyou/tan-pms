@@ -44,6 +44,8 @@ import {
   SLIP_STATUS_BADGE_VARIANT,
 } from "../constants";
 import type { AdminPaymentSlipDto, PaymentSlipStatusType } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
+import { InvoiceDueInfo } from "@/components/shared/invoice-due-info";
 
 function DetailItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -68,7 +70,8 @@ export function PaymentSlipQueueSection() {
   const [showConfirmApprove, setShowConfirmApprove] = useState(false);
   const [showReject, setShowReject] = useState(false);
 
-  const { data, isLoading, isError, refetch } = useAdminPaymentSlips(activeProperty.id, status);
+  const pg = useServerPagination([status]);
+  const { data, isLoading, isError, refetch } = useAdminPaymentSlips(activeProperty.id, status, pg.paging);
   const items = useMemo(() => data?.items ?? [], [data]);
   // Detail sheet reads the single-slip endpoint rather than reusing the list row.
   const { data: slip, isLoading: isSlipLoading } = useAdminPaymentSlip(activeProperty.id, selected?.id ?? null);
@@ -146,6 +149,11 @@ export function PaymentSlipQueueSection() {
       cell: (s) => <span className="font-mono text-xs tabular-nums">{formatCurrencyThb(s.invoiceOutstandingAmount)}</span>,
     },
     {
+      id: "dueDate",
+      header: t("colDueDate"),
+      cell: (s) => <InvoiceDueInfo status={s.invoiceStatus} dueDate={s.invoiceDueDate} />,
+    },
+    {
       id: "transferredAt",
       header: t("colTransferredAt"),
       cell: (s) => <span className="text-xs">{s.transferredAt ? formatDateTime(s.transferredAt, locale) : "-"}</span>,
@@ -179,6 +187,7 @@ export function PaymentSlipQueueSection() {
         ))}
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(s) => s.id}
@@ -207,6 +216,9 @@ export function PaymentSlipQueueSection() {
               </DetailItem>
               <DetailItem label={t("colAmount")}>{formatCurrencyThb(slip.amount)}</DetailItem>
               <DetailItem label={t("colOutstanding")}>{formatCurrencyThb(slip.invoiceOutstandingAmount)}</DetailItem>
+              <DetailItem label={t("colDueDate")}>
+                <InvoiceDueInfo status={slip.invoiceStatus} dueDate={slip.invoiceDueDate} />
+              </DetailItem>
               <DetailItem label={t("transferReference")}>{slip.transferReference ?? "-"}</DetailItem>
               <DetailItem label={t("slipImage")}>
                 <StoredFileViewer fileKey={slip.slipFileKey} />

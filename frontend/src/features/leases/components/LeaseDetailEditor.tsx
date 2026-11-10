@@ -68,6 +68,7 @@ import { EMPTY_OCCUPANT, EMPTY_VEHICLE, LEASE_STATUS_BADGE_VARIANT } from "../co
 import { LeaseEditDialog } from "./LeaseEditDialog";
 import { LeaseOccupantRow, LeaseVehicleRow } from "./LeasePeopleRows";
 import type { LeaseItemDto, LeaseStatusType } from "../types";
+import { PaymentMethodSelect, type PaymentMethodType } from "@/components/forms/payment-method-select";
 
 export interface LeaseDetailEditorProps {
   leaseId: string;
@@ -118,6 +119,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   const { download, isDownloading } = useBlobDownload();
 
   const [showEdit, setShowEdit] = useState(false);
+  const [cancelRefundMethod, setCancelRefundMethod] = useState<PaymentMethodType>("Cash");
   const [showCancel, setShowCancel] = useState(false);
   const [showRenew, setShowRenew] = useState(false);
   const [showConfirmRenew, setShowConfirmRenew] = useState(false);
@@ -139,7 +141,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
   });
   const settleForm = useForm<LeaseSettleFormValues>({
     resolver: zodResolver(leaseSettleSchema),
-    defaultValues: { utilityDeductionAmount: 0, damageDeductionAmount: 0, reason: "" },
+    defaultValues: { utilityDeductionAmount: 0, damageDeductionAmount: 0, refundPaymentMethod: "Cash", reason: "" },
   });
 
   const isBusy =
@@ -231,7 +233,7 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
 
   const executeCancel = async (reason: string): Promise<boolean> => {
     try {
-      await cancelLease.mutateAsync({ leaseId: lease.id, reason });
+      await cancelLease.mutateAsync({ leaseId: lease.id, reason, refundPaymentMethod: cancelRefundMethod });
       toastSuccess(t("toastLeaseCancelled"));
       router.push("/admin/leases");
       return true;
@@ -605,6 +607,13 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
                 )}
               />
             </FormField>
+            <Controller
+              name="refundPaymentMethod"
+              control={settleForm.control}
+              render={({ field }) => (
+                <PaymentMethodSelect id="settle-refund-method" label={t("fieldRefundPaymentMethod")} value={field.value} onChange={field.onChange} />
+              )}
+            />
             <FormField id="settle-reason" label={t("fieldSettleReason")} required error={settleForm.formState.errors.reason?.message}>
               <Textarea
                 id="settle-reason"
@@ -645,6 +654,9 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
         confirmMessage={t("confirmCancelLeaseMessage", { document: lease.documentNumber })}
         isLoading={cancelLease.isPending}
         onConfirm={executeCancel}
+        extra={
+          <PaymentMethodSelect id="cancel-refund-method" label={t("fieldRefundPaymentMethod")} value={cancelRefundMethod} onChange={setCancelRefundMethod} disabled={cancelLease.isPending} />
+        }
       />
       <ConfirmationModal
         isOpen={showConfirmRenew}

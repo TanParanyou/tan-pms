@@ -25,6 +25,7 @@ import {
 import type { InvoiceLineDto, InvoiceStatusType } from "../types";
 import { InvoiceLineDialog } from "./InvoiceLineDialog";
 import { InvoiceReceiptsList } from "./InvoiceReceiptsList";
+import { InvoiceDueInfo } from "@/components/shared/invoice-due-info";
 
 export interface InvoiceDetailSheetProps {
   propertyId: string;
@@ -104,6 +105,10 @@ export function InvoiceDetailSheet({ propertyId, invoiceId, onClose }: InvoiceDe
                 <div className="text-ink">
                   {invoice.unit ? `${invoice.unit.unitNumber} (${resolveLocalizedText(invoice.unit.buildingName, locale)})` : "-"}
                 </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-mute">{t("colDueDate")}</div>
+                <InvoiceDueInfo status={invoice.status} dueDate={invoice.dueDate} />
               </div>
               <div>
                 <div className="text-[11px] text-mute">{t("colTotal")}</div>

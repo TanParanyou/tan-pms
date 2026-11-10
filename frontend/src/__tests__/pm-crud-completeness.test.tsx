@@ -197,7 +197,7 @@ describe("CRUD completeness: Leases", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: l.btnCancelLease }));
     const confirm = await screen.findByRole("alertdialog");
     fireEvent.click(within(confirm).getByRole("button", { name: l.btnCancelLease }));
-    await waitFor(() => expect(cancel).toHaveBeenCalledWith(expect.any(String), "l1", "Tenant withdrew"));
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith(expect.any(String), "l1", "Tenant withdrew", "Cash"));
   });
 
   it("keeps the cancel dialog open when the API fails", async () => {

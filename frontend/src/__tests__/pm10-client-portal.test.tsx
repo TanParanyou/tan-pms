@@ -269,7 +269,7 @@ describe("PM-10 client invoices and slips", () => {
     renderAdmin(<ClientInvoicesSection />);
     expect(await screen.findByText("INV-0001")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(cp.invoices.colStatus), { target: { value: "Overdue" } });
-    await waitFor(() => expect(spy).toHaveBeenCalledWith({ status: "Overdue" }));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ status: "Overdue", page: 1, pageSize: 25 }));
     spy.mockResolvedValue({ items: [] });
     fireEvent.change(screen.getByLabelText(cp.invoices.colStatus), { target: { value: "Paid" } });
     expect(await screen.findByText(cp.invoices.emptyTitle)).toBeInTheDocument();
@@ -425,7 +425,7 @@ describe("PM-10 client work orders and parcels", () => {
     renderAdmin(<ClientWorkOrdersSection />);
     expect(await screen.findByText("Leaking tap")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(cp.workOrders.colStatus), { target: { value: "Completed" } });
-    await waitFor(() => expect(spy).toHaveBeenCalledWith({ status: "Completed" }));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ status: "Completed", page: 1, pageSize: 25 }));
     spy.mockRejectedValue(new Error("boom"));
     fireEvent.change(screen.getByLabelText(cp.workOrders.colStatus), { target: { value: "" } });
     expect(await screen.findByText(cp.workOrders.loadError)).toBeInTheDocument();

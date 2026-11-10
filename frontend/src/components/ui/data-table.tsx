@@ -14,6 +14,7 @@ import { Checkbox } from "./checkbox";
 import { SelectPill } from "./select-pill";
 import { EmptyState } from "./empty-state";
 import { MonoSpinner } from "./mono-spinner";
+import { PaginationControls } from "./pagination-controls";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
@@ -21,8 +22,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
   Search,
 } from "lucide-react";
 
@@ -279,9 +278,6 @@ export function DataTable<TData>({
     );
   }
 
-  const fromItem = effectiveTotalItems === 0 ? 0 : (effectivePage - 1) * effectivePageSize + 1;
-  const toItem = Math.min(effectiveTotalItems, effectivePage * effectivePageSize);
-
   return (
     <div className={cn("w-full space-y-2", className)}>
       <Table className="table-fixed">
@@ -469,68 +465,14 @@ export function DataTable<TData>({
 
       {/* Pagination Footer */}
       {enablePagination && effectiveTotalItems > 0 && !isLoading && !isError && (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-2 text-xs text-body border-t border-hairline font-mono">
-          <div className="flex items-center gap-2">
-            <span>
-              {t("table.showing")}{" "}
-              <strong className="text-ink font-semibold tabular-nums">{fromItem}</strong>–
-              <strong className="text-ink font-semibold tabular-nums">{toItem}</strong>{" "}
-              {t("table.of")}{" "}
-              <strong className="text-ink font-semibold tabular-nums">{effectiveTotalItems}</strong>{" "}
-              {t("table.items")}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="text-mute text-[11px] whitespace-nowrap">
-                {t("table.rowsPerPage")}
-              </span>
-              <SelectPill
-                value={String(effectivePageSize)}
-                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                className="h-8 text-xs font-mono py-0 pl-2.5 pr-6 w-auto"
-                aria-label={t("table.rowsPerPage")}
-              >
-                {pageSizeOptions.map((opt) => (
-                  <option key={opt} value={String(opt)}>
-                    {opt}
-                  </option>
-                ))}
-              </SelectPill>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                disabled={effectivePage <= 1}
-                onClick={() => handlePageChange(effectivePage - 1)}
-                aria-label={t("table.previous")}
-                className="h-8 w-8 rounded-full border-hairline text-ink disabled:opacity-30"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-
-              <span className="px-2 font-mono text-xs tabular-nums text-ink">
-                {effectivePage} / {totalPages}
-              </span>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                disabled={effectivePage >= totalPages}
-                onClick={() => handlePageChange(effectivePage + 1)}
-                aria-label={t("table.next")}
-                className="h-8 w-8 rounded-full border-hairline text-ink disabled:opacity-30"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <PaginationControls
+          page={effectivePage}
+          pageSize={effectivePageSize}
+          totalItems={effectiveTotalItems}
+          pageSizeOptions={pageSizeOptions}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
       )}
     </div>
   );

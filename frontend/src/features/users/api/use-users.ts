@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import type {
   AdminUserListResponse,
@@ -11,10 +11,11 @@ import type {
   DispatchNotificationRequest,
 } from "@/generated/api";
 
-export function useAdminUsers() {
+export function useAdminUsers(paging: PagingParams = {}) {
   return useQuery<AdminUserListResponse>({
-    queryKey: queryKeys.users.list(),
-    queryFn: () => apiClient.getAdminUsers(),
+    queryKey: [...queryKeys.users.list(), paging],
+    queryFn: () => apiClient.getAdminUsers(paging),
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -75,6 +75,7 @@ export const queryKeys = {
   },
   billing: {
     all: ["admin-billing"] as const,
+    settings: (propertyId: string) => ["admin-billing-settings", propertyId] as const,
     invoices: (propertyId: string, period?: string, status?: string) =>
       [...queryKeys.billing.all, "invoices", propertyId, period ?? "", status ?? ""] as const,
     invoice: (propertyId: string, id: string) =>
@@ -137,11 +138,13 @@ export const queryKeys = {
     invoices: (status?: string) => [...queryKeys.clientPortal.all, "invoices", status ?? ""] as const,
     invoice: (id: string) => [...queryKeys.clientPortal.all, "invoice", id] as const,
     slips: () => [...queryKeys.clientPortal.all, "slips"] as const,
+    receipts: () => [...queryKeys.clientPortal.all, "receipts"] as const,
     usage: (leaseId?: string, months?: number) =>
       [...queryKeys.clientPortal.all, "usage", leaseId ?? "", months ?? 0] as const,
     workOrders: (status?: string) => [...queryKeys.clientPortal.all, "work-orders", status ?? ""] as const,
     workOrder: (id: string) => [...queryKeys.clientPortal.all, "work-order", id] as const,
     parcels: (status?: string) => [...queryKeys.clientPortal.all, "parcels", status ?? ""] as const,
+    parcel: (id: string) => [...queryKeys.clientPortal.all, "parcel", id] as const,
     reservations: () => [...queryKeys.clientPortal.all, "reservations"] as const,
     reservation: (id: string) => [...queryKeys.clientPortal.all, "reservation", id] as const,
     availability: (params: object) => [...queryKeys.clientPortal.all, "availability", params] as const,

@@ -1,15 +1,16 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type { LeaseIntentDto, LeaseIntentListResponse } from "@/features/client/types";
 
-export function useAdminLeaseIntents(propertyId: string, status?: string, enabled = true) {
+export function useAdminLeaseIntents(propertyId: string, status?: string, enabled = true, paging: PagingParams = {}) {
   return useQuery<LeaseIntentListResponse>({
-    queryKey: queryKeys.leaseIntents.list(propertyId, status),
-    queryFn: () => apiClient.getAdminLeaseIntents(propertyId, { status }),
+    queryKey: [...queryKeys.leaseIntents.list(propertyId, status), paging],
+    queryFn: () => apiClient.getAdminLeaseIntents(propertyId, { status, ...paging }),
+    placeholderData: keepPreviousData,
     enabled,
   });
 }

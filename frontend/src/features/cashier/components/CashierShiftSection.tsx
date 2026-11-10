@@ -52,6 +52,7 @@ import {
 import type { CashierShiftDto, CashierShiftStatusType } from "../types";
 import { CashierShiftInvertedCard } from "./CashierShiftInvertedCard";
 import { CashierShiftDetailSheet } from "./CashierShiftDetailSheet";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function CashierShiftSection() {
   const locale = useLocale() as "th" | "en";
@@ -73,12 +74,13 @@ export function CashierShiftSection() {
 
   const { data: current } = useCurrentCashierShift(activeProperty.id);
   const shift = current?.shift ?? null;
+  const pg = useServerPagination([statusFilter]);
   const {
     data: history,
     isLoading,
     isError,
     refetch,
-  } = useCashierShifts(activeProperty.id, statusFilter || undefined);
+  } = useCashierShifts(activeProperty.id, statusFilter || undefined, pg.paging);
   const items = useMemo(() => history?.items ?? [], [history]);
 
   const openMutation = useOpenShiftMutation(activeProperty.id);
@@ -298,6 +300,7 @@ export function CashierShiftSection() {
         </div>
       </div>
       <DataTable
+        {...pg.tableProps(history?.pagination)}
         columns={columns}
         data={items}
         getRowId={(s) => s.id}

@@ -48,6 +48,7 @@ import { EXTEND_HOUR_OPTIONS, PERMISSION_STAY_CHECKOUT, STAY_STATUS_BADGE_VARIAN
 import type { StayDetailDto } from "../types";
 import { StayFolioPanel } from "./StayFolioPanel";
 import { StayOccupantsPanel } from "./StayOccupantsPanel";
+import { StayReceiptsPanel } from "./StayReceiptsPanel";
 
 export interface StayDetailEditorProps {
   stayId: string;
@@ -235,6 +236,7 @@ function StayBody({ propertyId, stay }: { propertyId: string; stay: StayDetailDt
       )}
 
       <StayFolioPanel propertyId={propertyId} stay={stay} onShiftNotOpen={setShiftNotOpen} />
+      <StayReceiptsPanel propertyId={propertyId} stayId={stay.id} />
       <StayOccupantsPanel propertyId={propertyId} stay={stay} />
 
       <Dialog open={showExtend} onOpenChange={setShowExtend}>

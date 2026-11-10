@@ -37,7 +37,7 @@ describe("PM-10 admin lease intents queue", () => {
     const spy = vi.spyOn(apiClient, "getAdminLeaseIntents").mockResolvedValue({ items: [intent()] });
     renderAdmin(<LeaseIntentsSection />);
     expect(await screen.findByText("LSE-0001")).toBeInTheDocument();
-    expect(spy).toHaveBeenCalledWith(expect.any(String), { status: "Pending" });
+    expect(spy).toHaveBeenCalledWith(expect.any(String), { status: "Pending", page: 1, pageSize: 25 });
     spy.mockResolvedValue({ items: [] });
     fireEvent.change(screen.getByLabelText(li.colStatus), { target: { value: "Approved" } });
     expect(await screen.findByText(li.emptyTitle)).toBeInTheDocument();

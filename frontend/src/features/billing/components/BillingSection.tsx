@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Eye, FilePlus2, Send, Trash2 } from "lucide-react";
+import { Eye, FilePlus2, Send, Settings, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SelectPill } from "@/components/ui/select-pill";
@@ -34,6 +34,9 @@ import {
 } from "../constants";
 import type { BatchInvoiceRunResponse, InvoiceItemDto, InvoiceStatusType } from "../types";
 import { InvoiceDetailSheet } from "./InvoiceDetailSheet";
+import { useServerPagination } from "@/hooks/use-server-pagination";
+import { InvoiceDueInfo } from "@/components/shared/invoice-due-info";
+import { BillingSettingsDialog } from "./BillingSettingsDialog";
 
 export function BillingSection() {
   const locale = useLocale() as "th" | "en";
@@ -50,13 +53,16 @@ export function BillingSection() {
   const [deleteTarget, setDeleteTarget] = useState<InvoiceItemDto | null>(null);
   const [showIssueAll, setShowIssueAll] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const isPeriodValid = PERIOD_PATTERN.test(period);
+  const pg = useServerPagination([period, status]);
   const { data, isLoading, isError, refetch } = useAdminInvoices(
     activeProperty.id,
     period,
     status || undefined,
-    canBill && isPeriodValid
+    canBill && isPeriodValid,
+    pg.paging
   );
   const items = useMemo(() => data?.items ?? [], [data]);
 
@@ -148,6 +154,11 @@ export function BillingSection() {
       ),
     },
     {
+      id: "dueDate",
+      header: t("colDueDate"),
+      cell: (i) => <InvoiceDueInfo status={i.status} dueDate={i.dueDate} />,
+    },
+    {
       id: "total",
       header: t("colTotal"),
       align: "right",
@@ -217,7 +228,18 @@ export function BillingSection() {
 
   return (
     <div className="space-y-6">
-      <PageHeader prefixCode="INV" title={t("title")} description={t("description")} />
+      <PageHeader
+        prefixCode="INV"
+        title={t("title")}
+        description={t("description")}
+        actions={
+          <Button type="button" size="sm" variant="outline" onClick={() => setShowSettings(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+            <Settings className="h-4 w-4" />
+            <span>{t("btnSettings")}</span>
+          </Button>
+        }
+      />
+      <BillingSettingsDialog open={showSettings} onOpenChange={setShowSettings} propertyId={activeProperty.id} />
 
       <div className="grid grid-cols-1 gap-3 rounded-[12px] border border-hairline bg-canvas p-4 shadow-none sm:grid-cols-[200px_220px_1fr] sm:items-end">
         <FormField id="billing-period" label={t("fieldPeriod")}>
@@ -332,6 +354,7 @@ export function BillingSection() {
       )}
 
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(i) => i.id}

@@ -28,6 +28,7 @@ import {
   useRejectLeaseIntentMutation,
 } from "../api/use-lease-intents";
 import { PERMISSION_LEASE_INTENTS_MANAGE } from "../constants";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function LeaseIntentsSection() {
   const locale = useLocale() as "th" | "en";
@@ -43,7 +44,8 @@ export function LeaseIntentsSection() {
   const [rejectTarget, setRejectTarget] = useState<LeaseIntentDto | null>(null);
   const inFlight = useRef(false);
 
-  const { data, isLoading, isError, refetch } = useAdminLeaseIntents(activeProperty.id, status, canManage);
+  const pg = useServerPagination([status]);
+  const { data, isLoading, isError, refetch } = useAdminLeaseIntents(activeProperty.id, status, canManage, pg.paging);
   const approveMutation = useApproveLeaseIntentMutation(activeProperty.id);
   const rejectMutation = useRejectLeaseIntentMutation(activeProperty.id);
   const isBusy = approveMutation.isPending || rejectMutation.isPending;
@@ -167,6 +169,7 @@ export function LeaseIntentsSection() {
         </div>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={data?.items ?? []}
         getRowId={(i) => i.id}

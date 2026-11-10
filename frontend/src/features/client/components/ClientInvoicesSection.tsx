@@ -3,7 +3,12 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { FileDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useBlobDownload } from "@/hooks/use-blob-download";
+import { apiClient } from "@/lib/api/api-client";
+import type { ReceiptItemDto } from "@/features/files/types";
 import { SelectPill } from "@/components/ui/select-pill";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -11,9 +16,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { formatCurrencyThb, formatDateTime } from "@/lib/formatters";
 import { INVOICE_STATUS_BADGE_VARIANT } from "@/features/billing/constants";
 import type { InvoiceStatusType } from "@/features/billing/types";
-import { useClientInvoices, useClientAllSlips } from "../api/use-client-invoices";
+import { useClientInvoices, useClientAllSlips, useClientReceipts } from "../api/use-client-invoices";
 import { CLIENT_INVOICE_STATUS_OPTIONS, SLIP_STATUS_BADGE_VARIANT } from "../constants";
 import type { ClientInvoiceDto, ClientPaymentSlipDto, SlipStatusType } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
+import { InvoiceDueInfo } from "@/components/shared/invoice-due-info";
 
 export function ClientInvoicesSection() {
   const router = useRouter();
@@ -23,8 +30,37 @@ export function ClientInvoicesSection() {
   const tSlip = useTranslations("client.portal.slip");
   const [status, setStatus] = useState("");
   const [tab, setTab] = useState("invoices");
-  const invoices = useClientInvoices(status || undefined);
-  const slips = useClientAllSlips(tab === "slips");
+  const pg = useServerPagination([status]);
+  const invoices = useClientInvoices(status || undefined, pg.paging);
+  const pgSlips = useServerPagination([]);
+  const slips = useClientAllSlips(tab === "slips", pgSlips.paging);
+  const receipts = useClientReceipts(tab === "receipts");
+  const { download, isDownloading } = useBlobDownload();
+  const receiptColumns: ColumnDef<ReceiptItemDto>[] = [
+    { id: "doc", header: t("colDocument"), cell: (r) => <span className="font-mono text-xs">{r.documentNumber}</span> },
+    { id: "invoice", header: t("colInvoice"), cell: (r) => <span className="font-mono text-xs">{r.invoiceDocumentNumber ?? "-"}</span> },
+    { id: "stay", header: t("colStay"), cell: (r) => <span className="font-mono text-xs">{r.stayDocumentNumber ?? "-"}</span> },
+    { id: "amount", header: t("colTotal"), align: "right", cell: (r) => <span className="font-mono text-xs tabular-nums">{formatCurrencyThb(r.netPayableAmount)}</span> },
+    { id: "issued", header: t("colIssuedAt"), cell: (r) => <span className="text-xs">{formatDateTime(r.issuedAt, locale)}</span> },
+    {
+      id: "pdf",
+      header: <span className="sr-only">{t("btnDownloadReceipt")}</span>,
+      align: "right",
+      cell: (r) => (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isDownloading}
+          onClick={() => void download(() => apiClient.downloadClientReceiptPdf(r.id), `${r.documentNumber}.pdf`, "open")}
+          className="h-8 gap-1.5 rounded-full px-3 text-xs"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          <span>{t("btnDownloadReceipt")}</span>
+        </Button>
+      ),
+    },
+  ];
 
   const invoiceColumns: ColumnDef<ClientInvoiceDto>[] = [
     { id: "doc", header: t("colDocument"), cell: (r) => <span className="font-mono text-xs">{r.invoice.documentNumber}</span> },
@@ -38,6 +74,7 @@ export function ClientInvoicesSection() {
         </Badge>
       ),
     },
+    { id: "dueDate", header: t("colDueDate"), cell: (r) => <InvoiceDueInfo status={r.invoice.status} dueDate={r.invoice.dueDate} /> },
     { id: "total", header: t("colTotal"), align: "right", cell: (r) => <span className="font-mono text-xs tabular-nums">{formatCurrencyThb(r.invoice.totalAmount)}</span> },
     { id: "paid", header: t("colPaid"), align: "right", cell: (r) => <span className="font-mono text-xs tabular-nums">{formatCurrencyThb(r.paidAmount)}</span> },
     { id: "outstanding", header: t("colOutstanding"), align: "right", cell: (r) => <span className="font-mono text-xs tabular-nums">{formatCurrencyThb(r.outstandingAmount)}</span> },
@@ -67,6 +104,7 @@ export function ClientInvoicesSection() {
         <TabsList>
           <TabsTrigger value="invoices">{t("tabInvoices")}</TabsTrigger>
           <TabsTrigger value="slips">{t("tabSlips")}</TabsTrigger>
+          <TabsTrigger value="receipts">{t("tabReceipts")}</TabsTrigger>
         </TabsList>
         <TabsContent value="invoices" className="space-y-4">
           <div className="flex items-center justify-between gap-3 rounded-[12px] border border-hairline bg-canvas p-4 shadow-none">
@@ -83,6 +121,7 @@ export function ClientInvoicesSection() {
             </div>
           </div>
           <DataTable
+        {...pg.tableProps(invoices.data?.pagination)}
             columns={invoiceColumns}
             data={invoices.data?.items ?? []}
             getRowId={(r) => r.invoice.id}
@@ -97,6 +136,7 @@ export function ClientInvoicesSection() {
         </TabsContent>
         <TabsContent value="slips">
           <DataTable
+        {...pgSlips.tableProps(slips.data?.pagination)}
             columns={slipColumns}
             data={slips.data?.items ?? []}
             getRowId={(s) => s.id}
@@ -107,6 +147,19 @@ export function ClientInvoicesSection() {
             emptyTitle={t("slipsEmptyTitle")}
             emptyDescription={t("slipsEmptyDescription")}
             onRowClick={(s) => router.push(`/client/invoices/${s.invoiceId}`)}
+          />
+        </TabsContent>
+        <TabsContent value="receipts">
+          <DataTable
+            columns={receiptColumns}
+            data={receipts.data?.items ?? []}
+            getRowId={(r) => r.id}
+            isLoading={receipts.isLoading}
+            isError={receipts.isError}
+            errorMessage={t("receiptsLoadError")}
+            onRetry={() => void receipts.refetch()}
+            emptyTitle={t("receiptsEmptyTitle")}
+            emptyDescription={t("receiptsEmptyDescription")}
           />
         </TabsContent>
       </Tabs>

@@ -33,6 +33,7 @@ import {
   EditHousekeepingNoteDialog,
   CompleteHousekeepingTaskDialog,
 } from "./HousekeepingDialogs";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function HousekeepingSection() {
   const locale = useLocale() as "th" | "en";
@@ -54,10 +55,12 @@ export function HousekeepingSection() {
 
   const propertyId = activeProperty.id;
   const { data: hierarchy } = usePropertyHierarchy(propertyId);
+  const pg = useServerPagination([status, buildingId]);
   const { data, isLoading, isError, refetch } = useAdminHousekeepingTasks(
     propertyId,
     status || undefined,
-    buildingId || undefined
+    buildingId || undefined,
+    pg.paging
   );
   const startMutation = useStartHousekeepingTaskMutation(propertyId);
   const deleteMutation = useDeleteHousekeepingTaskMutation(propertyId);
@@ -251,6 +254,7 @@ export function HousekeepingSection() {
       </div>
       {!canUpdate && <p className="text-xs text-mute">{t("noPermissionHint")}</p>}
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(r) => r.id}

@@ -38,3 +38,5 @@ export type UpdateStayRequest = Schemas["UpdateStayRequest"];
 export type UpdateStayOccupantRequest = Schemas["UpdateStayOccupantRequest"];
 export type ReverseFolioPaymentRequest = Schemas["ReverseFolioPaymentRequest"];
 export type CheckInOccupantInputDto = Schemas["CheckInOccupantInputDto"];
+export type BillingSettingsDto = Schemas["BillingSettingsDto"];
+export type UpdateBillingSettingsRequest = Schemas["UpdateBillingSettingsRequest"];

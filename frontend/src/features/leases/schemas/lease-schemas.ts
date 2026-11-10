@@ -27,6 +27,7 @@ export const leaseCreateSchema = z
     endDate: z.string().min(1, "End date is required"),
     monthlyRentAmount: positiveMoneySchema,
     securityDepositAmount: moneyAmountSchema,
+    paymentMethod: z.enum(["Cash", "BankTransfer", "PromptPay"]),
     initialWaterMeterReading: z.number().finite().nonnegative(),
     initialElectricMeterReading: z.number().finite().nonnegative(),
     occupants: z.array(occupantSchema),
@@ -54,6 +55,7 @@ export type LeaseRenewFormValues = z.infer<typeof leaseRenewSchema>;
 export const leaseSettleSchema = z.object({
   utilityDeductionAmount: moneyAmountSchema,
   damageDeductionAmount: moneyAmountSchema,
+  refundPaymentMethod: z.enum(["Cash", "BankTransfer", "PromptPay"]),
   reason: z.string().trim().min(3, "Reason is required"),
 });
 export type LeaseSettleFormValues = z.infer<typeof leaseSettleSchema>;

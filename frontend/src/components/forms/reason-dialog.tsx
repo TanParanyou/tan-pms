@@ -33,6 +33,8 @@ export interface ReasonDialogProps {
   reasonRequired?: boolean;
   /** Return true when the action succeeded so the dialog closes; false keeps it open for retry. */
   onConfirm: (reason: string) => Promise<boolean>;
+  /** Extra form controls rendered under the reason (e.g. refund payment method). */
+  extra?: React.ReactNode;
 }
 
 /**
@@ -51,6 +53,7 @@ export function ReasonDialog({
   isLoading = false,
   reasonRequired = true,
   onConfirm,
+  extra,
 }: ReasonDialogProps) {
   const t = useTranslations("common.reasonDialog");
   const tCommon = useTranslations("common");
@@ -113,6 +116,7 @@ export function ReasonDialog({
               placeholder={t("placeholder")}
             />
           </FormField>
+          {extra}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={close} className="rounded-full">
               {tCommon("cancel")}

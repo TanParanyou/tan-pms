@@ -20,6 +20,7 @@ import { useAdminStays } from "../api/use-stays";
 import { CHECK_IN_STAY_MODES, PERMISSION_REGULATORY_EXPORT, PERMISSION_STAY_CHECKIN, STAY_STATUS_BADGE_VARIANT, STAY_STATUS_OPTIONS } from "../constants";
 import type { StayDetailDto } from "../types";
 import { RegulatoryExportDialog } from "./RegulatoryExportDialog";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function FrontDeskStaysSection() {
   const router = useRouter();
@@ -37,7 +38,8 @@ export function FrontDeskStaysSection() {
   const [showRegulatory, setShowRegulatory] = useState(false);
   const debounced = useDebouncedValue(search.trim().toLowerCase(), 200);
 
-  const { data, isLoading, isError, refetch } = useAdminStays(activeProperty.id, { status: status || undefined, stayMode: stayMode || undefined });
+  const pg = useServerPagination([status, stayMode]);
+  const { data, isLoading, isError, refetch } = useAdminStays(activeProperty.id, { status: status || undefined, stayMode: stayMode || undefined }, pg.paging);
   const all = useMemo(() => data?.items ?? [], [data]);
   const items = useMemo(
     () =>
@@ -161,6 +163,7 @@ export function FrontDeskStaysSection() {
         </SelectPill>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(s) => s.id}

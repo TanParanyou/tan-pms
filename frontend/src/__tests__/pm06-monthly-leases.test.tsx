@@ -135,6 +135,8 @@ describe("PM-06: Monthly leases UI", () => {
       expect(getLeases).toHaveBeenCalledWith(expect.any(String), {
         status: undefined,
         licensePlate: "1กข",
+        page: 1,
+        pageSize: 25,
       })
     );
   });

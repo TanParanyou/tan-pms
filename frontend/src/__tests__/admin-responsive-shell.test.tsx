@@ -15,6 +15,7 @@ import AdminPage from "@/app/(admin)/admin/page";
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
   redirect: vi.fn(),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 import thMessages from "@/messages/th.json";
 

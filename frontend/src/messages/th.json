@@ -112,7 +112,8 @@
       "showing": "แสดง",
       "previous": "ก่อนหน้า",
       "next": "ถัดไป",
-      "rowsPerPage": "แถวต่อหน้า"
+      "rowsPerPage": "แถวต่อหน้า",
+      "pagination": "การแบ่งหน้า"
     },
     "placeholders": {
       "search": "พิมพ์เพื่อค้นหา...",
@@ -162,6 +163,11 @@
       "errorThaiRequired": "ต้องระบุข้อความภาษาไทย",
       "labelDescTh": "คำอธิบาย (ไทย)",
       "labelDescEn": "คำอธิบาย (อังกฤษ)"
+    },
+    "dueDate": {
+      "overdue": "เกินกำหนดชำระ",
+      "overdueDays": "เกินกำหนด {count} วัน",
+      "label": "ครบกำหนดชำระ"
     }
   },
   "home": {
@@ -1112,7 +1118,11 @@
       "csvCopyFailed": "คัดลอก CSV ไม่สำเร็จ",
       "fieldPhoneNumber": "เบอร์โทรศัพท์",
       "keyDepositTitle": "เงินมัดจำกุญแจ (วาง / คงเหลือ)",
-      "overtimeLabel": "เกินเวลา"
+      "overtimeLabel": "เกินเวลา",
+      "sectionReceipts": "ใบเสร็จรับเงิน",
+      "noReceipts": "ยังไม่มีใบเสร็จของการเข้าพักนี้",
+      "receiptsLoadError": "โหลดใบเสร็จไม่สำเร็จ",
+      "btnDownloadReceipt": "ดาวน์โหลดใบเสร็จ (PDF)"
     },
     "leases": {
       "title": "สัญญาเช่ารายเดือน",
@@ -1233,7 +1243,9 @@
       "confirmDeleteVehicleTitle": "ยืนยันการลบยานพาหนะ",
       "confirmDeleteVehicleMessage": "ลบยานพาหนะทะเบียน {plate} ออกจากสัญญาใช่หรือไม่?",
       "btnPrintContract": "พิมพ์สัญญา (PDF)",
-      "cancelReason": "เหตุผลที่ยกเลิก"
+      "cancelReason": "เหตุผลที่ยกเลิก",
+      "fieldDepositPaymentMethod": "วิธีรับเงินประกัน",
+      "fieldRefundPaymentMethod": "วิธีคืนเงิน"
     },
     "billing": {
       "title": "วางบิลรายเดือนแบบกลุ่ม",
@@ -1318,7 +1330,19 @@
       "receiptsLoadError": "โหลดใบเสร็จไม่สำเร็จ",
       "noReceipts": "ยังไม่มีใบเสร็จสำหรับใบแจ้งหนี้นี้",
       "btnDownloadReceipt": "ดาวน์โหลดใบเสร็จ (PDF)",
-      "voidReason": "เหตุผลที่ยกเลิก"
+      "voidReason": "เหตุผลที่ยกเลิก",
+      "colDueDate": "ครบกำหนดชำระ",
+      "btnSettings": "ตั้งค่าการวางบิล",
+      "settingsTitle": "ตั้งค่าการวางบิลของสาขา",
+      "settingsDescription": "กำหนดเครดิตเทอม (จำนวนวัน) เพื่อคำนวณวันครบกำหนดชำระของใบแจ้งหนี้ใหม่",
+      "settingsLoadError": "โหลดการตั้งค่าไม่สำเร็จ",
+      "fieldPaymentTerms": "เครดิตเทอม (วัน)",
+      "paymentTermsHint": "เว้นว่างเพื่อใช้ค่าเริ่มต้นของระบบ (0 ถึง 365 วัน)",
+      "placeholderPaymentTerms": "เช่น 7",
+      "errorPaymentTerms": "ระบุจำนวนวันระหว่าง 0 ถึง 365",
+      "effectiveTerms": "ค่าที่ใช้งานจริง: {days} วัน",
+      "settingsSaved": "บันทึกการตั้งค่าแล้ว",
+      "settingsReadOnly": "คุณไม่มีสิทธิ์แก้ไขการตั้งค่า"
     },
     "payments": {
       "title": "ตรวจสอบสลิปโอนเงิน",
@@ -1356,7 +1380,8 @@
       "errorReasonRequired": "ต้องระบุเหตุผลที่ปฏิเสธ",
       "toastApproved": "อนุมัติสลิปแล้ว",
       "toastRejected": "ปฏิเสธสลิปแล้ว",
-      "slipImage": "ภาพสลิป"
+      "slipImage": "ภาพสลิป",
+      "colDueDate": "ครบกำหนดชำระ"
     },
     "deposits": {
       "title": "ทะเบียนเงินประกัน",
@@ -1393,7 +1418,8 @@
       "emptyTitle": "ไม่มีบัญชีเงินประกัน",
       "emptyDescription": "ไม่มีบัญชีที่ตรงกับตัวกรองนี้",
       "readOnlyHint": "ทะเบียนเงินมัดจำคำนวณจากใบเสร็จและการคืนเงิน จึงแก้ไขหรือลบโดยตรงไม่ได้",
-      "loadingLedger": "กำลังโหลดรายการเงินมัดจำ..."
+      "loadingLedger": "กำลังโหลดรายการเงินมัดจำ...",
+      "txPaymentMethod": "วิธีชำระเงิน"
     },
     "housekeeping": {
       "title": "งานแม่บ้าน",
@@ -1764,7 +1790,14 @@
       "markAsRead": "อ่านแล้ว",
       "emptyTitle": "ไม่มีการแจ้งเตือนในช่องทางนี้",
       "emptyDesc": "คุณไม่มีข้อความแจ้งเตือนใหม่ในขณะนี้",
-      "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ"
+      "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ",
+      "templates": {
+        "invoiceIssued": "ออกใบแจ้งหนี้ใหม่",
+        "invoiceOverdue": "ใบแจ้งหนี้เกินกำหนดชำระ",
+        "parcelArrived": "มีพัสดุมาถึง",
+        "leaseIntentApproved": "คำขอเกี่ยวกับสัญญาเช่าได้รับอนุมัติ",
+        "leaseIntentRejected": "คำขอเกี่ยวกับสัญญาเช่าถูกปฏิเสธ"
+      }
     },
     "booking": {
       "title": "จองห้องพักออนไลน์ (Online Room Booking)",
@@ -1805,7 +1838,8 @@
         "invoices": "ใบแจ้งหนี้",
         "usage": "น้ำ-ไฟ",
         "workOrders": "แจ้งซ่อม",
-        "parcels": "พัสดุ"
+        "parcels": "พัสดุ",
+        "badge": "ผู้เช่า"
       },
       "booking": {
         "fieldProperty": "สาขา",
@@ -1947,7 +1981,15 @@
         "noLines": "ไม่มีรายการ",
         "sectionReceipts": "ใบเสร็จรับเงิน",
         "noReceipts": "ยังไม่มีใบเสร็จ",
-        "btnDownloadReceipt": "ดาวน์โหลดใบเสร็จ (PDF)"
+        "btnDownloadReceipt": "ดาวน์โหลดใบเสร็จ (PDF)",
+        "colDueDate": "ครบกำหนดชำระ",
+        "tabReceipts": "ใบเสร็จของฉัน",
+        "colInvoice": "ใบแจ้งหนี้",
+        "colStay": "การเข้าพัก",
+        "colIssuedAt": "ออกเมื่อ",
+        "receiptsLoadError": "โหลดใบเสร็จไม่สำเร็จ",
+        "receiptsEmptyTitle": "ยังไม่มีใบเสร็จ",
+        "receiptsEmptyDescription": "ใบเสร็จจากการชำระใบแจ้งหนี้และค่าเข้าพักจะแสดงที่นี่"
       },
       "slip": {
         "status": {
@@ -2068,7 +2110,13 @@
         "colStatus": "สถานะ",
         "colArrivedAt": "ถึงเมื่อ",
         "colPickedUpAt": "รับเมื่อ",
-        "pickupInstructions": "กรุณาแสดงหน้าจอนี้ที่เคาน์เตอร์ส่วนกลางเพื่อรับพัสดุ"
+        "pickupInstructions": "กรุณาแสดงหน้าจอนี้ที่เคาน์เตอร์ส่วนกลางเพื่อรับพัสดุ",
+        "detailDescription": "รายละเอียดพัสดุและสถานะการรับ",
+        "detailLoadError": "โหลดข้อมูลพัสดุไม่สำเร็จ",
+        "notFound": "ไม่พบพัสดุนี้",
+        "recipientName": "ผู้รับพัสดุ",
+        "voidReason": "เหตุผลที่ยกเลิก",
+        "photo": "รูปพัสดุ"
       },
       "reservations": {
         "status": {

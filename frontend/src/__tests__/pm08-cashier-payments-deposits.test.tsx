@@ -169,7 +169,7 @@ describe("PM-08: Payment slip queue", () => {
   it("defaults to Pending and shows slip rows", async () => {
     renderWith(<PaymentSlipQueueSection />);
     expect(await screen.findByText("INV-pd")).toBeInTheDocument();
-    expect(apiClient.getAdminPaymentSlips).toHaveBeenCalledWith(expect.any(String), { status: "Pending" });
+    expect(apiClient.getAdminPaymentSlips).toHaveBeenCalledWith(expect.any(String), { status: "Pending", page: 1, pageSize: 25 });
   });
 
   it("requires confirmation to approve and invalidates operational caches", async () => {
@@ -250,7 +250,7 @@ describe("PM-08: Deposit register", () => {
     expect(screen.getAllByText("12,500 THB").length).toBeGreaterThan(0);
     expect(screen.getByText(d.notRevenue)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(d.colType), { target: { value: "KeyDeposit" } });
-    await waitFor(() => expect(get).toHaveBeenCalledWith(expect.any(String), { type: "KeyDeposit" }));
+    await waitFor(() => expect(get).toHaveBeenCalledWith(expect.any(String), { type: "KeyDeposit", page: 1, pageSize: 25 }));
     fireEvent.change(screen.getByLabelText(d.colType), { target: { value: "" } });
     fireEvent.click(await screen.findByLabelText(`${d.colTransactions} LSE-1`));
     expect(await screen.findByTestId("deposit-transactions")).toHaveTextContent("DEP-1");

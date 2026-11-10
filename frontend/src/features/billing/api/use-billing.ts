@@ -1,16 +1,18 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type { ReceiptListResponse } from "@/features/files/types";
+import type { BillingSettingsDto, UpdateBillingSettingsRequest } from "@/features/client/types";
 import type { InvoiceItemDto, InvoiceLineRequest, InvoiceListResponse, BatchInvoiceRunRequest } from "../types";
 
-export function useAdminInvoices(propertyId: string, period: string, status?: string, enabled = true) {
+export function useAdminInvoices(propertyId: string, period: string, status?: string, enabled = true, paging: PagingParams = {}) {
   return useQuery<InvoiceListResponse>({
-    queryKey: queryKeys.billing.invoices(propertyId, period, status),
-    queryFn: () => apiClient.getAdminInvoices(propertyId, { period, status }),
+    queryKey: [...queryKeys.billing.invoices(propertyId, period, status), paging],
+    queryFn: () => apiClient.getAdminInvoices(propertyId, { period, status, ...paging }),
+    placeholderData: keepPreviousData,
     enabled,
   });
 }
@@ -76,5 +78,26 @@ export function useAdminReceipts(propertyId: string, invoiceId: string) {
   return useQuery<ReceiptListResponse>({
     queryKey: ["admin-receipts", propertyId, invoiceId],
     queryFn: () => apiClient.listAdminReceipts(propertyId, { invoiceId }),
+  });
+}
+
+export function useBillingSettings(propertyId: string, enabled: boolean) {
+  return useQuery<BillingSettingsDto>({
+    queryKey: queryKeys.billing.settings(propertyId),
+    queryFn: () => apiClient.getAdminBillingSettings(propertyId),
+    enabled,
+  });
+}
+
+export function useUpdateBillingSettingsMutation(propertyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<BillingSettingsDto, Error, UpdateBillingSettingsRequest>({
+    mutationFn: (req) => apiClient.updateAdminBillingSettings(propertyId, req),
+    // Payment terms drive due dates of future invoices: refresh the settings and every billing list.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.billing.settings(propertyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.billing.all }),
+      ]),
   });
 }

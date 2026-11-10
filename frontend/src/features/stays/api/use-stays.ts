@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type {
@@ -14,6 +14,7 @@ import type {
   CheckOutStayRequest,
   RegulatoryExportResponse,
 } from "@/generated/api";
+import type { ReceiptItemDto } from "@/features/files/types";
 import type {
   UpdateStayRequest,
   UpdateStayOccupantRequest,
@@ -21,10 +22,19 @@ import type {
   CheckInOccupantInputDto,
 } from "@/features/client/types";
 
-export function useAdminStays(propertyId: string, filters: { status?: string; stayMode?: string } = {}) {
+export function useAdminStays(propertyId: string, filters: { status?: string; stayMode?: string } = {}, paging: PagingParams = {}) {
   return useQuery<StayListResponse>({
-    queryKey: queryKeys.stays.list(propertyId, filters.status, filters.stayMode),
-    queryFn: () => apiClient.getAdminStays(propertyId, filters),
+    queryKey: [...queryKeys.stays.list(propertyId, filters.status, filters.stayMode), paging],
+    queryFn: () => apiClient.getAdminStays(propertyId, { ...filters, ...paging }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Receipts for the stay's payments: the list endpoint has no stay filter, so keep only the rows the server tagged with this stayId. */
+export function useStayReceipts(propertyId: string, stayId: string) {
+  return useQuery<ReceiptItemDto[]>({
+    queryKey: [...queryKeys.stays.detail(stayId), "receipts", propertyId],
+    queryFn: async () => (await apiClient.listAdminReceipts(propertyId)).items.filter((r) => r.stayId === stayId),
   });
 }
 

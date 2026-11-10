@@ -36,6 +36,7 @@ export const LEASE_CREATE_DEFAULTS = {
   endDate: "",
   monthlyRentAmount: 0,
   securityDepositAmount: 0,
+  paymentMethod: "Cash" as const,
   initialWaterMeterReading: 0,
   initialElectricMeterReading: 0,
   occupants: [],

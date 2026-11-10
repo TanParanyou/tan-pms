@@ -20,12 +20,14 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
+import { useSignOut } from "@/hooks/use-sign-out";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { locale, toggleLocale } = useAppLocale();
   const tPortalNav = useTranslations("client.portal.nav");
   const tCommon = useTranslations("common");
+  const { signOut, isSigningOut } = useSignOut();
 
   const navLinks = [
     { href: "/client/dashboard", label: tPortalNav("dashboard"), icon: Home },
@@ -56,7 +58,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               {siteConfig.name}
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-soft border border-hairline text-body font-mono font-bold">
-              CLIENT
+              {tPortalNav("badge")}
             </span>
           </Link>
 
@@ -103,17 +105,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               <span>{locale.toUpperCase()}</span>
             </Button>
 
-            <Link href="/login">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="rounded-full text-xs h-8 px-3 gap-1.5 text-destructive hover:bg-destructive/10"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{tCommon("logout")}</span>
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSigningOut}
+              onClick={() => void signOut()}
+              className="rounded-full text-xs h-8 px-3 gap-1.5 text-destructive hover:bg-destructive/10"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{tCommon("logout")}</span>
+            </Button>
           </div>
         </div>
 

@@ -24,6 +24,7 @@ import {
   RESERVATION_STAY_MODES,
 } from "../constants";
 import type { ReservationItemDto } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function AdminReservationsSection() {
   const router = useRouter();
@@ -39,10 +40,11 @@ export function AdminReservationsSection() {
   const [showInspector, setShowInspector] = useState(false);
   const debounced = useDebouncedValue(search.trim().toLowerCase(), 200);
 
+  const pg = useServerPagination([status, stayMode]);
   const { data, isLoading, isError, refetch } = useAdminReservations(activeProperty.id, {
     status: status || undefined,
     stayMode: stayMode || undefined,
-  });
+  }, pg.paging);
   const items = useMemo(
     () =>
       (data?.items ?? []).filter(
@@ -138,6 +140,7 @@ export function AdminReservationsSection() {
         </SelectPill>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(r) => r.id}

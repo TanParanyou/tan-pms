@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { SelectPill } from "@/components/ui/select-pill";
@@ -11,13 +12,16 @@ import { formatDateTime } from "@/lib/formatters";
 import { PARCEL_STATUS_OPTIONS, PARCEL_STATUS_BADGE_VARIANT } from "@/features/parcels/constants";
 import type { ParcelItemDto, ParcelStatusType } from "@/features/parcels/types";
 import { useClientParcels } from "../api/use-client-operations";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function ClientParcelsSection() {
+  const router = useRouter();
   const locale = useLocale() as "th" | "en";
   const t = useTranslations("client.portal.parcels");
   const tParcel = useTranslations("admin.parcels");
   const [status, setStatus] = useState("");
-  const { data, isLoading, isError, refetch } = useClientParcels(status || undefined);
+  const pg = useServerPagination([status]);
+  const { data, isLoading, isError, refetch } = useClientParcels(status || undefined, pg.paging);
 
   const columns: ColumnDef<ParcelItemDto>[] = [
     { id: "doc", header: t("colDocument"), cell: (p) => <span className="font-mono text-xs">{p.documentNumber}</span> },
@@ -64,6 +68,7 @@ export function ClientParcelsSection() {
         </div>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={data?.items ?? []}
         getRowId={(p) => p.id}
@@ -73,6 +78,7 @@ export function ClientParcelsSection() {
         onRetry={() => void refetch()}
         emptyTitle={t("emptyTitle")}
         emptyDescription={t("emptyDescription")}
+        onRowClick={(p) => router.push(`/client/parcels/${p.id}`)}
       />
       <p className="text-xs text-mute">{t("pickupInstructions")}</p>
     </div>

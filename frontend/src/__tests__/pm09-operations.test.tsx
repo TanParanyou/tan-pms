@@ -92,7 +92,7 @@ describe("PM-09: Housekeeping", () => {
     await screen.findByText("WKO-t1");
     fireEvent.change(document.getElementById("hk-filter-status") as HTMLSelectElement, { target: { value: "Cleaning" } });
     await waitFor(() =>
-      expect(apiClient.getAdminHousekeepingTasks).toHaveBeenCalledWith(expect.any(String), { status: "Cleaning", buildingId: undefined })
+      expect(apiClient.getAdminHousekeepingTasks).toHaveBeenCalledWith(expect.any(String), { status: "Cleaning", buildingId: undefined, page: 1, pageSize: 25 })
     );
   });
 

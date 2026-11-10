@@ -13,12 +13,14 @@ import { formatCurrencyThb, formatDateTime } from "@/lib/formatters";
 import type { ReservationItemDto } from "@/generated/api";
 import { useClientReservations } from "../api/use-client-reservations";
 import { RESERVATION_STATUS_BADGE_VARIANT } from "../constants";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function ClientReservationsSection() {
   const router = useRouter();
   const locale = useLocale() as "th" | "en";
   const t = useTranslations("client.portal.reservations");
-  const { data, isLoading, isError, refetch } = useClientReservations();
+  const pg = useServerPagination([]);
+  const { data, isLoading, isError, refetch } = useClientReservations(pg.paging);
 
   const columns: ColumnDef<ReservationItemDto>[] = [
     { id: "doc", header: t("colDocument"), cell: (r) => <span className="font-mono text-xs">{r.documentNumber}</span> },
@@ -54,6 +56,7 @@ export function ClientReservationsSection() {
         }
       />
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={data?.items ?? []}
         getRowId={(r) => r.id}

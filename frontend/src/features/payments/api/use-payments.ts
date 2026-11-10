@@ -1,15 +1,16 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type { AdminPaymentSlipDto, PaymentSlipQueueResponse } from "../types";
 
-export function useAdminPaymentSlips(propertyId: string, status?: string) {
+export function useAdminPaymentSlips(propertyId: string, status?: string, paging: PagingParams = {}) {
   return useQuery<PaymentSlipQueueResponse>({
-    queryKey: queryKeys.payments.slips(propertyId, status),
-    queryFn: () => apiClient.getAdminPaymentSlips(propertyId, { status }),
+    queryKey: [...queryKeys.payments.slips(propertyId, status), paging],
+    queryFn: () => apiClient.getAdminPaymentSlips(propertyId, { status, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 

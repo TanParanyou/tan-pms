@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import type {
   WorkOrderItemDto,
@@ -9,14 +9,15 @@ import type {
   CreateWorkOrderRequest,
   UpdateWorkOrderRequest,
 } from "@/features/work-orders/types";
-import type { ParcelListResponse } from "@/features/parcels/types";
+import type { ParcelItemDto, ParcelListResponse } from "@/features/parcels/types";
 import type { NotificationListResponse } from "@/generated/api";
 import { invalidateClientCaches } from "./invalidate-client";
 
-export function useClientWorkOrders(status?: string) {
+export function useClientWorkOrders(status?: string, paging: PagingParams = {}) {
   return useQuery<WorkOrderListResponse>({
-    queryKey: queryKeys.clientPortal.workOrders(status),
-    queryFn: () => apiClient.getClientWorkOrders({ status }),
+    queryKey: [...queryKeys.clientPortal.workOrders(status), paging],
+    queryFn: () => apiClient.getClientWorkOrders({ status, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -52,16 +53,25 @@ export function useCancelClientWorkOrderMutation() {
   });
 }
 
-export function useClientParcels(status?: string) {
+export function useClientParcels(status?: string, paging: PagingParams = {}) {
   return useQuery<ParcelListResponse>({
-    queryKey: queryKeys.clientPortal.parcels(status),
-    queryFn: () => apiClient.getClientParcels({ status }),
+    queryKey: [...queryKeys.clientPortal.parcels(status), paging],
+    queryFn: () => apiClient.getClientParcels({ status, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 
-export function useClientNotifications() {
+export function useClientNotifications(paging: PagingParams = {}) {
   return useQuery<NotificationListResponse>({
-    queryKey: queryKeys.clientPortal.notifications(),
-    queryFn: () => apiClient.getClientNotifications(),
+    queryKey: [...queryKeys.clientPortal.notifications(), paging],
+    queryFn: () => apiClient.getClientNotifications(paging),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useClientParcel(id: string) {
+  return useQuery<ParcelItemDto>({
+    queryKey: queryKeys.clientPortal.parcel(id),
+    queryFn: () => apiClient.getClientParcel(id),
   });
 }

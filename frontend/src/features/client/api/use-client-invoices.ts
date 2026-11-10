@@ -1,8 +1,9 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
+import type { ReceiptListResponse } from "@/features/files/types";
 import type {
   ClientInvoiceDto,
   ClientInvoiceListResponse,
@@ -13,10 +14,11 @@ import type {
 } from "../types";
 import { invalidateClientCaches } from "./invalidate-client";
 
-export function useClientInvoices(status?: string) {
+export function useClientInvoices(status?: string, paging: PagingParams = {}) {
   return useQuery<ClientInvoiceListResponse>({
-    queryKey: queryKeys.clientPortal.invoices(status),
-    queryFn: () => apiClient.getClientInvoices({ status }),
+    queryKey: [...queryKeys.clientPortal.invoices(status), paging],
+    queryFn: () => apiClient.getClientInvoices({ status, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -27,10 +29,11 @@ export function useClientInvoice(invoiceId: string) {
   });
 }
 
-export function useClientAllSlips(enabled = true) {
+export function useClientAllSlips(enabled = true, paging: PagingParams = {}) {
   return useQuery<ClientPaymentSlipListResponse>({
-    queryKey: queryKeys.clientPortal.slips(),
-    queryFn: () => apiClient.getClientAllPaymentSlips(),
+    queryKey: [...queryKeys.clientPortal.slips(), paging],
+    queryFn: () => apiClient.getClientAllPaymentSlips(paging),
+    placeholderData: keepPreviousData,
     enabled,
   });
 }
@@ -67,5 +70,13 @@ export function useClientUtilityUsage(leaseId?: string, months?: number) {
   return useQuery<ClientUtilityUsageResponse>({
     queryKey: queryKeys.clientPortal.usage(leaseId, months),
     queryFn: () => apiClient.getClientUtilityUsage({ leaseId, months }),
+  });
+}
+
+export function useClientReceipts(enabled = true) {
+  return useQuery<ReceiptListResponse>({
+    queryKey: queryKeys.clientPortal.receipts(),
+    queryFn: () => apiClient.getClientReceipts(),
+    enabled,
   });
 }

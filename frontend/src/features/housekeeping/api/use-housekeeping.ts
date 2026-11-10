@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type {
@@ -12,10 +12,11 @@ import type {
   UpdateHousekeepingTaskRequest,
 } from "../types";
 
-export function useAdminHousekeepingTasks(propertyId: string, status?: string, buildingId?: string) {
+export function useAdminHousekeepingTasks(propertyId: string, status?: string, buildingId?: string, paging: PagingParams = {}) {
   return useQuery<HousekeepingTaskListResponse>({
-    queryKey: queryKeys.housekeeping.list(propertyId, status, buildingId),
-    queryFn: () => apiClient.getAdminHousekeepingTasks(propertyId, { status, buildingId }),
+    queryKey: [...queryKeys.housekeeping.list(propertyId, status, buildingId), paging],
+    queryFn: () => apiClient.getAdminHousekeepingTasks(propertyId, { status, buildingId, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -112,7 +112,7 @@ describe("PM-04 reservations (real API)", () => {
     expect(await screen.findByText("RES-2611-0001")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: rs.createReservation })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(rs.colStatusDeposit), { target: { value: "Confirmed" } });
-    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.any(String), { status: "Confirmed", stayMode: undefined }));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.any(String), { status: "Confirmed", stayMode: undefined, page: 1, pageSize: 25 }));
     first.unmount();
     spy.mockRejectedValue(new Error("boom"));
     renderAdmin(<AdminReservationsSection />);
@@ -226,7 +226,7 @@ describe("PM-05 stays and front desk (real API)", () => {
     expect(screen.getByRole("link", { name: st.monthlyHintLink })).toHaveAttribute("href", "/admin/leases/create");
     expect(screen.queryByRole("button", { name: st.btnCheckIn })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(st.colStatus), { target: { value: "CheckedOut" } });
-    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.any(String), { status: "CheckedOut", stayMode: undefined }));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.any(String), { status: "CheckedOut", stayMode: undefined, page: 1, pageSize: 25 }));
     spy.mockResolvedValue({ items: [] });
     fireEvent.change(screen.getByLabelText(st.colStatus), { target: { value: "Cancelled" } });
     expect(await screen.findByText(st.emptyStays)).toBeInTheDocument();

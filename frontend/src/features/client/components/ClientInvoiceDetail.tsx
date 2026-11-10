@@ -23,6 +23,7 @@ import { useClientInvoice, useWithdrawSlipMutation } from "../api/use-client-inv
 import { SLIP_STATUS_BADGE_VARIANT } from "../constants";
 import type { ClientInvoiceDto, ClientPaymentSlipDto, SlipStatusType } from "../types";
 import { SlipDialog } from "./SlipDialog";
+import { InvoiceDueInfo } from "@/components/shared/invoice-due-info";
 
 /** Statuses that still accept payment slips. */
 const PAYABLE_STATUSES: readonly string[] = ["Issued", "PartiallyPaid", "Overdue"];
@@ -101,6 +102,9 @@ function InvoiceBody({ dto }: { dto: ClientInvoiceDto }) {
           <Badge variant={INVOICE_STATUS_BADGE_VARIANT[status]}>{tBilling(`status.${status}`)}</Badge>
         </DetailItem>
         <DetailItem label={t("colPeriod")}>{invoice.billingPeriodYearMonth ?? "-"}</DetailItem>
+        <DetailItem label={t("colDueDate")}>
+          <InvoiceDueInfo status={invoice.status} dueDate={invoice.dueDate} />
+        </DetailItem>
         <DetailItem label={t("colTotal")}>{formatCurrencyThb(invoice.totalAmount)}</DetailItem>
         <DetailItem label={t("colPaid")}>{formatCurrencyThb(dto.paidAmount)}</DetailItem>
         <DetailItem label={t("colOutstanding")}>

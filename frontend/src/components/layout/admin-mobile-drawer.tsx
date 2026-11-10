@@ -36,6 +36,7 @@ import {
   ClipboardCheck,
   BarChart3,
 } from "lucide-react";
+import { useSignOut } from "@/hooks/use-sign-out";
 
 export interface AdminMobileDrawerProps {
   isOpen: boolean;
@@ -103,6 +104,7 @@ export function AdminMobileDrawer({
   const tNav = useTranslations("admin.nav");
   const tShell = useTranslations("admin.shell");
   const tCommon = useTranslations("common");
+  const { signOut, isSigningOut } = useSignOut();
   const pathname = usePathname();
 
   const isItemActive = (href: string, key: AdminModuleKey) => {
@@ -199,17 +201,17 @@ export function AdminMobileDrawer({
             <span>{locale.toUpperCase()}</span>
           </Button>
 
-          <Link href="/login" className="block w-full">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-full rounded-full text-xs h-9 justify-center gap-2 text-destructive hover:bg-destructive/10"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>{tCommon("logout")}</span>
-            </Button>
-          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isSigningOut}
+            onClick={() => void signOut()}
+            className="w-full rounded-full text-xs h-9 justify-center gap-2 text-destructive hover:bg-destructive/10"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>{tCommon("logout")}</span>
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

@@ -30,6 +30,7 @@ import {
   Settings,
   User,
 } from "lucide-react";
+import { useSignOut } from "@/hooks/use-sign-out";
 
 export interface AdminNavbarProps {
   selectedProperty: string;
@@ -54,6 +55,7 @@ export function AdminNavbar({
 }: AdminNavbarProps) {
   const { locale, setLocale } = useAppLocale();
   const tCommon = useTranslations("common");
+  const { signOut, isSigningOut } = useSignOut();
   const tShell = useTranslations("admin.shell");
 
   return (
@@ -303,14 +305,13 @@ export function AdminNavbar({
 
               <DropdownMenuSeparator className="bg-hairline my-1" />
 
-              <DropdownMenuItem asChild>
-                <Link
-                  href="/login"
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer transition-colors"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span>{tCommon("logout")}</span>
-                </Link>
+              <DropdownMenuItem
+                disabled={isSigningOut}
+                onSelect={() => void signOut()}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>{tCommon("logout")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

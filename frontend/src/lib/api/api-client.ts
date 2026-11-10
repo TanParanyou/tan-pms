@@ -123,6 +123,8 @@ import type {
   AnalyticsReportKind,
 } from "@/features/client/types";
 import type {
+  BillingSettingsDto,
+  UpdateBillingSettingsRequest,
   UpsertBuildingRequest,
   BuildingDetailDto,
   UpsertFloorRequest,
@@ -136,6 +138,21 @@ import type {
   CheckInOccupantInputDto,
 } from "@/features/client/types";
 import { ApiError } from "./api-error";
+
+export interface PagingParams {
+  page?: number;
+  pageSize?: number;
+}
+
+/** Builds "?a=1&b=2" from defined values only. */
+export function toQueryString(params: Record<string, string | number | null | undefined>): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") qs.set(key, String(value));
+  }
+  const query = qs.toString();
+  return query ? `?${query}` : "";
+}
 
 export interface ApiClientConfig {
   baseUrl?: string;
@@ -239,6 +256,10 @@ export class ApiClient {
     });
   }
 
+  async logout(): Promise<void> {
+    await this.request<void>(`/api/v1/auth/logout`, { method: "POST" });
+  }
+
   // --- 2. RBAC & Notifications APIs ---
   async getAdminRoles(): Promise<RoleCatalogResponse> {
     return this.request<RoleCatalogResponse>(`/api/v1/admin/roles`, {
@@ -247,8 +268,8 @@ export class ApiClient {
     });
   }
 
-  async getAdminUsers(): Promise<AdminUserListResponse> {
-    return this.request<AdminUserListResponse>(`/api/v1/admin/users`, {
+  async getAdminUsers(params: PagingParams = {}): Promise<AdminUserListResponse> {
+    return this.request<AdminUserListResponse>(`/api/v1/admin/users${toQueryString({ ...params })}`, {
       method: "GET",
       headers: { "X-TanPms-Scope": "AdminScope" },
     });
@@ -270,8 +291,8 @@ export class ApiClient {
     });
   }
 
-  async getClientNotifications(): Promise<NotificationListResponse> {
-    return this.request<NotificationListResponse>(`/api/v1/client/notifications`, {
+  async getClientNotifications(params: PagingParams = {}): Promise<NotificationListResponse> {
+    return this.request<NotificationListResponse>(`/api/v1/client/notifications${toQueryString({ ...params })}`, {
       method: "GET",
       headers: { "X-TanPms-Scope": "ClientScope" },
     });
@@ -354,14 +375,10 @@ export class ApiClient {
 
   async getAdminReservations(
     propertyId: string,
-    params: { status?: string; stayMode?: string } = {}
+    params: { status?: string; stayMode?: string } & PagingParams = {}
   ): Promise<ReservationListResponse> {
-    const qs = new URLSearchParams();
-    if (params.status) qs.set("status", params.status);
-    if (params.stayMode) qs.set("stayMode", params.stayMode);
-    const query = qs.toString();
     return this.request<ReservationListResponse>(
-      `/api/v1/admin/properties/${propertyId}/reservations${query ? `?${query}` : ""}`,
+      `/api/v1/admin/properties/${propertyId}/reservations${toQueryString({ ...params })}`,
       { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
     );
   }
@@ -427,8 +444,8 @@ export class ApiClient {
     });
   }
 
-  async getClientReservations(): Promise<ReservationListResponse> {
-    return this.request<ReservationListResponse>(`/api/v1/client/reservations`, {
+  async getClientReservations(params: PagingParams = {}): Promise<ReservationListResponse> {
+    return this.request<ReservationListResponse>(`/api/v1/client/reservations${toQueryString({ ...params })}`, {
       method: "GET",
       headers: { "X-TanPms-Scope": "ClientScope" },
     });
@@ -469,12 +486,11 @@ export class ApiClient {
     });
   }
 
-  async getAdminStays(propertyId: string, params: { status?: string; stayMode?: string } = {}): Promise<StayListResponse> {
-    const qs = new URLSearchParams();
-    if (params.status) qs.set("status", params.status);
-    if (params.stayMode) qs.set("stayMode", params.stayMode);
-    const query = qs.toString();
-    return this.request<StayListResponse>(`/api/v1/admin/properties/${propertyId}/stays${query ? `?${query}` : ""}`, {
+  async getAdminStays(
+    propertyId: string,
+    params: { status?: string; stayMode?: string } & PagingParams = {}
+  ): Promise<StayListResponse> {
+    return this.request<StayListResponse>(`/api/v1/admin/properties/${propertyId}/stays${toQueryString({ ...params })}`, {
       method: "GET",
       headers: { "X-TanPms-Scope": "AdminScope" },
     });
@@ -531,14 +547,10 @@ export class ApiClient {
   // --- 6b. Monthly Leases APIs (PM-06) ---
   async getAdminLeases(
     propertyId: string,
-    params: { status?: LeaseStatusType; licensePlate?: string } = {}
+    params: { status?: LeaseStatusType; licensePlate?: string } & PagingParams = {}
   ): Promise<LeaseListResponse> {
-    const qs = new URLSearchParams();
-    if (params.status) qs.set("status", params.status);
-    if (params.licensePlate) qs.set("licensePlate", params.licensePlate);
-    const query = qs.toString();
     return this.request<LeaseListResponse>(
-      `/api/v1/admin/properties/${propertyId}/leases${query ? `?${query}` : ""}`,
+      `/api/v1/admin/properties/${propertyId}/leases${toQueryString({ ...params })}`,
       { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
     );
   }
@@ -649,14 +661,10 @@ export class ApiClient {
 
   async getAdminInvoices(
     propertyId: string,
-    params: { period?: string; status?: string } = {}
+    params: { period?: string; status?: string } & PagingParams = {}
   ): Promise<InvoiceListResponse> {
-    const qs = new URLSearchParams();
-    if (params.period) qs.set("period", params.period);
-    if (params.status) qs.set("status", params.status);
-    const query = qs.toString();
     return this.request<InvoiceListResponse>(
-      `/api/v1/admin/properties/${propertyId}/invoices${query ? `?${query}` : ""}`,
+      `/api/v1/admin/properties/${propertyId}/invoices${toQueryString({ ...params })}`,
       { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
     );
   }
@@ -691,12 +699,14 @@ export class ApiClient {
     });
   }
 
-  async getAdminCashierShifts(propertyId: string, params: { status?: string } = {}): Promise<CashierShiftListResponse> {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.request<CashierShiftListResponse>(`/api/v1/admin/properties/${propertyId}/cashier/shifts${query}`, {
-      method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
-    });
+  async getAdminCashierShifts(
+    propertyId: string,
+    params: { status?: string } & PagingParams = {}
+  ): Promise<CashierShiftListResponse> {
+    return this.request<CashierShiftListResponse>(
+      `/api/v1/admin/properties/${propertyId}/cashier/shifts${toQueryString({ ...params })}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
   }
 
   async closeAdminCashierShift(
@@ -723,20 +733,24 @@ export class ApiClient {
     });
   }
 
-  async getAdminDepositLedgers(propertyId: string, params: { type?: string } = {}): Promise<DepositLedgerListResponse> {
-    const query = params.type ? `?type=${encodeURIComponent(params.type)}` : "";
-    return this.request<DepositLedgerListResponse>(`/api/v1/admin/properties/${propertyId}/deposit-ledgers${query}`, {
-      method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
-    });
+  async getAdminDepositLedgers(
+    propertyId: string,
+    params: { type?: string } & PagingParams = {}
+  ): Promise<DepositLedgerListResponse> {
+    return this.request<DepositLedgerListResponse>(
+      `/api/v1/admin/properties/${propertyId}/deposit-ledgers${toQueryString({ ...params })}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
   }
 
-  async getAdminPaymentSlips(propertyId: string, params: { status?: string } = {}): Promise<PaymentSlipQueueResponse> {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.request<PaymentSlipQueueResponse>(`/api/v1/admin/properties/${propertyId}/payments/slips${query}`, {
-      method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
-    });
+  async getAdminPaymentSlips(
+    propertyId: string,
+    params: { status?: string } & PagingParams = {}
+  ): Promise<PaymentSlipQueueResponse> {
+    return this.request<PaymentSlipQueueResponse>(
+      `/api/v1/admin/properties/${propertyId}/payments/slips${toQueryString({ ...params })}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
   }
 
   async approveAdminPaymentSlip(propertyId: string, slipId: string): Promise<AdminPaymentSlipDto> {
@@ -770,8 +784,8 @@ export class ApiClient {
   updateAdminLease(propertyId: string, leaseId: string, req: UpdateLeaseRequest) {
     return this.adminCall<LeaseItemDto>(propertyId, `leases/${leaseId}`, "PUT", req);
   }
-  cancelAdminLease(propertyId: string, leaseId: string, reason: string) {
-    return this.adminCall<LeaseSettlementDto>(propertyId, `leases/${leaseId}/cancel`, "POST", { reason });
+  cancelAdminLease(propertyId: string, leaseId: string, reason: string, refundPaymentMethod?: string) {
+    return this.adminCall<LeaseSettlementDto>(propertyId, `leases/${leaseId}/cancel`, "POST", { reason, refundPaymentMethod });
   }
   updateAdminLeaseOccupant(propertyId: string, leaseId: string, occupantId: string, req: UpdateLeaseOccupantRequest) {
     return this.adminCall<LeaseItemDto>(propertyId, `leases/${leaseId}/occupants/${occupantId}`, "PUT", req);
@@ -825,12 +839,8 @@ export class ApiClient {
     return this.adminCall<AdminPaymentSlipDto>(propertyId, `payments/slips/${slipId}`, "GET");
   }
 
-  getAdminHousekeepingTasks(propertyId: string, params: { status?: string; buildingId?: string } = {}) {
-    const qs = new URLSearchParams();
-    if (params.status) qs.set("status", params.status);
-    if (params.buildingId) qs.set("buildingId", params.buildingId);
-    const query = qs.toString();
-    return this.adminCall<HousekeepingTaskListResponse>(propertyId, `housekeeping/tasks${query ? `?${query}` : ""}`, "GET");
+  getAdminHousekeepingTasks(propertyId: string, params: { status?: string; buildingId?: string } & PagingParams = {}) {
+    return this.adminCall<HousekeepingTaskListResponse>(propertyId, `housekeeping/tasks${toQueryString({ ...params })}`, "GET");
   }
   createAdminHousekeepingTask(propertyId: string, req: CreateHousekeepingTaskRequest) {
     return this.adminCall<HousekeepingTaskDto>(propertyId, "housekeeping/tasks", "POST", req);
@@ -851,9 +861,8 @@ export class ApiClient {
     return this.adminCall<HousekeepingTaskDto>(propertyId, `housekeeping/tasks/${taskId}`, "DELETE");
   }
 
-  getAdminWorkOrders(propertyId: string, params: { status?: string } = {}) {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.adminCall<WorkOrderListResponse>(propertyId, `work-orders${query}`, "GET");
+  getAdminWorkOrders(propertyId: string, params: { status?: string } & PagingParams = {}) {
+    return this.adminCall<WorkOrderListResponse>(propertyId, `work-orders${toQueryString({ ...params })}`, "GET");
   }
   getAdminWorkOrder(propertyId: string, workOrderId: string) {
     return this.adminCall<WorkOrderItemDto>(propertyId, `work-orders/${workOrderId}`, "GET");
@@ -874,9 +883,8 @@ export class ApiClient {
     return this.adminCall<WorkOrderItemDto>(propertyId, `work-orders/${workOrderId}/cancel`, "POST", { reason });
   }
 
-  getAdminParcels(propertyId: string, params: { status?: string } = {}) {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.adminCall<ParcelListResponse>(propertyId, `parcels${query}`, "GET");
+  getAdminParcels(propertyId: string, params: { status?: string } & PagingParams = {}) {
+    return this.adminCall<ParcelListResponse>(propertyId, `parcels${toQueryString({ ...params })}`, "GET");
   }
   getAdminParcel(propertyId: string, parcelId: string) {
     return this.adminCall<ParcelItemDto>(propertyId, `parcels/${parcelId}`, "GET");
@@ -1018,6 +1026,13 @@ export class ApiClient {
     return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}/folio/payments/reverse`, "POST", req);
   }
 
+  getAdminBillingSettings(propertyId: string) {
+    return this.adminCall<BillingSettingsDto>(propertyId, "billing-settings", "GET");
+  }
+  updateAdminBillingSettings(propertyId: string, req: UpdateBillingSettingsRequest) {
+    return this.adminCall<BillingSettingsDto>(propertyId, "billing-settings", "PUT", req);
+  }
+
   // --- 6g. Client portal (ClientScope) ---
   private clientCall<T>(path: string, method: string, body?: unknown): Promise<T> {
     return this.request<T>(`/api/v1/client/${path}`, {
@@ -1043,6 +1058,9 @@ export class ApiClient {
   downloadClientReceiptPdf(receiptId: string) {
     return this.requestBlob(`/api/v1/client/receipts/${receiptId}/pdf`, "ClientScope");
   }
+  getClientReceipts() {
+    return this.clientCall<ReceiptListResponse>("receipts", "GET");
+  }
   getClientLeases() {
     return this.clientCall<LeaseListResponse>("leases", "GET");
   }
@@ -1061,9 +1079,8 @@ export class ApiClient {
   withdrawClientLeaseIntent(intentId: string) {
     return this.clientCall<LeaseIntentDto>(`lease-intents/${intentId}`, "DELETE");
   }
-  getClientInvoices(params: { status?: string } = {}) {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.clientCall<ClientInvoiceListResponse>(`invoices${query}`, "GET");
+  getClientInvoices(params: { status?: string } & PagingParams = {}) {
+    return this.clientCall<ClientInvoiceListResponse>(`invoices${toQueryString({ ...params })}`, "GET");
   }
   getClientInvoice(invoiceId: string) {
     return this.clientCall<ClientInvoiceDto>(`invoices/${invoiceId}`, "GET");
@@ -1077,8 +1094,8 @@ export class ApiClient {
   withdrawClientPaymentSlip(invoiceId: string, slipId: string) {
     return this.clientCall<ClientPaymentSlipDto>(`invoices/${invoiceId}/slips/${slipId}`, "DELETE");
   }
-  getClientAllPaymentSlips() {
-    return this.clientCall<ClientPaymentSlipListResponse>("payment-slips", "GET");
+  getClientAllPaymentSlips(params: PagingParams = {}) {
+    return this.clientCall<ClientPaymentSlipListResponse>(`payment-slips${toQueryString({ ...params })}`, "GET");
   }
   getClientUtilityUsage(params: { leaseId?: string; months?: number } = {}) {
     const qs = new URLSearchParams();
@@ -1087,9 +1104,8 @@ export class ApiClient {
     const query = qs.toString();
     return this.clientCall<ClientUtilityUsageResponse>(`utility-usage${query ? `?${query}` : ""}`, "GET");
   }
-  getClientWorkOrders(params: { status?: string } = {}) {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.clientCall<WorkOrderListResponse>(`work-orders${query}`, "GET");
+  getClientWorkOrders(params: { status?: string } & PagingParams = {}) {
+    return this.clientCall<WorkOrderListResponse>(`work-orders${toQueryString({ ...params })}`, "GET");
   }
   getClientWorkOrder(workOrderId: string) {
     return this.clientCall<WorkOrderItemDto>(`work-orders/${workOrderId}`, "GET");
@@ -1103,9 +1119,11 @@ export class ApiClient {
   cancelClientWorkOrder(workOrderId: string, reason: string) {
     return this.clientCall<WorkOrderItemDto>(`work-orders/${workOrderId}/cancel`, "POST", { reason });
   }
-  getClientParcels(params: { status?: string } = {}) {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.clientCall<ParcelListResponse>(`parcels${query}`, "GET");
+  getClientParcels(params: { status?: string } & PagingParams = {}) {
+    return this.clientCall<ParcelListResponse>(`parcels${toQueryString({ ...params })}`, "GET");
+  }
+  getClientParcel(parcelId: string) {
+    return this.clientCall<ParcelItemDto>(`parcels/${parcelId}`, "GET");
   }
   getClientReservation(reservationId: string) {
     return this.clientCall<ReservationItemDto>(`reservations/${reservationId}`, "GET");
@@ -1115,9 +1133,8 @@ export class ApiClient {
   }
 
   // --- 6h. Admin lease intents & analytics ---
-  getAdminLeaseIntents(propertyId: string, params: { status?: string } = {}) {
-    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : "";
-    return this.adminCall<LeaseIntentListResponse>(propertyId, `lease-intents${query}`, "GET");
+  getAdminLeaseIntents(propertyId: string, params: { status?: string } & PagingParams = {}) {
+    return this.adminCall<LeaseIntentListResponse>(propertyId, `lease-intents${toQueryString({ ...params })}`, "GET");
   }
   approveAdminLeaseIntent(propertyId: string, intentId: string) {
     return this.adminCall<LeaseIntentDto>(propertyId, `lease-intents/${intentId}/approve`, "POST");

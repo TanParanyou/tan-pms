@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api/api-client";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { apiClient, type PagingParams } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type {
@@ -20,10 +20,11 @@ export function useCurrentCashierShift(propertyId: string) {
   });
 }
 
-export function useCashierShifts(propertyId: string, status?: string) {
+export function useCashierShifts(propertyId: string, status?: string, paging: PagingParams = {}) {
   return useQuery<CashierShiftListResponse>({
-    queryKey: queryKeys.cashier.shifts(propertyId, status),
-    queryFn: () => apiClient.getAdminCashierShifts(propertyId, { status }),
+    queryKey: [...queryKeys.cashier.shifts(propertyId, status), paging],
+    queryFn: () => apiClient.getAdminCashierShifts(propertyId, { status, ...paging }),
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -15,7 +15,7 @@ export const INVOICE_STATUS_BADGE_VARIANT: Record<InvoiceStatusType, NonNullable
   Issued: "default",
   PartiallyPaid: "warning",
   Paid: "success",
-  Overdue: "destructive",
+  Overdue: "overdue",
   Voided: "outline",
 };
 
@@ -41,3 +41,6 @@ export const INVOICE_LINE_DEFAULTS = {
   lineAmount: 0,
   taxMode: "VatIncluded" as TaxModeType,
 };
+
+export const PERMISSION_PROPERTIES_MANAGE_BILLING_SETTINGS = "admin.properties.manage";
+export const MAX_PAYMENT_TERMS_DAYS = 365;

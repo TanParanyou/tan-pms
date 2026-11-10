@@ -21,6 +21,7 @@ import {
   WORK_ORDER_PRIORITY_BADGE_VARIANT,
 } from "../constants";
 import type { WorkOrderItemDto, WorkOrderPriorityType, WorkOrderStatusType } from "../types";
+import { useServerPagination } from "@/hooks/use-server-pagination";
 
 export function WorkOrdersListSection() {
   const router = useRouter();
@@ -31,7 +32,8 @@ export function WorkOrdersListSection() {
   const canManage = hasPermission(PERMISSION_WORK_ORDERS_MANAGE);
   const [status, setStatus] = useState<WorkOrderStatusType | "">("");
 
-  const { data, isLoading, isError, refetch } = useAdminWorkOrders(activeProperty.id, status || undefined);
+  const pg = useServerPagination([status]);
+  const { data, isLoading, isError, refetch } = useAdminWorkOrders(activeProperty.id, status || undefined, pg.paging);
   const items = useMemo(() => data?.items ?? [], [data]);
 
   const columns: ColumnDef<WorkOrderItemDto>[] = [
@@ -114,6 +116,7 @@ export function WorkOrdersListSection() {
         </div>
       </div>
       <DataTable
+        {...pg.tableProps(data?.pagination)}
         columns={columns}
         data={items}
         getRowId={(w) => w.id}
