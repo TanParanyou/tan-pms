@@ -4,11 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
-import {
-  INITIAL_STAYS,
-  INITIAL_REGULATORY_GUEST_ROWS,
-  SAMPLE_PROPERTY,
-} from "../constants";
 import type {
   StayListResponse,
   StayDetailDto,
@@ -19,134 +14,93 @@ import type {
   CheckOutStayRequest,
   RegulatoryExportResponse,
 } from "@/generated/api";
+import type {
+  UpdateStayRequest,
+  UpdateStayOccupantRequest,
+  ReverseFolioPaymentRequest,
+  CheckInOccupantInputDto,
+} from "@/features/client/types";
 
-export function useAdminStays(propertyId: string) {
+export function useAdminStays(propertyId: string, filters: { status?: string; stayMode?: string } = {}) {
   return useQuery<StayListResponse>({
-    queryKey: queryKeys.stays.list(propertyId),
-    queryFn: async () => {
-      try {
-        return await apiClient.getAdminStays(propertyId);
-      } catch (err: unknown) {
-        // Fallback for offline demo/unit tests
-        return {
-          items: INITIAL_STAYS,
-        };
-      }
-    },
-    placeholderData: {
-      items: INITIAL_STAYS,
-    },
+    queryKey: queryKeys.stays.list(propertyId, filters.status, filters.stayMode),
+    queryFn: () => apiClient.getAdminStays(propertyId, filters),
   });
 }
 
 export function useAdminStayDetail(propertyId: string, stayId: string) {
-  return useQuery<StayDetailDto | null>({
-    queryKey: queryKeys.stays.detail(stayId),
-    queryFn: async () => {
-      try {
-        const response = await apiClient.getAdminStays(propertyId);
-        const stay = response.items.find((s) => s.id === stayId || s.documentNumber === stayId);
-        return stay ?? null;
-      } catch {
-        const fallback = INITIAL_STAYS.find((s) => s.id === stayId || s.documentNumber === stayId);
-        return fallback ?? INITIAL_STAYS[0] ?? null;
-      }
-    },
+  return useQuery<StayDetailDto>({
+    queryKey: [...queryKeys.stays.detail(stayId), propertyId],
+    queryFn: () => apiClient.getAdminStay(propertyId, stayId),
     enabled: Boolean(stayId && stayId !== "create"),
   });
 }
 
+// Stay changes hit folio, key deposit, rack and housekeeping: await every operational cache plus stay details.
+function useStayMutation<TVars, TResult = unknown>(mutationFn: (vars: TVars) => Promise<TResult>) {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, Error, TVars>({
+    mutationFn,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-stay-detail"] }),
+        invalidateOperationalCaches(queryClient),
+      ]);
+    },
+  });
+}
+
 export function useCheckInStayMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (req: CheckInStayRequest) => {
-      return await apiClient.checkInStay(req);
-    },
-    // Check-in occupies the unit and books the key deposit into the open shift: await every dependent cache.
-    onSuccess: () => invalidateOperationalCaches(queryClient),
-  });
+  return useStayMutation((req: CheckInStayRequest) => apiClient.checkInStay(req));
 }
-
+export function useUpdateStayMutation(propertyId: string) {
+  return useStayMutation(({ id, req }: { id: string; req: UpdateStayRequest }) => apiClient.updateAdminStay(propertyId, id, req));
+}
+export function useCancelStayMutation(propertyId: string) {
+  return useStayMutation(({ id, reason }: { id: string; reason: string }) => apiClient.cancelAdminStay(propertyId, id, reason));
+}
 export function useExtendStayMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ stayId, req }: { stayId: string; req: ExtendStayRequest }) => {
-      return await apiClient.extendAdminStay(propertyId, stayId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stays.all });
-    },
-  });
+  return useStayMutation(({ stayId, req }: { stayId: string; req: ExtendStayRequest }) => apiClient.extendAdminStay(propertyId, stayId, req));
 }
-
 export function useAddFolioChargeMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ stayId, req }: { stayId: string; req: AddFolioChargeRequest }) => {
-      return await apiClient.addAdminFolioCharge(propertyId, stayId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stays.all });
-    },
-  });
+  return useStayMutation(({ stayId, req }: { stayId: string; req: AddFolioChargeRequest }) => apiClient.addAdminFolioCharge(propertyId, stayId, req));
 }
-
+export function useVoidFolioChargeMutation(propertyId: string) {
+  return useStayMutation(({ stayId, chargeId, reason }: { stayId: string; chargeId: string; reason: string }) =>
+    apiClient.voidAdminFolioCharge(propertyId, stayId, chargeId, reason)
+  );
+}
 export function useRecordFolioPaymentMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ stayId, req }: { stayId: string; req: RecordFolioPaymentRequest }) => {
-      return await apiClient.recordAdminFolioPayment(propertyId, stayId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stays.all });
-    },
-  });
+  return useStayMutation(({ stayId, req }: { stayId: string; req: RecordFolioPaymentRequest }) => apiClient.recordAdminFolioPayment(propertyId, stayId, req));
 }
-
+export function useReverseFolioPaymentMutation(propertyId: string) {
+  return useStayMutation(({ stayId, req }: { stayId: string; req: ReverseFolioPaymentRequest }) => apiClient.reverseAdminFolioPayment(propertyId, stayId, req));
+}
 export function useCheckOutStayMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ stayId, req }: { stayId: string; req: CheckOutStayRequest }) => {
-      return await apiClient.checkOutAdminStay(propertyId, stayId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stays.all });
-    },
-  });
+  return useStayMutation(({ stayId, req }: { stayId: string; req: CheckOutStayRequest }) => apiClient.checkOutAdminStay(propertyId, stayId, req));
+}
+export function useAddStayOccupantMutation(propertyId: string) {
+  return useStayMutation(({ stayId, req }: { stayId: string; req: CheckInOccupantInputDto }) => apiClient.addAdminStayOccupant(propertyId, stayId, req));
+}
+export function useUpdateStayOccupantMutation(propertyId: string) {
+  return useStayMutation(({ stayId, occupantId, req }: { stayId: string; occupantId: string; req: UpdateStayOccupantRequest }) =>
+    apiClient.updateAdminStayOccupant(propertyId, stayId, occupantId, req)
+  );
+}
+export function useDeleteStayOccupantMutation(propertyId: string) {
+  return useStayMutation(({ stayId, occupantId }: { stayId: string; occupantId: string }) =>
+    apiClient.deleteAdminStayOccupant(propertyId, stayId, occupantId)
+  );
 }
 
-export function useRegulatoryExportQuery(propertyId: string) {
+export function useRegulatoryExportQuery(
+  propertyId: string,
+  params: { reportType: "RR4" | "TM30"; unmaskPii: boolean } | null
+) {
   return useQuery<RegulatoryExportResponse>({
-    queryKey: queryKeys.regulatoryExports.export(propertyId),
-    queryFn: async () => {
-      try {
-        return await apiClient.getAdminRegulatoryExports(propertyId);
-      } catch {
-        return {
-          property: {
-            id: propertyId,
-            code: SAMPLE_PROPERTY.code,
-            name: SAMPLE_PROPERTY.name,
-          },
-          reportType: "RR4",
-          generatedAt: new Date().toISOString(),
-          isPiiUnmasked: false,
-          csvContent: "",
-          rows: INITIAL_REGULATORY_GUEST_ROWS,
-        };
-      }
-    },
-    placeholderData: {
-      property: {
-        id: propertyId,
-        code: SAMPLE_PROPERTY.code,
-        name: SAMPLE_PROPERTY.name,
-      },
-      reportType: "RR4",
-      generatedAt: new Date().toISOString(),
-      isPiiUnmasked: false,
-      csvContent: "",
-      rows: INITIAL_REGULATORY_GUEST_ROWS,
-    },
+    queryKey: [...queryKeys.regulatoryExports.all, propertyId, params?.reportType ?? "", params?.unmaskPii ?? false],
+    queryFn: () => apiClient.getAdminRegulatoryExports(propertyId, params as { reportType: "RR4" | "TM30"; unmaskPii: boolean }),
+    enabled: params !== null,
+    gcTime: 0, // exports may contain unmasked PII: never keep them cached
   });
 }

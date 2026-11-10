@@ -52,6 +52,12 @@ async function fillGuest() {
   fireEvent.change(screen.getByPlaceholderText(tc.placeholders.nationalId), { target: { value: "US-PASS-5544" } });
 }
 
+function fillWalkInGuest() {
+  fireEvent.change(document.getElementById("walkin-guest-name") as HTMLInputElement, { target: { value: "Alice Smith" } });
+  fireEvent.change(document.getElementById("walkin-nationality") as HTMLInputElement, { target: { value: "USA" } });
+  fireEvent.change(document.getElementById("walkin-identity") as HTMLInputElement, { target: { value: "US-PASS-5544" } });
+}
+
 beforeEach(() => {
   push.mockClear();
   vi.spyOn(apiClient, "getAdminPropertyHierarchy").mockResolvedValue(hierarchy);
@@ -170,10 +176,11 @@ describe("PM-05 wired quick walk-in on the rack", () => {
     await pick("walkin-customer", /Somchai Jaidee/);
     await waitFor(() => expect(screen.getByRole("option", { name: /A-101/ })).toBeInTheDocument());
     expect(screen.queryByRole("option", { name: /A-103/ })).not.toBeInTheDocument();
+    fillWalkInGuest();
     fireEvent.change(document.getElementById("walkin-unit") as HTMLSelectElement, { target: { value: "u-clean" } });
     fireEvent.click(screen.getByRole("button", { name: cm.completeCheckIn }));
     await waitFor(() =>
-      expect(checkIn).toHaveBeenCalledWith(expect.objectContaining({ unitId: "u-clean", customerId: customerRef.id, overrideDirtyCheckIn: false }))
+      expect(checkIn).toHaveBeenCalledWith(expect.objectContaining({ unitId: "u-clean", customerId: customerRef.id, overrideDirtyCheckIn: false, occupants: [expect.objectContaining({ fullName: "Alice Smith", nationalityCode: "USA" })] }))
     );
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("STY-2611-0001"));
     expect(onClose).toHaveBeenCalled();
@@ -188,6 +195,7 @@ describe("PM-05 wired quick walk-in on the rack", () => {
     fireEvent.change(document.getElementById("walkin-customer") as HTMLInputElement, { target: { value: "Som" } });
     await pick("walkin-customer", /Somchai Jaidee/);
     await waitFor(() => expect(screen.getByRole("option", { name: /A-101/ })).toBeInTheDocument());
+    fillWalkInGuest();
     fireEvent.change(document.getElementById("walkin-unit") as HTMLSelectElement, { target: { value: "u-clean" } });
     fireEvent.click(screen.getByRole("button", { name: cm.completeCheckIn }));
     expect(await screen.findByTestId("shift-not-open-alert")).toBeInTheDocument();

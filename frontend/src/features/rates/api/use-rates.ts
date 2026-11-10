@@ -3,15 +3,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
-import {
-  INITIAL_RATE_PLANS,
-  INITIAL_UTILITY_TARIFFS,
-  INITIAL_TAX_PROFILES,
-  SAMPLE_RATE_PROPERTY,
-} from "../constants";
+import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
 import type {
   PropertyRateCatalogResponse,
   RatePlanItemDto,
+  UtilityTariffItemDto,
+  TaxProfileItemDto,
   UpsertRatePlanRequest,
   UpsertUtilityTariffRequest,
   UpsertTaxProfileRequest,
@@ -21,91 +18,70 @@ import type {
 export function usePropertyRates(propertyId: string) {
   return useQuery<PropertyRateCatalogResponse>({
     queryKey: queryKeys.rates.catalog(propertyId),
-    queryFn: async () => {
-      try {
-        return await apiClient.getAdminPropertyRates(propertyId);
-      } catch {
-        return {
-          property: {
-            id: propertyId,
-            code: SAMPLE_RATE_PROPERTY.code,
-            name: SAMPLE_RATE_PROPERTY.name,
-          },
-          ratePlans: INITIAL_RATE_PLANS,
-          utilityTariffs: INITIAL_UTILITY_TARIFFS,
-          taxProfiles: INITIAL_TAX_PROFILES,
-        };
-      }
-    },
-    placeholderData: {
-      property: {
-        id: propertyId,
-        code: SAMPLE_RATE_PROPERTY.code,
-        name: SAMPLE_RATE_PROPERTY.name,
-      },
-      ratePlans: INITIAL_RATE_PLANS,
-      utilityTariffs: INITIAL_UTILITY_TARIFFS,
-      taxProfiles: INITIAL_TAX_PROFILES,
-    },
+    queryFn: () => apiClient.getAdminPropertyRates(propertyId),
   });
 }
 
 export function useRatePlanDetail(propertyId: string, ratePlanId: string) {
-  return useQuery<RatePlanItemDto | null>({
-    queryKey: queryKeys.rates.detail(ratePlanId),
-    queryFn: async () => {
-      try {
-        const catalog = await apiClient.getAdminPropertyRates(propertyId);
-        return catalog.ratePlans.find((rp) => rp.id === ratePlanId || rp.code === ratePlanId) ?? null;
-      } catch {
-        const fallback = INITIAL_RATE_PLANS.find((rp) => rp.id === ratePlanId || rp.code === ratePlanId);
-        return fallback ?? INITIAL_RATE_PLANS[0] ?? null;
-      }
-    },
+  return useQuery<RatePlanItemDto>({
+    queryKey: [...queryKeys.rates.detail(ratePlanId), propertyId],
+    queryFn: () => apiClient.getAdminRatePlan(propertyId, ratePlanId),
     enabled: Boolean(ratePlanId && ratePlanId !== "create"),
   });
 }
 
+export function useUtilityTariffDetail(propertyId: string, id: string | null) {
+  return useQuery<UtilityTariffItemDto>({
+    queryKey: [...queryKeys.rates.all, "tariff", propertyId, id],
+    queryFn: () => apiClient.getAdminUtilityTariff(propertyId, id as string),
+    enabled: Boolean(id),
+  });
+}
+
+export function useTaxProfileDetail(propertyId: string, id: string | null) {
+  return useQuery<TaxProfileItemDto>({
+    queryKey: [...queryKeys.rates.all, "tax", propertyId, id],
+    queryFn: () => apiClient.getAdminTaxProfile(propertyId, id as string),
+    enabled: Boolean(id),
+  });
+}
+
+// Rates drive quotes, availability and billing: await every dependent cache.
+function useRateMutation<TVars, TResult>(mutationFn: (vars: TVars) => Promise<TResult>) {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, Error, TVars>({
+    mutationFn,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.rates.all }),
+        queryClient.invalidateQueries({ queryKey: ["admin-rate-plan-detail"] }),
+        invalidateOperationalCaches(queryClient),
+      ]);
+    },
+  });
+}
+
 export function useUpsertRatePlanMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (req: UpsertRatePlanRequest) => {
-      return await apiClient.upsertAdminRatePlan(propertyId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.rates.all });
-    },
-  });
+  return useRateMutation((req: UpsertRatePlanRequest) => apiClient.upsertAdminRatePlan(propertyId, req));
 }
-
+export function useDeleteRatePlanMutation(propertyId: string) {
+  return useRateMutation((id: string) => apiClient.deleteAdminRatePlan(propertyId, id));
+}
 export function useUpsertUtilityTariffMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (req: UpsertUtilityTariffRequest) => {
-      return await apiClient.upsertAdminUtilityTariff(propertyId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.rates.all });
-    },
-  });
+  return useRateMutation((req: UpsertUtilityTariffRequest) => apiClient.upsertAdminUtilityTariff(propertyId, req));
 }
-
+export function useDeleteUtilityTariffMutation(propertyId: string) {
+  return useRateMutation((id: string) => apiClient.deleteAdminUtilityTariff(propertyId, id));
+}
 export function useUpsertTaxProfileMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (req: UpsertTaxProfileRequest) => {
-      return await apiClient.upsertAdminTaxProfile(propertyId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.rates.all });
-    },
-  });
+  return useRateMutation((req: UpsertTaxProfileRequest) => apiClient.upsertAdminTaxProfile(propertyId, req));
+}
+export function useDeleteTaxProfileMutation(propertyId: string) {
+  return useRateMutation((id: string) => apiClient.deleteAdminTaxProfile(propertyId, id));
 }
 
 export function useSimulateRateMutation(propertyId: string) {
   return useMutation({
-    mutationFn: async (req: RateSimulationRequest) => {
-      return await apiClient.simulateAdminRateAndTax(propertyId, req);
-    },
+    mutationFn: (req: RateSimulationRequest) => apiClient.simulateAdminRateAndTax(propertyId, req),
   });
 }

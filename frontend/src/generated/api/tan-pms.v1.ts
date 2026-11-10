@@ -1876,6 +1876,326 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deactivateAdminUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reactivateAdminUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/units/{unitId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminUnit"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminUnit"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/buildings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upsertAdminBuilding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/buildings/{buildingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminBuilding"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/floors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upsertAdminFloor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/floors/{floorId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminFloor"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/unit-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upsertAdminUnitType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/unit-types/{unitTypeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminUnitType"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/rates/plans/{ratePlanId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRatePlan"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminRatePlan"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/rates/utilities/{tariffId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminUtilityTariff"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminUtilityTariff"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/rates/taxes/{taxProfileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminTaxProfile"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminTaxProfile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminReservation"];
+        put: operations["updateAdminReservation"];
+        post?: never;
+        delete: operations["deleteAdminReservation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminStay"];
+        put: operations["updateAdminStay"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelAdminStay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/occupants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addAdminStayOccupant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/occupants/{occupantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateAdminStayOccupant"];
+        post?: never;
+        delete: operations["deleteAdminStayOccupant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/charges/{chargeId}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["voidAdminFolioCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/payments/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reverseAdminFolioPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2383,6 +2703,8 @@ export interface components {
             cancellationReason?: string | null;
             /** @enum {string} */
             status: "Hold" | "PendingVerification" | "Confirmed" | "CheckedIn" | "Expired" | "Cancelled" | "NoShow";
+            guestCount?: number | null;
+            note?: string | null;
         };
         ReservationListResponse: {
             items: components["schemas"]["ReservationItemDto"][];
@@ -2434,6 +2756,8 @@ export interface components {
             identityNumber: string;
             isPrimaryOccupant: boolean;
             vehicleLicensePlate?: string | null;
+            phoneNumber?: string | null;
+            identityDocumentFileKey?: string | null;
         };
         StayOccupantDto: {
             /** Format: uuid */
@@ -2443,6 +2767,8 @@ export interface components {
             maskedIdentityNumber: string;
             isPrimaryOccupant: boolean;
             vehicleLicensePlate?: string | null;
+            phoneNumber?: string | null;
+            identityDocumentFileKey?: string | null;
         };
         FolioChargeItemDto: {
             /** Format: uuid */
@@ -2451,6 +2777,8 @@ export interface components {
             amount: number;
             /** @enum {string} */
             taxMode: "Exempt" | "VatIncluded" | "VatExcluded";
+            isVoided: boolean;
+            voidReason?: string | null;
         };
         FolioSummaryDto: {
             /** Format: uuid */
@@ -2485,6 +2813,8 @@ export interface components {
             folio: components["schemas"]["FolioSummaryDto"];
             occupants: components["schemas"]["StayOccupantDto"][];
             generatedHousekeepingTaskStatus?: string | null;
+            note?: string | null;
+            cancelReason?: string | null;
         };
         StayListResponse: {
             items: components["schemas"]["StayDetailDto"][];
@@ -3321,6 +3651,72 @@ export interface components {
             cashReceiptsTotal: number;
             /** Format: double */
             varianceTotal: number;
+        };
+        UpdateReservationRequest: {
+            /** Format: uuid */
+            unitTypeId: string;
+            /** Format: uuid */
+            unitId?: string | null;
+            /** Format: date-time */
+            slotStartAt: string;
+            /** Format: date-time */
+            slotEndAt: string;
+            guestCount?: number | null;
+            note?: string | null;
+        };
+        UpdateStayRequest: {
+            /** Format: date-time */
+            expectedCheckOutAt?: string | null;
+            note?: string | null;
+        };
+        ReverseFolioPaymentRequest: {
+            /** Format: double */
+            amount: number;
+            paymentMethod: string;
+            reason: string;
+        };
+        UpdateStayOccupantRequest: {
+            fullName: string;
+            nationalityCode: string;
+            identityNumber?: string | null;
+            isPrimaryOccupant: boolean;
+            vehicleLicensePlate?: string | null;
+            phoneNumber?: string | null;
+            identityDocumentFileKey?: string | null;
+        };
+        UpsertBuildingRequest: {
+            /** Format: uuid */
+            id?: string | null;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+        };
+        UpsertFloorRequest: {
+            /** Format: uuid */
+            id?: string | null;
+            /** Format: uuid */
+            buildingId: string;
+            floorNumber: number;
+            name: components["schemas"]["LocalizedTextDto"];
+        };
+        UpsertUnitTypeRequest: {
+            /** Format: uuid */
+            id?: string | null;
+            code: string;
+            name: components["schemas"]["LocalizedTextDto"];
+            description?: components["schemas"]["LocalizedTextDto"] | null;
+            /** Format: double */
+            areaSqm: number;
+            totalQuotaUnits: number;
+            supportedStayModes: string[];
+            /** Format: double */
+            hourlyBasePackagePrice: number;
+            hourlyBasePackageHours: number;
+            /** Format: double */
+            hourlyAdditionalHourPrice: number;
+            /** Format: double */
+            dailyRate: number;
+            /** Format: double */
+            monthlyRentRate: number;
         };
     };
     responses: never;
@@ -8848,6 +9244,1195 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deactivateAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    reactivateAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitMasterItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitMasterItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminBuilding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertBuildingRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildingDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminBuilding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                buildingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildingDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminFloor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertFloorRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FloorDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminFloor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                floorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FloorDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    upsertAdminUnitType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertUnitTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTypeDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminUnitType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                unitTypeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTypeDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminRatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                ratePlanId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatePlanItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminRatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                ratePlanId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatePlanItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminUtilityTariff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                tariffId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UtilityTariffItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminUtilityTariff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                tariffId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UtilityTariffItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminTaxProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                taxProfileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxProfileItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminTaxProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                taxProfileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxProfileItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    updateAdminReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationItemDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    getAdminStay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    updateAdminStay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStayRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    cancelAdminStay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    addAdminStayOccupant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckInOccupantInputDto"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    updateAdminStayOccupant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+                occupantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStayOccupantRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    deleteAdminStayOccupant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+                occupantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    voidAdminFolioCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+                chargeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+            /** @description Property scope or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsResponse"];
+                };
+            };
+        };
+    };
+    reverseAdminFolioPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                stayId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseFolioPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayDetailDto"];
                 };
             };
             /** @description Validation failed */

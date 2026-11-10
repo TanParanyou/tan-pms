@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { UnitMasterSection } from "@/features/properties/components/UnitMasterSection";
+import { PropertyMasterSection } from "@/features/properties/components/PropertyMasterSection";
 
 export default function AdminPropertiesPage() {
-  return <UnitMasterSection />;
+  return <PropertyMasterSection />;
 }

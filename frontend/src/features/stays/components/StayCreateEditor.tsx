@@ -18,10 +18,13 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { CurrencyInput } from "@/components/forms/currency-input";
 import { FormField } from "@/components/forms/form-field";
 import { PageHeader } from "@/components/layout/page-header";
+import { PhotoAttachmentField } from "@/components/forms/photo-attachment-field";
+import { useStagedPhoto } from "@/hooks/use-staged-photo";
 import { ShiftNotOpenAlert } from "@/components/shared/shift-not-open-alert";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { useCustomerPicker } from "@/hooks/use-customer-picker";
 import { useFormTabErrors } from "@/hooks/use-form-tab-errors";
+import { useToast } from "@/hooks/use-toast";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { usePropertyHierarchy } from "@/features/properties/api/use-properties";
@@ -40,7 +43,9 @@ export function StayCreateEditor() {
 
   const hierarchy = usePropertyHierarchy(propertyId);
   const customers = useCustomerPicker(propertyId);
+  const { toastApiError } = useToast();
   const checkIn = useCheckInSubmit();
+  const idDocument = useStagedPhoto(propertyId, "IdentityDocument");
 
   const [activeTab, setActiveTab] = useState("tab-room-mode");
   const [showDirtyConfirm, setShowDirtyConfirm] = useState(false);
@@ -56,7 +61,7 @@ export function StayCreateEditor() {
     resolver: zodResolver(stayCreateSchema),
     defaultValues: STAY_CREATE_DEFAULTS,
   });
-  useUnsavedChanges(isDirty);
+  useUnsavedChanges(isDirty || idDocument.queuedFiles.length > 0);
 
   const selectedUnitId = watch("unitId");
   const selectedStayMode = watch("stayMode");
@@ -87,6 +92,7 @@ export function StayCreateEditor() {
     primaryGuestName: "tab-guests",
     primaryNationality: "tab-guests",
     primaryIdNumber: "tab-guests",
+    primaryPhoneNumber: "tab-guests",
     keyDepositAmount: "tab-deposit",
   };
   const { hasTabError, firstErrorTab } = useFormTabErrors({ fieldToTabMap, errors });
@@ -110,6 +116,16 @@ export function StayCreateEditor() {
   const executeCheckIn = async () => {
     const v = getValues();
     const durationMs = v.stayMode === "Hourly" ? v.durationHours * MS_PER_HOUR : v.durationDays * MS_PER_DAY;
+    // Deferred upload: only now; a failed upload aborts the check-in and keeps the form.
+    let identityDocumentFileKey: string | undefined;
+    try {
+      identityDocumentFileKey = await idDocument.commit(null);
+    } catch (err) {
+      toastApiError(err);
+      setShowDirtyConfirm(false);
+      setShowNormalConfirm(false);
+      return;
+    }
     const stay = await checkIn.submit({
       propertyId,
       unitId: v.unitId,
@@ -126,12 +142,17 @@ export function StayCreateEditor() {
           identityNumber: v.primaryIdNumber,
           isPrimaryOccupant: true,
           vehicleLicensePlate: v.primaryLicensePlate || undefined,
+          phoneNumber: v.primaryPhoneNumber || undefined,
+          identityDocumentFileKey,
         },
       ],
     });
     setShowDirtyConfirm(false);
     setShowNormalConfirm(false);
-    if (stay) router.push(`/admin/stays/${stay.id}`);
+    if (stay) {
+      idDocument.clear();
+      router.push(`/admin/stays/${stay.id}`);
+    }
   };
 
   if (hierarchy.isLoading) return <PageLoading message={tStays("loadingUnits")} />;
@@ -294,12 +315,25 @@ export function StayCreateEditor() {
                 <Input id="primary-id-number" value={field.value} onChange={field.onChange} placeholder={tCommon("placeholders.nationalId")} className="h-10 rounded-full font-mono text-xs" />
               )} />
             </FormField>
+            <FormField id="primary-phone" label={tStays("fieldPhone")}>
+              <Controller name="primaryPhoneNumber" control={control} render={({ field }) => (
+                <Input id="primary-phone" value={field.value ?? ""} onChange={field.onChange} placeholder={tCommon("placeholders.quickWalkInPhone")} className="h-10 rounded-full font-mono text-xs" />
+              )} />
+            </FormField>
             <FormField id="primary-license-plate" label={tStays("fieldLicensePlate")}>
               <Controller name="primaryLicensePlate" control={control} render={({ field }) => (
                 <Input id="primary-license-plate" value={field.value ?? ""} onChange={field.onChange} placeholder={tStays("fieldLicensePlate")} className="h-10 rounded-full font-mono text-xs" />
               )} />
             </FormField>
           </div>
+          <PhotoAttachmentField
+            label={tStays("fieldAttachIdPhoto")}
+            queuedFiles={idDocument.queuedFiles}
+            stageFiles={idDocument.stageFiles}
+            removeFile={idDocument.removeFile}
+            isUploading={idDocument.isUploading}
+            accept="image/*,.pdf"
+          />
         </div>
       ),
     },
@@ -327,6 +361,12 @@ export function StayCreateEditor() {
   return (
     <div className="space-y-6">
       {checkIn.shiftNotOpen && <ShiftNotOpenAlert />}
+      <p className="text-xs text-mute">
+        {tStays("monthlyHint")}{" "}
+        <Link href="/admin/leases/create" className="font-medium underline">
+          {tStays("monthlyHintLink")}
+        </Link>
+      </p>
       <PageHeader
         prefixCode="STY"
         title={tStays("modalTitleCheckIn")}
@@ -339,7 +379,7 @@ export function StayCreateEditor() {
                 <span>{tCommon("back")}</span>
               </Button>
             </Link>
-            <Button type="button" size="sm" onClick={handleSubmit(onValidSubmit, onInvalidSubmit)} disabled={checkIn.isPending} className="h-9 gap-1.5 rounded-full px-5 text-xs">
+            <Button type="button" size="sm" onClick={handleSubmit(onValidSubmit, onInvalidSubmit)} disabled={checkIn.isPending || idDocument.isUploading} className="h-9 gap-1.5 rounded-full px-5 text-xs">
               <Save className="h-4 w-4" />
               <span>{checkIn.isPending ? tCommon("loading") : tStays("saveCheckIn")}</span>
             </Button>
@@ -362,7 +402,7 @@ export function StayCreateEditor() {
         confirmText={tStays("saveCheckIn")}
         cancelText={tCommon("cancel")}
         variant="info"
-        isLoading={checkIn.isPending}
+        isLoading={checkIn.isPending || idDocument.isUploading}
       />
       <ConfirmationModal
         isOpen={showDirtyConfirm}
@@ -373,7 +413,7 @@ export function StayCreateEditor() {
         confirmText={tStays("saveCheckIn")}
         cancelText={tCommon("cancel")}
         variant="danger"
-        isLoading={checkIn.isPending}
+        isLoading={checkIn.isPending || idDocument.isUploading}
       />
     </div>
   );

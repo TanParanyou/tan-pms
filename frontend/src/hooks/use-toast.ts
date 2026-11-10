@@ -60,6 +60,10 @@ export function useToast() {
 
       if (err instanceof ApiError) {
         resolvedMessage = getLocalizedErrorMessage(err.errorCode, locale);
+        // Business-rule rejections (last admin, self-deactivate, ...) arrive as validation.failed with a specific detail.
+        if (err.errorCode === "validation.failed" && err.message && err.message !== err.errorCode) {
+          resolvedMessage = err.message;
+        }
         if (resolvedMessage === "errors.generic" && err.message) {
           resolvedMessage = err.message;
         }

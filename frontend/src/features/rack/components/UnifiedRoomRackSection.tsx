@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CommandTag } from "@/components/ui/command-tag";
@@ -16,6 +17,8 @@ export interface UnifiedRoomRackSectionProps {
   items: RoomRackItemDto[];
   onOpenQuickWalkIn: () => void;
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   stayModeFilter?: string;
   onSelectStayModeFilter?: (mode: string) => void;
 }
@@ -24,9 +27,12 @@ export function UnifiedRoomRackSection({
   items,
   onOpenQuickWalkIn,
   isLoading = false,
+  isError = false,
+  onRetry,
   stayModeFilter,
   onSelectStayModeFilter,
 }: UnifiedRoomRackSectionProps) {
+  const router = useRouter();
   const locale = useLocale() as "th" | "en";
   const tRack = useTranslations("admin.roomRack");
   const tModes = useTranslations("stayModes");
@@ -153,7 +159,7 @@ export function UnifiedRoomRackSection({
               type="button"
               variant={row.occupancyStatus === "Vacant" ? "default" : "outline"}
               size="icon"
-              onClick={onOpenQuickWalkIn}
+              onClick={row.occupancyStatus === "Vacant" ? onOpenQuickWalkIn : () => router.push("/admin/stays")}
               aria-label={row.occupancyStatus === "Vacant" ? tRack("quickCheckIn") : tCommon("details")}
               className="rounded-full h-7 w-7 text-xs"
             >
@@ -246,6 +252,9 @@ export function UnifiedRoomRackSection({
         columns={columns}
         data={items}
         isLoading={isLoading}
+        isError={isError}
+        errorMessage={tRack("loadError")}
+        onRetry={onRetry}
         emptyTitle={tRack("title")}
         emptyDescription={tCommon("emptyFilterDescription")}
       />

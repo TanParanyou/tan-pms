@@ -17,6 +17,10 @@ export const ERROR_CODE_I18N_KEYS: Record<string, string> = {
   "invoice.immutable_status": "errors.invoice_immutable_status",
   "shift.not_open": "errors.shift_not_open",
   "meter.rollover_unconfirmed": "errors.meter_rollover_unconfirmed",
+  "master_data.in_use": "errors.master_data_in_use",
+  "localized_text.thai_required": "errors.localized_text_thai_required",
+  "localized_text.too_long": "errors.localized_text_too_long",
+  "auth.invalid_credentials": "errors.auth_invalid_credentials",
 };
 
 export function isProblemDetails(data: unknown): data is ProblemDetailsResponse {
@@ -56,6 +60,10 @@ export function getLocalizedErrorMessage(
     "invoice.immutable_status": "invoice_immutable_status",
     "shift.not_open": "shift_not_open",
     "meter.rollover_unconfirmed": "meter_rollover_unconfirmed",
+    "master_data.in_use": "master_data_in_use",
+    "localized_text.thai_required": "localized_text_thai_required",
+    "localized_text.too_long": "localized_text_too_long",
+    "auth.invalid_credentials": "auth_invalid_credentials",
   };
 
   const errorKey = code ? keyMap[code] : undefined;

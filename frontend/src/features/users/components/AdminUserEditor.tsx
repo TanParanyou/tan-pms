@@ -1,308 +1,285 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations, useLocale } from "next-intl";
+import { ArrowLeft, UserCheck, UserX } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectPill } from "@/components/ui/select-pill";
-import { Switch } from "@/components/ui/switch";
-import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
-import { FormField } from "@/components/forms/form-field";
-import { FormSection } from "@/components/forms/form-section";
-import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageLoading } from "@/components/ui/mono-spinner";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
-import { useFormTabErrors } from "@/hooks/use-form-tab-errors";
+import { FormField } from "@/components/forms/form-field";
+import { ReasonDialog } from "@/components/forms/reason-dialog";
+import { PageHeader } from "@/components/layout/page-header";
+import { DetailItem } from "@/components/shared/detail-item";
+import { usePermission } from "@/hooks/use-permission";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
-import { useTranslations, useLocale } from "next-intl";
-import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import { CENTRAL_PROPERTIES } from "@/constants/master-data";
+import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import {
   useAdminRoles,
   useAdminUserDetail,
   useUpsertAdminUserMutation,
+  useDeactivateAdminUserMutation,
+  useReactivateAdminUserMutation,
 } from "../api/use-users";
-import {
-  upsertAdminUserSchema,
-  type UpsertAdminUserFormValues,
-} from "../schemas/user-schemas";
-import type { RoleDefinitionDto } from "../types";
-import { ArrowLeft, Save } from "lucide-react";
-import Link from "next/link";
+import { upsertAdminUserSchema, type UpsertAdminUserFormValues } from "../schemas/user-schemas";
+import { PERMISSION_USERS_MANAGE, PERMISSION_USERS_DEACTIVATE, PERMISSION_USERS_REACTIVATE, USER_FORM_DEFAULTS } from "../constants";
+import type { AdminUserDto } from "../types";
 
 export interface AdminUserEditorProps {
   userId: string;
 }
 
+/** Single dynamic route body: id="create" creates, any other id views / edits / (de)activates. */
 export function AdminUserEditor({ userId }: AdminUserEditorProps) {
-  const router = useRouter();
-  const locale = useLocale() as "th" | "en";
-  const tUsers = useTranslations("admin.rbac");
+  const t = useTranslations("admin.rbac");
   const tCommon = useTranslations("common");
-
+  const roles = useAdminRoles();
+  const detail = useAdminUserDetail(userId);
   const isCreate = userId === "create";
 
-  const { data: roleCatalog, isLoading: isRolesLoading } = useAdminRoles();
-  const { data: userDetail, isLoading: isUserLoading } = useAdminUserDetail(userId);
-  const upsertMutation = useUpsertAdminUserMutation();
+  if (roles.isLoading || (!isCreate && detail.isLoading)) return <PageLoading message={t("loadingUser")} />;
+  if (roles.isError || (!isCreate && detail.isError)) {
+    return (
+      <EmptyState
+        title={t("loadUserError")}
+        actionLabel={tCommon("retry")}
+        onAction={() => {
+          void roles.refetch();
+          if (!isCreate) void detail.refetch();
+        }}
+      />
+    );
+  }
+  if (!isCreate && !detail.data) return <EmptyState title={t("userNotFound")} />;
+  return <UserBody user={detail.data} roles={roles.data?.roles ?? []} />;
+}
 
-  const [activeTab, setActiveTab] = useState("tab-account");
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+interface UserBodyProps {
+  user?: AdminUserDto;
+  roles: NonNullable<ReturnType<typeof useAdminRoles>["data"]>["roles"];
+}
 
-  const roles: RoleDefinitionDto[] = (roleCatalog?.roles ?? []) as RoleDefinitionDto[];
+function UserBody({ user, roles }: UserBodyProps) {
+  const router = useRouter();
+  const locale = useLocale() as "th" | "en";
+  const t = useTranslations("admin.rbac");
+  const tCommon = useTranslations("common");
+  const { hasPermission } = usePermission();
+  const { toastSuccess, toastApiError } = useToast();
+  const canManage = hasPermission(PERMISSION_USERS_MANAGE);
+  const canDeactivate = hasPermission(PERMISSION_USERS_DEACTIVATE);
+  const canReactivate = hasPermission(PERMISSION_USERS_REACTIVATE);
+  const isEdit = user !== undefined;
+
+  const upsert = useUpsertAdminUserMutation();
+  const deactivate = useDeactivateAdminUserMutation();
+  const reactivate = useReactivateAdminUserMutation();
+  const inFlight = useRef(false);
+  const isBusy = upsert.isPending || deactivate.isPending || reactivate.isPending;
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showDeactivate, setShowDeactivate] = useState(false);
+  const [showReactivate, setShowReactivate] = useState(false);
 
   const form = useForm<UpsertAdminUserFormValues>({
     resolver: zodResolver(upsertAdminUserSchema),
-    defaultValues: {
-      username: userDetail?.username ?? "",
-      fullName: userDetail?.fullName ?? "",
-      email: userDetail?.email ?? "",
-      roleCode: userDetail?.roleCode ?? roles[0]?.code ?? "FrontDeskCashier",
-      isActive: userDetail?.isActive ?? true,
-    },
+    values: user
+      ? {
+          username: user.username,
+          fullName: user.fullName,
+          email: user.email,
+          roleCode: user.roleCode,
+          allowedPropertyIds: user.allowedProperties.map((p) => p.id),
+          isActive: user.isActive,
+        }
+      : { ...USER_FORM_DEFAULTS, roleCode: roles[0]?.code ?? "" },
   });
-
   useUnsavedChanges(form.formState.isDirty);
-  const { toastSuccess, toastApiError } = useToast();
 
-  const fieldToTabMap = {
-    username: "tab-account",
-    fullName: "tab-account",
-    email: "tab-account",
-    roleCode: "tab-role",
-  };
-
-  const { hasTabError, firstErrorTab } = useFormTabErrors({
-    fieldToTabMap,
-    errors: form.formState.errors,
-  });
-
-  if (!isCreate && (isRolesLoading || isUserLoading)) {
-    return <PageLoading message={tUsers("loadingUser")} />;
-  }
-
-  const handleValidSubmit = () => {
-    setShowConfirmModal(true);
-  };
-
-  const executeUpsert = async () => {
+  const execute = async () => {
+    if (isBusy || inFlight.current) return;
+    inFlight.current = true;
+    const v = form.getValues();
     try {
-      const values = form.getValues();
-      await upsertMutation.mutateAsync({
-        id: isCreate ? undefined : userId,
-        username: values.username,
-        fullName: values.fullName,
-        email: values.email,
-        roleCode: values.roleCode,
-        isActive: values.isActive,
-        allowedPropertyIds: CENTRAL_PROPERTIES.map((p) => p.id),
-      });
-      toastSuccess(tUsers("saveSuccess"));
-      setShowConfirmModal(false);
-      router.push("/admin/users");
+      const saved = await upsert.mutateAsync({ id: user?.id, ...v });
+      toastSuccess(t("saveSuccess"));
+      form.reset(v);
+      if (!isEdit) router.push(`/admin/users/${saved.id}`);
     } catch (err) {
       toastApiError(err);
+    } finally {
+      inFlight.current = false;
+      setShowSaveConfirm(false);
     }
   };
 
-  const tabs: FormTabItem[] = [
-    {
-      id: "tab-account",
-      label: tUsers("tabAccount"),
-      hasError: hasTabError("tab-account"),
-      content: (
-        <div className="space-y-4 pt-2">
-          <FormSection
-            title={tUsers("modalTitleAddUser")}
-            description={tUsers("modalDesc")}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                id="user-username-input"
-                label={tUsers("fieldUsername")}
-                required
-                error={form.formState.errors.username?.message}
-              >
-                <Controller
-                  name="username"
-                  control={form.control}
-                  render={({ field }) => (
-                    <Input
-                      id="user-username-input"
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder={tUsers("placeholderUsername")}
-                      className="h-10 rounded-full font-mono text-xs"
-                      disabled={!isCreate}
-                    />
-                  )}
-                />
-              </FormField>
+  const handleDeactivate = async (reason: string): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      await deactivate.mutateAsync({ id: user.id, reason });
+      toastSuccess(t("toastDeactivated"));
+      return true;
+    } catch (err) {
+      toastApiError(err);
+      return false;
+    }
+  };
 
-              <FormField
-                id="user-fullname-input"
-                label={tUsers("fieldFullName")}
-                required
-                error={form.formState.errors.fullName?.message}
-              >
-                <Controller
-                  name="fullName"
-                  control={form.control}
-                  render={({ field }) => (
-                    <Input
-                      id="user-fullname-input"
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder={tCommon("placeholders.guestName")}
-                      className="h-10 rounded-full text-xs"
-                    />
-                  )}
-                />
-              </FormField>
+  const executeReactivate = async () => {
+    if (!user || isBusy) return;
+    try {
+      await reactivate.mutateAsync(user.id);
+      toastSuccess(t("toastReactivated"));
+    } catch (err) {
+      toastApiError(err);
+    } finally {
+      setShowReactivate(false);
+    }
+  };
 
-              <FormField
-                id="user-email-input"
-                label={tUsers("fieldEmail")}
-                required
-                error={form.formState.errors.email?.message}
-              >
-                <Controller
-                  name="email"
-                  control={form.control}
-                  render={({ field }) => (
-                    <Input
-                      id="user-email-input"
-                      type="email"
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder={tUsers("placeholderEmail")}
-                      className="h-10 rounded-full font-mono text-xs"
-                    />
-                  )}
-                />
-              </FormField>
-            </div>
-          </FormSection>
-        </div>
-      ),
-    },
-    {
-      id: "tab-role",
-      label: tUsers("tabRole"),
-      hasError: hasTabError("tab-role"),
-      content: (
-        <div className="space-y-4 pt-2">
-          <FormField
-            id="role-select"
-            label={tUsers("fieldRole")}
-            required
-            error={form.formState.errors.roleCode?.message}
-          >
-            <Controller
-              name="roleCode"
-              control={form.control}
-              render={({ field }) => (
-                <SelectPill
-                  id="role-select"
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  className="h-10 text-xs font-mono"
-                >
-                  {roles.map((r: RoleDefinitionDto) => (
-                    <option key={r.code} value={r.code}>
-                      {resolveLocalizedText(r.name, locale)} ({r.code})
-                    </option>
-                  ))}
-                </SelectPill>
-              )}
-            />
-          </FormField>
-
-          <div className="flex items-center justify-between p-3 rounded-[12px] border border-hairline bg-surface-soft">
-            <div className="space-y-0.5">
-              <Label htmlFor="user-active-switch" className="text-xs font-medium text-ink">
-                {tUsers("fieldStatus")}
-              </Label>
-              <p className="text-[11px] text-body">
-                {form.watch("isActive") ? tUsers("statusActive") : tUsers("statusInactive")}
-              </p>
-            </div>
-            <Controller
-              name="isActive"
-              control={form.control}
-              render={({ field }) => (
-                <Switch
-                  id="user-active-switch"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  aria-label={tUsers("fieldStatus")}
-                />
-              )}
-            />
-          </div>
-        </div>
-      ),
-    },
-  ];
+  const selected = form.watch("allowedPropertyIds");
+  const toggleProperty = (id: string, checked: boolean) =>
+    form.setValue("allowedPropertyIds", checked ? [...selected, id] : selected.filter((p) => p !== id), { shouldDirty: true, shouldValidate: true });
 
   return (
     <div className="space-y-6">
       <PageHeader
-        prefixCode="USR"
-        title={isCreate ? tUsers("modalTitleAddUser") : tUsers("modalTitleEditUser")}
-        description={tUsers("description")}
+        title={user ? user.fullName : t("modalTitleAddUser")}
+        description={user ? t("detailDescription") : t("modalDesc")}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href="/admin/users">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full text-xs font-mono h-9 px-4 gap-1.5"
-              >
+              <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5 rounded-full px-4 text-xs">
                 <ArrowLeft className="h-4 w-4" />
                 <span>{tCommon("back")}</span>
               </Button>
             </Link>
-
-            <Button
-              type="button"
-              size="sm"
-              onClick={form.handleSubmit(handleValidSubmit, () => {
-                if (firstErrorTab) setActiveTab(firstErrorTab);
-              })}
-              disabled={upsertMutation.isPending}
-              className="rounded-full text-xs h-9 px-5 gap-1.5"
-            >
-              <Save className="h-4 w-4" />
-              <span>{tCommon("save")}</span>
-            </Button>
+            {user && canDeactivate && user.isActive && (
+              <Button type="button" size="sm" variant="outline" disabled={isBusy} onClick={() => setShowDeactivate(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <UserX className="h-4 w-4" />
+                <span>{t("btnDeactivate")}</span>
+              </Button>
+            )}
+            {user && canReactivate && !user.isActive && (
+              <Button type="button" size="sm" disabled={isBusy} onClick={() => setShowReactivate(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <UserCheck className="h-4 w-4" />
+                <span>{t("btnReactivate")}</span>
+              </Button>
+            )}
           </div>
         }
       />
 
-      <div className="rounded-[12px] border border-hairline bg-canvas p-6 shadow-sm">
-        <FormTabs
-          tabs={tabs}
-          value={activeTab}
-          onValueChange={setActiveTab}
-        />
-      </div>
+      {user && (
+        <div className="grid grid-cols-1 gap-4 rounded-[12px] border border-hairline bg-canvas p-6 shadow-none sm:grid-cols-2 lg:grid-cols-4">
+          <DetailItem label={t("fieldStatus")}>
+            <Badge variant={user.isActive ? "success" : "outline"}>{user.isActive ? t("statusActive") : t("statusInactive")}</Badge>
+          </DetailItem>
+          <DetailItem label={t("fieldRole")}>{resolveLocalizedText(user.roleName, locale)}</DetailItem>
+          <DetailItem label={t("allowedProperties")}>{user.allowedProperties.map((p) => p.code).join(", ") || "-"}</DetailItem>
+          <DetailItem label={t("colPermissions")}>
+            <span data-testid="user-permission-count">{user.permissions.length}</span>
+          </DetailItem>
+        </div>
+      )}
+
+      {canManage ? (
+        <form
+          onSubmit={form.handleSubmit(() => setShowSaveConfirm(true))}
+          className="space-y-4 rounded-[12px] border border-hairline bg-canvas p-6 shadow-none"
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField id="user-username" label={t("fieldUsername")} required error={form.formState.errors.username ? t("errorUsername") : undefined}>
+              <Input id="user-username" placeholder={t("placeholderUsername")} disabled={isBusy} className="h-10 rounded-full text-sm" {...form.register("username")} />
+            </FormField>
+            <FormField id="user-fullname" label={t("fieldFullName")} required error={form.formState.errors.fullName ? t("errorFullName") : undefined}>
+              <Input id="user-fullname" placeholder={t("placeholderFullName")} disabled={isBusy} className="h-10 rounded-full text-sm" {...form.register("fullName")} />
+            </FormField>
+            <FormField id="user-email" label={t("fieldEmail")} required error={form.formState.errors.email ? t("errorEmail") : undefined}>
+              <Input id="user-email" placeholder={t("placeholderEmail")} disabled={isBusy} className="h-10 rounded-full text-sm" {...form.register("email")} />
+            </FormField>
+            <FormField id="user-role" label={t("fieldRole")} required error={form.formState.errors.roleCode ? t("errorRole") : undefined}>
+              <SelectPill id="user-role" disabled={isBusy} wrapperClassName="!mb-0" {...form.register("roleCode")}>
+                <option value="">{t("placeholderRole")}</option>
+                {roles.map((r) => (
+                  <option key={r.code} value={r.code}>
+                    {resolveLocalizedText(r.name, locale)}
+                  </option>
+                ))}
+              </SelectPill>
+            </FormField>
+          </div>
+          <FormField label={t("allowedProperties")} required error={form.formState.errors.allowedPropertyIds ? t("errorProperties") : undefined}>
+            <Controller
+              name="allowedPropertyIds"
+              control={form.control}
+              render={() => (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {CENTRAL_PROPERTIES.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 rounded-full border border-hairline px-3 py-1.5">
+                      <Checkbox id={`prop-${p.id}`} checked={selected.includes(p.id)} disabled={isBusy} onCheckedChange={(c) => toggleProperty(p.id, c === true)} />
+                      <Label htmlFor={`prop-${p.id}`} className="text-xs">
+                        {resolveLocalizedText(p.name, locale)} ({p.code})
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            />
+          </FormField>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isBusy} className="h-10 rounded-full px-5 text-xs">
+              {isBusy ? tCommon("loading") : t("saveUser")}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <p className="text-xs text-mute">{t("readOnlyHint")}</p>
+      )}
 
       <ConfirmationModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={executeUpsert}
-        title={tUsers("confirmSaveTitle")}
-        message={tUsers("confirmSaveMessage")}
-        confirmText={tCommon("confirm")}
-        cancelText={tCommon("cancel")}
-        isLoading={upsertMutation.isPending}
+        isOpen={showSaveConfirm}
+        onClose={() => setShowSaveConfirm(false)}
+        onConfirm={execute}
+        title={t("confirmHighRiskTitle")}
+        message={t("confirmHighRiskMessage")}
+        confirmText={tCommon("save")}
+        variant="warning"
+        isLoading={upsert.isPending}
       />
+      <ConfirmationModal
+        isOpen={showReactivate}
+        onClose={() => setShowReactivate(false)}
+        onConfirm={executeReactivate}
+        title={t("confirmReactivateTitle")}
+        message={t("confirmReactivateMessage")}
+        confirmText={t("btnReactivate")}
+        variant="info"
+        isLoading={reactivate.isPending}
+      />
+      {user && (
+        <ReasonDialog
+          open={showDeactivate}
+          onOpenChange={setShowDeactivate}
+          title={t("deactivateTitle")}
+          description={t("deactivateDescription")}
+          actionText={t("btnDeactivate")}
+          confirmTitle={t("confirmDeactivateTitle")}
+          confirmMessage={t("confirmDeactivateMessage", { name: user.fullName })}
+          isLoading={deactivate.isPending}
+          onConfirm={handleDeactivate}
+        />
+      )}
     </div>
   );
 }

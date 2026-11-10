@@ -8064,6 +8064,1753 @@
           }
         }
       }
+    },
+    "/api/v1/admin/users/{userId}": {
+      "get": {
+        "operationId": "getAdminUser",
+        "tags": [
+          "AdminIdentity"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{userId}/deactivate": {
+      "post": {
+        "operationId": "deactivateAdminUser",
+        "tags": [
+          "AdminIdentity"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{userId}/reactivate": {
+      "post": {
+        "operationId": "reactivateAdminUser",
+        "tags": [
+          "AdminIdentity"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/units/{unitId}": {
+      "get": {
+        "operationId": "getAdminUnit",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "unitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitMasterItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAdminUnit",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "unitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitMasterItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/buildings": {
+      "post": {
+        "operationId": "upsertAdminBuilding",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertBuildingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildingDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/buildings/{buildingId}": {
+      "delete": {
+        "operationId": "deleteAdminBuilding",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "buildingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildingDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/floors": {
+      "post": {
+        "operationId": "upsertAdminFloor",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertFloorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FloorDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/floors/{floorId}": {
+      "delete": {
+        "operationId": "deleteAdminFloor",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "floorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FloorDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/unit-types": {
+      "post": {
+        "operationId": "upsertAdminUnitType",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertUnitTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitTypeDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/unit-types/{unitTypeId}": {
+      "delete": {
+        "operationId": "deleteAdminUnitType",
+        "tags": [
+          "AdminProperties"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "unitTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitTypeDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rates/plans/{ratePlanId}": {
+      "get": {
+        "operationId": "getAdminRatePlan",
+        "tags": [
+          "AdminRates"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ratePlanId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatePlanItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAdminRatePlan",
+        "tags": [
+          "AdminRates"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ratePlanId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatePlanItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rates/utilities/{tariffId}": {
+      "get": {
+        "operationId": "getAdminUtilityTariff",
+        "tags": [
+          "AdminRates"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tariffId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilityTariffItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAdminUtilityTariff",
+        "tags": [
+          "AdminRates"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tariffId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilityTariffItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/rates/taxes/{taxProfileId}": {
+      "get": {
+        "operationId": "getAdminTaxProfile",
+        "tags": [
+          "AdminRates"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taxProfileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxProfileItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAdminTaxProfile",
+        "tags": [
+          "AdminRates"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taxProfileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxProfileItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/reservations/{reservationId}": {
+      "get": {
+        "operationId": "getAdminReservation",
+        "tags": [
+          "AdminReservations"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateAdminReservation",
+        "tags": [
+          "AdminReservations"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReservationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAdminReservation",
+        "tags": [
+          "AdminReservations"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}": {
+      "get": {
+        "operationId": "getAdminStay",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateAdminStay",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStayRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/cancel": {
+      "post": {
+        "operationId": "cancelAdminStay",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/occupants": {
+      "post": {
+        "operationId": "addAdminStayOccupant",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInOccupantInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/occupants/{occupantId}": {
+      "put": {
+        "operationId": "updateAdminStayOccupant",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "occupantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStayOccupantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAdminStayOccupant",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "occupantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/charges/{chargeId}/void": {
+      "post": {
+        "operationId": "voidAdminFolioCharge",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "chargeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/properties/{propertyId}/stays/{stayId}/folio/payments/reverse": {
+      "post": {
+        "operationId": "reverseAdminFolioPayment",
+        "tags": [
+          "AdminStays"
+        ],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stayId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseFolioPaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StayDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Property scope or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10023,6 +11770,14 @@
               "Cancelled",
               "NoShow"
             ]
+          },
+          "guestCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -10192,6 +11947,14 @@
           "vehicleLicensePlate": {
             "type": "string",
             "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "identityDocumentFileKey": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -10224,6 +11987,14 @@
           "vehicleLicensePlate": {
             "type": "string",
             "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "identityDocumentFileKey": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -10233,7 +12004,8 @@
           "id",
           "description",
           "amount",
-          "taxMode"
+          "taxMode",
+          "isVoided"
         ],
         "properties": {
           "id": {
@@ -10253,6 +12025,13 @@
               "VatIncluded",
               "VatExcluded"
             ]
+          },
+          "isVoided": {
+            "type": "boolean"
+          },
+          "voidReason": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -10377,6 +12156,14 @@
             }
           },
           "generatedHousekeepingTaskStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelReason": {
             "type": "string",
             "nullable": true
           }
@@ -13261,6 +15048,224 @@
             "format": "double"
           },
           "varianceTotal": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "UpdateReservationRequest": {
+        "type": "object",
+        "required": [
+          "unitTypeId",
+          "slotStartAt",
+          "slotEndAt"
+        ],
+        "properties": {
+          "unitTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "slotStartAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "slotEndAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "guestCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateStayRequest": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "expectedCheckOutAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ReverseFolioPaymentRequest": {
+        "type": "object",
+        "required": [
+          "amount",
+          "paymentMethod",
+          "reason"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "paymentMethod": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateStayOccupantRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "nationalityCode",
+          "isPrimaryOccupant"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "nationalityCode": {
+            "type": "string"
+          },
+          "identityNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "isPrimaryOccupant": {
+            "type": "boolean"
+          },
+          "vehicleLicensePlate": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "identityDocumentFileKey": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpsertBuildingRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/LocalizedTextDto"
+          }
+        }
+      },
+      "UpsertFloorRequest": {
+        "type": "object",
+        "required": [
+          "buildingId",
+          "floorNumber",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "buildingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "floorNumber": {
+            "type": "integer"
+          },
+          "name": {
+            "$ref": "#/components/schemas/LocalizedTextDto"
+          }
+        }
+      },
+      "UpsertUnitTypeRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "areaSqm",
+          "totalQuotaUnits",
+          "supportedStayModes",
+          "hourlyBasePackagePrice",
+          "hourlyBasePackageHours",
+          "hourlyAdditionalHourPrice",
+          "dailyRate",
+          "monthlyRentRate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/LocalizedTextDto"
+          },
+          "description": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LocalizedTextDto"
+              }
+            ],
+            "nullable": true
+          },
+          "areaSqm": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalQuotaUnits": {
+            "type": "integer"
+          },
+          "supportedStayModes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hourlyBasePackagePrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "hourlyBasePackageHours": {
+            "type": "integer"
+          },
+          "hourlyAdditionalHourPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "dailyRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "monthlyRentRate": {
             "type": "number",
             "format": "double"
           }

@@ -9,7 +9,13 @@ import { AdminNavbar } from "@/components/layout/admin-navbar";
 import { AdminSidebar, type AdminModuleKey } from "@/components/layout/admin-sidebar";
 import { AdminBottomBar } from "@/components/layout/admin-bottom-bar";
 import { AdminMobileDrawer } from "@/components/layout/admin-mobile-drawer";
+import { redirect } from "next/navigation";
 import AdminPage from "@/app/(admin)/admin/page";
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  redirect: vi.fn(),
+}));
 import thMessages from "@/messages/th.json";
 
 function renderWithIntl(ui: React.ReactElement) {
@@ -170,23 +176,8 @@ describe("Admin Responsive Enterprise Shell Navigation", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("switches active modules cleanly inside AdminPage", () => {
-    renderWithIntl(<AdminPage />);
-
-    // Initially on Room Rack
-    expect(screen.getByText(thMessages.admin.roomRack.title)).toBeInTheDocument();
-
-    // Switch to Meters via Sidebar
-    fireEvent.click(screen.getAllByText(thMessages.admin.nav.meters)[0]);
-    expect(screen.getByText(thMessages.admin.meters.title)).toBeInTheDocument();
-    expect(screen.queryByText(thMessages.admin.roomRack.title)).not.toBeInTheDocument();
-
-    // Switch to Reservations
-    fireEvent.click(screen.getAllByText(thMessages.admin.nav.reservations)[0]);
-    expect(screen.getByText(thMessages.admin.reservations.title)).toBeInTheDocument();
-
-    // Switch to Stays
-    fireEvent.click(screen.getAllByText(thMessages.admin.nav.stays)[0]);
-    expect(screen.getByText(thMessages.admin.stays.title)).toBeInTheDocument();
+  it("redirects the admin index to the room rack instead of rendering sample modules", () => {
+    AdminPage();
+    expect(redirect).toHaveBeenCalledWith("/admin/rack");
   });
 });

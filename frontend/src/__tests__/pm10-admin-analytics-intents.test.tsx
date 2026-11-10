@@ -214,10 +214,11 @@ describe("PM-10 leftovers", () => {
     await waitFor(() => expect(pdf).toHaveBeenCalledWith(expect.any(String), "r1"));
   });
 
-  it("shows not-found instead of a sample unit when the unit is not in the hierarchy", async () => {
+  it("shows an error state instead of a sample unit when the single-unit GET fails", async () => {
     vi.spyOn(apiClient, "getAdminPropertyHierarchy").mockResolvedValue(hierarchy);
+    vi.spyOn(apiClient, "getAdminUnit").mockRejectedValue(new Error("boom"));
     renderAdmin(<UnitMasterEditor unitId="missing-unit" />);
-    expect(await screen.findByText(thMessages.admin.properties.unitNotFound)).toBeInTheDocument();
+    expect(await screen.findByText(thMessages.admin.properties.loadUnitError)).toBeInTheDocument();
   });
 
   it("shows an error with retry instead of a sample unit when the API fails", async () => {

@@ -1,28 +1,22 @@
 import { z } from "zod";
 import { moneyAmountSchema } from "@/lib/validators";
 
-export const createReservationSchema = z.object({
-  unitTypeId: z.string().min(1, "Please select a unit type"),
-  stayMode: z.enum(["Hourly", "Daily", "Monthly"]),
-  checkIn: z.string().min(10, "Check-in date is required"),
-  checkOut: z.string().min(10, "Check-out date is required"),
-  customerName: z.string().min(2, "Full name is required"),
-  customerPhone: z.string().min(9, "Phone number is required"),
-  customerEmail: z.string().email("Valid email is required"),
-  depositAmount: moneyAmountSchema,
-  specialRequests: z.string().optional(),
-});
+const slotRefine = (v: { slotStartAt: string; slotEndAt: string }) =>
+  !v.slotStartAt || !v.slotEndAt || new Date(v.slotEndAt) > new Date(v.slotStartAt);
 
-export type CreateReservationFormValues = z.infer<typeof createReservationSchema>;
+export const reservationFormSchema = z
+  .object({
+    customerId: z.string().min(1, "Please select a customer"),
+    unitTypeId: z.string().min(1, "Please select a unit type"),
+    unitId: z.string().optional(),
+    stayMode: z.enum(["Hourly", "Daily", "Monthly"]),
+    slotStartAt: z.string().min(1, "Start is required"),
+    slotEndAt: z.string().min(1, "End is required"),
+    depositAmount: moneyAmountSchema,
+    guestCount: z.number().int().min(1).max(20),
+    note: z.string().trim().optional(),
+    confirmImmediately: z.boolean(),
+  })
+  .refine(slotRefine, { path: ["slotEndAt"], message: "End must be after start" });
 
-export const assignUnitSchema = z.object({
-  unitId: z.string().min(1, "Please select a unit to assign"),
-});
-
-export type AssignUnitFormValues = z.infer<typeof assignUnitSchema>;
-
-export const cancelReservationSchema = z.object({
-  cancellationReason: z.string().min(3, "Cancellation reason must be at least 3 characters"),
-});
-
-export type CancelReservationFormValues = z.infer<typeof cancelReservationSchema>;
+export type ReservationFormValues = z.infer<typeof reservationFormSchema>;

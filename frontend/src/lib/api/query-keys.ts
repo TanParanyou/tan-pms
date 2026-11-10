@@ -44,8 +44,8 @@ export const queryKeys = {
   },
   reservations: {
     all: ["admin-reservations"] as const,
-    list: (propertyId: string) =>
-      [...queryKeys.reservations.all, propertyId] as const,
+    list: (propertyId: string, status?: string, stayMode?: string) =>
+      [...queryKeys.reservations.all, propertyId, status ?? "", stayMode ?? ""] as const,
     detail: (id: string) =>
       ["admin-reservation-detail", id] as const,
   },
@@ -56,8 +56,8 @@ export const queryKeys = {
   },
   stays: {
     all: ["admin-stays"] as const,
-    list: (propertyId: string) =>
-      [...queryKeys.stays.all, propertyId] as const,
+    list: (propertyId: string, status?: string, stayMode?: string) =>
+      [...queryKeys.stays.all, propertyId, status ?? "", stayMode ?? ""] as const,
     detail: (id: string) =>
       ["admin-stay-detail", id] as const,
   },

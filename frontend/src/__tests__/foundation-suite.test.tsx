@@ -599,12 +599,10 @@ describe("Enterprise Foundation Suite", () => {
         "prop-1",
       ]);
       expect(queryKeys.rates.catalog("prop-1")).toEqual(["admin-rates", "prop-1"]);
-      expect(queryKeys.reservations.list("prop-1")).toEqual([
-        "admin-reservations",
-        "prop-1",
-      ]);
+      expect(queryKeys.reservations.list("prop-1")).toEqual(["admin-reservations", "prop-1", "", ""]);
+      expect(queryKeys.reservations.list("prop-1", "Hold", "Daily")).toEqual(["admin-reservations", "prop-1", "Hold", "Daily"]);
       expect(queryKeys.rack.byProperty("prop-1")).toEqual(["admin-rack", "prop-1"]);
-      expect(queryKeys.stays.list("prop-1")).toEqual(["admin-stays", "prop-1"]);
+      expect(queryKeys.stays.list("prop-1")).toEqual(["admin-stays", "prop-1", "", ""]);
     });
 
     it("validates 13-digit Thai Citizen ID Modulo-11 checksum correctly", () => {

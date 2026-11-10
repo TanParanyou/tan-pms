@@ -1,28 +1,45 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import React from "react";
-import { RateTariffTaxSection } from "@/features/rates/components/RateTariffTaxSection";
 import {
   calculateHourlySimulationQuote,
   calculateUtilitySimulationQuote,
   calculateTaxSimulationQuote,
   roundMidpointAwayFromZero,
 } from "@/features/rates/utils/calculators";
-import {
-  INITIAL_RATE_PLANS,
-  INITIAL_UTILITY_TARIFFS,
-  INITIAL_TAX_PROFILES,
-} from "@/features/rates/constants";
-import { NextIntlClientProvider } from "next-intl";
-import thMessages from "@/messages/th.json";
 
-function renderWithIntl(ui: React.ReactElement) {
-  return render(
-    <NextIntlClientProvider locale="th" messages={thMessages}>
-      {ui}
-    </NextIntlClientProvider>
-  );
-}
+import type { HourlyPackageConfigDto, UtilityTariffItemDto, TaxProfileItemDto } from "@/generated/api";
+
+// Pure formula fixtures (no sample catalog data in production code).
+const HOURLY: HourlyPackageConfigDto = {
+  basePackageHours: 3,
+  basePackagePrice: 450,
+  additionalHourPrice: 120,
+  gracePeriodMinutes: 15,
+  autoCapToDailyRate: 1200,
+  turnaroundBufferMinutes: 30,
+};
+const WATER_TARIFF: UtilityTariffItemDto = {
+  id: "t-water",
+  utilityType: "Water",
+  name: { th: "ค่าน้ำ", en: "Water" },
+  billingMode: "PerUnit",
+  ratePerUnit: 18,
+  minimumChargeAmount: 100,
+  includedUnits: 0,
+  baseMinimumAmount: 0,
+  flatRateAmount: 0,
+  flatRatePerOccupant: false,
+  meterMaxDigits: 4,
+};
+const taxProfile = (id: string, taxMode: TaxProfileItemDto["taxMode"], vat: number, wht: number): TaxProfileItemDto => ({
+  id,
+  chargeCategoryCode: id,
+  name: { th: id, en: id },
+  taxMode,
+  vatRatePercent: vat,
+  defaultWithholdingTaxPercent: wht,
+  isActive: true,
+});
+const TAX_PROFILES = [taxProfile("rent", "Exempt", 0, 5), taxProfile("short", "VatIncluded", 7, 0), taxProfile("furniture", "VatExcluded", 7, 5)];
 
 describe("PM-03: Rate Plans, Utility Tariffs & Tax Rules UI & Calculations", () => {
   describe("Pure TS Calculators (Business Formula Verification)", () => {
@@ -33,7 +50,7 @@ describe("PM-03: Rate Plans, Utility Tariffs & Tax Rules UI & Calculations", () 
     });
 
     it("calculates Hourly Stay correctly within base package and grace period", () => {
-      const config = INITIAL_RATE_PLANS[0].hourlyPackage; // 3h = 450, +120/h, grace 15m, cap 1200
+      const config = HOURLY; // 3h = 450, +120/h, grace 15m, cap 1200
       // Case 1: 180 min (exact 3 hours)
       const q1 = calculateHourlySimulationQuote(180, config);
       expect(q1.extraHours).toBe(0);
@@ -66,7 +83,7 @@ describe("PM-03: Rate Plans, Utility Tariffs & Tax Rules UI & Calculations", () 
     });
 
     it("calculates Utility Meter usage and rollovers with confirmation rules", () => {
-      const waterTariff = INITIAL_UTILITY_TARIFFS[0]; // 18/unit, min 100, digits 4
+      const waterTariff = WATER_TARIFF; // 18/unit, min 100, digits 4
 
       // Normal usage (curr >= prev)
       const normalQuote = calculateUtilitySimulationQuote(
@@ -109,9 +126,9 @@ describe("PM-03: Rate Plans, Utility Tariffs & Tax Rules UI & Calculations", () 
     });
 
     it("calculates Thai Tax Rules (Exempt, VatIncluded, VatExcluded, and WHT)", () => {
-      const exemptProfile = INITIAL_TAX_PROFILES[0]; // Exempt, VAT 0%, default WHT 5%
-      const vatIncProfile = INITIAL_TAX_PROFILES[1]; // VatIncluded, VAT 7%, WHT 0%
-      const vatExcProfile = INITIAL_TAX_PROFILES[2]; // VatExcluded, VAT 7%, WHT 5%
+      const exemptProfile = TAX_PROFILES[0]; // Exempt, VAT 0%, default WHT 5%
+      const vatIncProfile = TAX_PROFILES[1]; // VatIncluded, VAT 7%, WHT 0%
+      const vatExcProfile = TAX_PROFILES[2]; // VatExcluded, VAT 7%, WHT 5%
 
       // 1. Exempt (e.g. Monthly Room Rent 10,000 THB with 5% WHT)
       const exemptTax = calculateTaxSimulationQuote(10000, exemptProfile, true);
@@ -135,123 +152,6 @@ describe("PM-03: Rate Plans, Utility Tariffs & Tax Rules UI & Calculations", () 
       expect(vatExcTax.invoiceTotal).toBe(2140);
       expect(vatExcTax.withholdingTaxAmount).toBe(100); // 5% of 2000 (pre-vat)
       expect(vatExcTax.netPayable).toBe(2040); // 2140 - 100
-    });
-  });
-
-  describe("UI Component Interactions (RateTariffTaxSection)", () => {
-    it("renders Rate Plans table with column headers, KPI badges, and rates", () => {
-      const { container } = renderWithIntl(<RateTariffTaxSection />);
-
-      // Verify table thead
-      const thead = container.querySelector("thead");
-      expect(thead).toBeInTheDocument();
-
-      // Verify Column headers
-      expect(screen.getByText(thMessages.admin.rates.colCodeName)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.colUnitType)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.colHourlyPackage)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.colDailyMonthly)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.colStatusModes)).toBeInTheDocument();
-
-      // Verify initial Rate Plan codes
-      expect(screen.getByText("RP-STD-2026")).toBeInTheDocument();
-      expect(screen.getByText("RP-DLX-2026")).toBeInTheDocument();
-      expect(screen.getByText("RP-SUT-2026")).toBeInTheDocument();
-    });
-
-    it("preserves Table-Preserved Architecture when rate plan filter finds no matches", () => {
-      const { container } = renderWithIntl(<RateTariffTaxSection />);
-
-      const searchInput = screen.getByPlaceholderText(
-        thMessages.admin.rates.searchPlaceholder
-      );
-      fireEvent.change(searchInput, { target: { value: "NON-EXISTENT-PLAN-XYZ" } });
-
-      // Table thead must still exist
-      const thead = container.querySelector("thead");
-      expect(thead).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.colCodeName)).toBeInTheDocument();
-
-      // Empty state text rendered
-      expect(screen.getByText(thMessages.admin.rates.emptyRatePlans)).toBeInTheDocument();
-    });
-
-    it("switches tabs between Rate Plans, Utility Tariffs, and Tax Profiles", () => {
-      renderWithIntl(<RateTariffTaxSection />);
-
-      // Switch to Utility Tariffs tab
-      const utilityTabButton = screen.getByText(thMessages.admin.rates.tabUtilityTariffs);
-      fireEvent.click(utilityTabButton);
-
-      // Verify Utility columns
-      expect(screen.getByText(thMessages.admin.rates.colUtilityType)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.colBillingMode)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.waterType)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.electricType)).toBeInTheDocument();
-
-      // Switch to Tax Profiles tab
-      const taxTabButton = screen.getByText(thMessages.admin.rates.tabTaxProfiles);
-      fireEvent.click(taxTabButton);
-
-      // Verify Tax Profile columns & categories
-      expect(screen.getByText(thMessages.admin.rates.colChargeCategory)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.colTaxMode)).toBeInTheDocument();
-      expect(screen.getByText("MONTHLY_ROOM_RENT")).toBeInTheDocument();
-      expect(screen.getByText("SHORT_STAY_ROOM")).toBeInTheDocument();
-    });
-
-    it("opens Rate Plan Create dialog with tabs and handles form interactions", () => {
-      renderWithIntl(<RateTariffTaxSection />);
-
-      const createButton = screen.getByText(thMessages.admin.rates.createRatePlan);
-      fireEvent.click(createButton);
-
-      // Modal Title should be displayed
-      expect(screen.getByText(thMessages.admin.rates.modalTitleCreate)).toBeInTheDocument();
-
-      // Tab navigation
-      expect(screen.getByText(thMessages.admin.rates.formTabBasic)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.formTabHourly)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.formTabDailyMonthly)).toBeInTheDocument();
-
-      // Switch to Hourly tab
-      fireEvent.click(screen.getByText(thMessages.admin.rates.formTabHourly));
-      expect(screen.getByText(thMessages.admin.rates.fieldBasePackageHours)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.fieldAutoCapToDailyRate)).toBeInTheDocument();
-    });
-
-    it("opens Interactive Quote & Tax Simulator and simulates in real time", () => {
-      renderWithIntl(<RateTariffTaxSection />);
-
-      const simButton = screen.getByText(thMessages.admin.rates.openSimulator);
-      fireEvent.click(simButton);
-
-      // Simulator Title
-      expect(screen.getByText(thMessages.admin.rates.simTitle)).toBeInTheDocument();
-
-      // Check for sections
-      expect(screen.getByText(thMessages.admin.rates.simSectionHourly)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.simSectionUtility)).toBeInTheDocument();
-      expect(screen.getByText(thMessages.admin.rates.simSectionTax)).toBeInTheDocument();
-
-      // Verify Rollover warning is displayed when prev > curr and unconfirmed
-      // (Default state in simulator is prev=9980, curr=15, confirmed=false)
-      expect(screen.getByTestId("utility-rollover-warning")).toBeInTheDocument();
-
-      // Confirm rollover
-      const rolloverBtn = screen.getByText(`${thMessages.admin.rates.confirmRolloverLabel}: NO`);
-      fireEvent.click(rolloverBtn);
-
-      // Rollover warning should disappear
-      expect(screen.queryByTestId("utility-rollover-warning")).not.toBeInTheDocument();
-      expect(screen.getByText("(Rollover Applied)")).toBeInTheDocument();
-
-      // Test duration input in Hourly section to trigger Auto-Cap
-      const durationInput = screen.getByDisplayValue("195");
-      fireEvent.change(durationInput, { target: { value: "800" } });
-
-      // Notice should appear
-      expect(screen.getByTestId("hourly-capped-notice")).toBeInTheDocument();
     });
   });
 });

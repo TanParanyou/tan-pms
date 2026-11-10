@@ -1,631 +1,456 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useTranslations, useLocale } from "next-intl";
+import { ArrowLeft, Ban, BadgeCheck, DoorOpen, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { SelectPill } from "@/components/ui/select-pill";
 import { EntityAutocomplete } from "@/components/ui/entity-autocomplete";
-import { Textarea } from "@/components/ui/textarea";
-import { CurrencyInput } from "@/components/forms/currency-input";
 import { DateTimeInput } from "@/components/ui/date-picker";
-import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
-import { FormField } from "@/components/forms/form-field";
-import { FormSection } from "@/components/forms/form-section";
-import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageLoading } from "@/components/ui/mono-spinner";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
-import { useFormTabErrors } from "@/hooks/use-form-tab-errors";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { CurrencyInput } from "@/components/forms/currency-input";
+import { NumberInput } from "@/components/forms/number-input";
+import { FormField } from "@/components/forms/form-field";
+import { ReasonDialog } from "@/components/forms/reason-dialog";
+import { PageHeader } from "@/components/layout/page-header";
+import { DetailItem } from "@/components/shared/detail-item";
+import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
+import { useCustomerPicker } from "@/hooks/use-customer-picker";
+import { usePermission } from "@/hooks/use-permission";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
-import { useTranslations, useLocale } from "next-intl";
+import { localInputToIso, toLocalInput } from "@/lib/datetime";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
-import { formatCurrencyThb } from "@/lib/formatters";
-import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
+import { formatCurrencyThb, formatDateTime } from "@/lib/formatters";
+import { usePropertyHierarchy } from "@/features/properties/api/use-properties";
 import {
   useAdminReservationDetail,
+  useAdminAvailabilityQuery,
   useCreateAdminReservationMutation,
+  useUpdateAdminReservationMutation,
   useAssignReservationUnitMutation,
   useConfirmAdminReservationMutation,
   useCancelAdminReservationMutation,
+  useDeleteAdminReservationMutation,
 } from "../api/use-reservations";
+import { reservationFormSchema, type ReservationFormValues } from "../schemas/reservation-schemas";
 import {
-  SAMPLE_UNIT_TYPES,
-  SAMPLE_ASSIGNABLE_UNITS,
-  SAMPLE_CUSTOMERS,
-  CUSTOMER_MAP,
+  CONFIRMABLE_RESERVATION_STATUSES,
+  DELETABLE_RESERVATION_STATUSES,
+  EDITABLE_RESERVATION_STATUSES,
+  PERMISSION_RESERVATIONS_MANAGE,
+  RESERVATION_FORM_DEFAULTS,
+  RESERVATION_STATUS_BADGE_VARIANT,
+  RESERVATION_STAY_MODES,
 } from "../constants";
-import {
-  createReservationSchema,
-  assignUnitSchema,
-  cancelReservationSchema,
-  type CreateReservationFormValues,
-  type AssignUnitFormValues,
-  type CancelReservationFormValues,
-} from "../schemas/reservation-schemas";
-import { ArrowLeft, CheckCircle2, Save, XCircle } from "lucide-react";
-import Link from "next/link";
-import type { StayModeType } from "@/constants/master-data";
+import type { ReservationItemDto } from "../types";
 
-export interface ReservationEditorProps {
-  reservationId: string;
-}
-
-export function ReservationEditor({ reservationId }: ReservationEditorProps) {
-  const router = useRouter();
-  const locale = useLocale() as "th" | "en";
+/** Single dynamic route body: id="create" creates, any other id views / edits / confirms / cancels / deletes. */
+export function ReservationEditor({ reservationId }: { reservationId: string }) {
   const { activeProperty } = useAdminWorkspace();
-  const tRes = useTranslations("admin.reservations");
-  const tModes = useTranslations("stayModes");
+  const t = useTranslations("admin.reservations");
   const tCommon = useTranslations("common");
-
   const isCreate = reservationId === "create";
+  const hierarchy = usePropertyHierarchy(activeProperty.id);
+  const detail = useAdminReservationDetail(activeProperty.id, reservationId);
 
-  const { data: reservation, isLoading } = useAdminReservationDetail(
-    activeProperty.id,
-    reservationId
-  );
-
-  const createMutation = useCreateAdminReservationMutation(activeProperty.id);
-  const assignMutation = useAssignReservationUnitMutation(activeProperty.id);
-  const confirmMutation = useConfirmAdminReservationMutation(activeProperty.id);
-  const cancelMutation = useCancelAdminReservationMutation(activeProperty.id);
-
-  const [activeTab, setActiveTab] = useState("tab-details");
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [selectedCustomerId, setSelectedCustomerId] = useState(SAMPLE_CUSTOMERS[0].id);
-
-  const customerOptions = SAMPLE_CUSTOMERS.map((c) => ({
-    value: c.id,
-    label: c.fullName,
-    sublabel: c.maskedNationalId,
-  }));
-
-  const { toastSuccess, toastApiError } = useToast();
-
-  // Create Form
-  const createForm = useForm<CreateReservationFormValues>({
-    resolver: zodResolver(createReservationSchema),
-    defaultValues: {
-      unitTypeId: SAMPLE_UNIT_TYPES[0].id,
-      stayMode: "Daily",
-      checkIn: "2026-11-08",
-      checkOut: "2026-11-10",
-      customerName: "Jane Doe",
-      customerPhone: "081-999-8877",
-      customerEmail: "jane.doe@example.com",
-      depositAmount: 1500,
-      specialRequests: "",
-    },
-  });
-
-  useUnsavedChanges(createForm.formState.isDirty);
-
-  // Assign Unit Form
-  const assignForm = useForm<AssignUnitFormValues>({
-    resolver: zodResolver(assignUnitSchema),
-    defaultValues: {
-      unitId: Object.values(SAMPLE_ASSIGNABLE_UNITS)[0]?.[0]?.id ?? "",
-    },
-  });
-
-  // Cancel Form
-  const cancelForm = useForm<CancelReservationFormValues>({
-    resolver: zodResolver(cancelReservationSchema),
-    defaultValues: {
-      cancellationReason: "",
-    },
-  });
-
-  const fieldToTabMap = {
-    unitTypeId: "tab-details",
-    stayMode: "tab-details",
-    checkIn: "tab-details",
-    checkOut: "tab-details",
-    customerName: "tab-customer",
-    customerPhone: "tab-customer",
-    customerEmail: "tab-customer",
-    depositAmount: "tab-deposit",
-  };
-
-  const { hasTabError, firstErrorTab } = useFormTabErrors({
-    fieldToTabMap,
-    errors: createForm.formState.errors,
-  });
-
-  if (!isCreate && (isLoading || !reservation)) {
-    return <PageLoading message={tRes("loadingReservation")} />;
-  }
-
-  const handleExecuteCreate = async (values: CreateReservationFormValues) => {
-    try {
-      await createMutation.mutateAsync({
-        customerId: selectedCustomerId,
-        unitTypeId: values.unitTypeId,
-        stayMode: values.stayMode,
-        slotStartAt: `${values.checkIn}T14:00:00Z`,
-        slotEndAt: `${values.checkOut}T12:00:00Z`,
-        depositAmount: values.depositAmount,
-        confirmImmediately: true,
-      });
-      toastSuccess(tRes("saveSuccess") || tCommon("save"));
-      router.push("/admin/reservations");
-    } catch (err) {
-      toastApiError(err);
-    }
-  };
-
-  const handleExecuteAssign = async (values: AssignUnitFormValues) => {
-    if (!reservation) return;
-    try {
-      await assignMutation.mutateAsync({
-        reservationId: reservation.id,
-        req: { unitId: values.unitId },
-      });
-      toastSuccess(tRes("actionAssignUnit"));
-    } catch (err) {
-      toastApiError(err);
-    }
-  };
-
-  const handleExecuteConfirm = async () => {
-    if (!reservation) return;
-    try {
-      await confirmMutation.mutateAsync(reservation.id);
-      toastSuccess(tRes("actionConfirm"));
-      setShowConfirmModal(false);
-    } catch (err) {
-      toastApiError(err);
-    }
-  };
-
-  const handleExecuteCancel = async () => {
-    if (!reservation) return;
-    try {
-      const values = cancelForm.getValues();
-      await cancelMutation.mutateAsync({
-        reservationId: reservation.id,
-        req: { reason: values.cancellationReason, markNoShow: false },
-      });
-      toastSuccess(tRes("actionCancel"));
-      setShowCancelModal(false);
-      router.push("/admin/reservations");
-    } catch (err) {
-      toastApiError(err);
-    }
-  };
-
-  if (isCreate) {
-    const createTabs: FormTabItem[] = [
-      {
-        id: "tab-details",
-        label: tRes("tabRoomSelection"),
-        hasError: hasTabError("tab-details"),
-        content: (
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="create-unit-type" className="text-xs font-medium text-ink">
-                {tRes("fieldUnitType")}
-              </Label>
-              <Controller
-                name="unitTypeId"
-                control={createForm.control}
-                render={({ field }) => (
-                  <SelectPill
-                    id="create-unit-type"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    className="h-10 text-xs font-mono"
-                  >
-                    {SAMPLE_UNIT_TYPES.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {resolveLocalizedText(t.name, locale)} ({t.code})
-                      </option>
-                    ))}
-                  </SelectPill>
-                )}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-ink">
-                {tRes("fieldStayMode")}
-              </Label>
-              <Controller
-                name="stayMode"
-                control={createForm.control}
-                render={({ field }) => (
-                  <div className="flex items-center gap-2">
-                    {(["Hourly", "Daily", "Monthly"] as const).map((mode) => (
-                      <Button
-                        key={mode}
-                        type="button"
-                        variant={field.value === mode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => field.onChange(mode)}
-                        className="rounded-full text-xs font-mono h-8 px-4"
-                      >
-                        {tModes(mode)}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="create-check-in" className="text-xs font-medium text-ink">
-                  {tRes("fieldCheckIn")}
-                </Label>
-                <Controller
-                  name="checkIn"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <DateTimeInput
-                      id="create-check-in"
-                      mode="date"
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      placeholder={tRes("fieldCheckIn")}
-                      className="h-10 rounded-full font-mono text-xs"
-                    />
-                  )}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="create-check-out" className="text-xs font-medium text-ink">
-                  {tRes("fieldCheckOut")}
-                </Label>
-                <Controller
-                  name="checkOut"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <DateTimeInput
-                      id="create-check-out"
-                      mode="date"
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      placeholder={tRes("fieldCheckOut")}
-                      className="h-10 rounded-full font-mono text-xs"
-                    />
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-        ),
-      },
-      {
-        id: "tab-customer",
-        label: tRes("tabGuestInfo"),
-        hasError: hasTabError("tab-customer"),
-        content: (
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="reservation-customer-autocomplete" className="text-xs font-medium text-ink">
-                {tRes("fieldCustomer")}
-              </Label>
-              <EntityAutocomplete
-                id="reservation-customer-autocomplete"
-                options={customerOptions}
-                value={selectedCustomerId}
-                onValueChange={(val) => {
-                  setSelectedCustomerId(val);
-                  const cust = CUSTOMER_MAP[val];
-                  if (cust) {
-                    createForm.setValue("customerName", cust.fullName, { shouldDirty: true });
-                  }
-                }}
-                placeholder={tRes("fieldCustomer")}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="create-customer-name" className="text-xs font-medium text-ink">
-                {tRes("fieldCustomerName")}
-              </Label>
-              <Controller
-                name="customerName"
-                control={createForm.control}
-                render={({ field }) => (
-                  <Input
-                    id="create-customer-name"
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder={tCommon("placeholders.guestName")}
-                    className="h-10 rounded-full text-xs"
-                  />
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="create-customer-phone" className="text-xs font-medium text-ink">
-                  {tRes("fieldCustomerPhone")}
-                </Label>
-                <Controller
-                  name="customerPhone"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <Input
-                      id="create-customer-phone"
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder={tCommon("placeholders.quickWalkInPhone")}
-                      className="h-10 rounded-full font-mono text-xs"
-                    />
-                  )}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="create-customer-email" className="text-xs font-medium text-ink">
-                  {tRes("fieldCustomerEmail")}
-                </Label>
-                <Controller
-                  name="customerEmail"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <Input
-                      id="create-customer-email"
-                      type="email"
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="guest@example.com"
-                      className="h-10 rounded-full font-mono text-xs"
-                    />
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="create-special-requests" className="text-xs font-medium text-ink">
-                {tRes("reasonLabel")}
-              </Label>
-              <Controller
-                name="specialRequests"
-                control={createForm.control}
-                render={({ field }) => (
-                  <Textarea
-                    id="create-special-requests"
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    placeholder={tRes("reasonPlaceholder")}
-                    className="min-h-[80px] text-xs"
-                  />
-                )}
-              />
-            </div>
-          </div>
-        ),
-      },
-      {
-        id: "tab-deposit",
-        label: tRes("tabPaymentProof"),
-        hasError: hasTabError("tab-deposit"),
-        content: (
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="create-deposit-amount" className="text-xs font-medium text-ink">
-                {tRes("fieldDepositAmount")}
-              </Label>
-              <Controller
-                name="depositAmount"
-                control={createForm.control}
-                render={({ field }) => (
-                  <CurrencyInput
-                    id="create-deposit-amount"
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    placeholder={tRes("fieldDepositAmount")}
-                    className="h-10 rounded-full font-mono text-xs"
-                  />
-                )}
-              />
-            </div>
-          </div>
-        ),
-      },
-    ];
-
+  if (hierarchy.isLoading || (!isCreate && detail.isLoading)) return <PageLoading message={t("loadingReservation")} />;
+  if (hierarchy.isError || (!isCreate && detail.isError)) {
     return (
-      <div className="space-y-6">
-        <PageHeader
-          prefixCode="RES"
-          title={tRes("modalTitleCreate")}
-          description={tRes("modalDescCreate")}
-          actions={
-            <div className="flex items-center gap-2">
-              <Link href="/admin/reservations">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full text-xs font-mono h-9 px-4 gap-1.5"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>{tCommon("back")}</span>
-                </Button>
-              </Link>
-              <Button
-                type="button"
-                size="sm"
-                onClick={createForm.handleSubmit(handleExecuteCreate, () => {
-                  if (firstErrorTab) setActiveTab(firstErrorTab);
-                })}
-                disabled={createMutation.isPending}
-                className="rounded-full text-xs h-9 px-5 gap-1.5"
-              >
-                <Save className="h-4 w-4" />
-                <span>{tRes("btnSubmitCreate")}</span>
-              </Button>
-            </div>
-          }
-        />
-
-        <FormSection>
-          <FormTabs tabs={createTabs} value={activeTab} onValueChange={setActiveTab} />
-        </FormSection>
-      </div>
+      <EmptyState
+        title={t("loadDetailError")}
+        actionLabel={tCommon("retry")}
+        onAction={() => {
+          void hierarchy.refetch();
+          if (!isCreate) void detail.refetch();
+        }}
+      />
     );
   }
+  if (!isCreate && !detail.data) return <EmptyState title={t("notFound")} />;
+  return <ReservationBody propertyId={activeProperty.id} unitTypes={hierarchy.data?.unitTypes ?? []} reservation={detail.data} />;
+}
 
-  if (!reservation) {
-    return <PageLoading message={tRes("loadingReservation")} />;
-  }
+interface BodyProps {
+  propertyId: string;
+  unitTypes: NonNullable<ReturnType<typeof usePropertyHierarchy>["data"]>["unitTypes"];
+  reservation?: ReservationItemDto;
+}
 
-  // View / Edit / Assign Unit
+function ReservationBody({ propertyId, unitTypes, reservation }: BodyProps) {
+  const router = useRouter();
+  const locale = useLocale() as "th" | "en";
+  const t = useTranslations("admin.reservations");
+  const tModes = useTranslations("stayModes");
+  const tCommon = useTranslations("common");
+  const { hasPermission } = usePermission();
+  const { toastSuccess, toastApiError } = useToast();
+  const canManage = hasPermission(PERMISSION_RESERVATIONS_MANAGE);
+  const isEdit = reservation !== undefined;
+  const status = reservation?.status;
+  const editable = !isEdit || EDITABLE_RESERVATION_STATUSES.includes(status ?? "");
+
+  const customers = useCustomerPicker(propertyId);
+  const createM = useCreateAdminReservationMutation(propertyId);
+  const updateM = useUpdateAdminReservationMutation(propertyId);
+  const assignM = useAssignReservationUnitMutation(propertyId);
+  const confirmM = useConfirmAdminReservationMutation(propertyId);
+  const cancelM = useCancelAdminReservationMutation(propertyId);
+  const deleteM = useDeleteAdminReservationMutation(propertyId);
+  const inFlight = useRef(false);
+  const isBusy = createM.isPending || updateM.isPending || assignM.isPending || confirmM.isPending || cancelM.isPending || deleteM.isPending;
+
+  const [showSave, setShowSave] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [showNoShow, setShowNoShow] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
+  const [assignUnitId, setAssignUnitId] = useState("");
+
+  const form = useForm<ReservationFormValues>({
+    resolver: zodResolver(reservationFormSchema),
+    values: reservation
+      ? {
+          customerId: reservation.customer.id,
+          unitTypeId: reservation.unitType.id,
+          unitId: reservation.assignedUnit?.id ?? "",
+          stayMode: reservation.stayMode,
+          slotStartAt: toLocalInput(reservation.slotStartAt),
+          slotEndAt: toLocalInput(reservation.slotEndAt),
+          depositAmount: reservation.depositAmount,
+          guestCount: reservation.guestCount ?? 1,
+          note: reservation.note ?? "",
+          confirmImmediately: false,
+        }
+      : RESERVATION_FORM_DEFAULTS,
+  });
+  useUnsavedChanges(form.formState.isDirty);
+  const v = form.watch();
+  const window = useMemo(() => {
+    const start = localInputToIso(v.slotStartAt);
+    const end = localInputToIso(v.slotEndAt);
+    return start && end && new Date(end) > new Date(start) ? { checkIn: start, checkOut: end, stayMode: v.stayMode } : null;
+  }, [v.slotStartAt, v.slotEndAt, v.stayMode]);
+  const availability = useAdminAvailabilityQuery(propertyId, window);
+  const typeAvailability = (availability.data?.items ?? []).filter((i) => i.unitType.id === v.unitTypeId);
+  const unitOptions = typeAvailability.flatMap((i) => i.availableUnits);
+
+  const execute = async () => {
+    if (isBusy || inFlight.current) return;
+    inFlight.current = true;
+    const values = form.getValues();
+    try {
+      if (reservation) {
+        await updateM.mutateAsync({
+          id: reservation.id,
+          req: {
+            unitTypeId: values.unitTypeId,
+            unitId: values.unitId || undefined,
+            slotStartAt: localInputToIso(values.slotStartAt),
+            slotEndAt: localInputToIso(values.slotEndAt),
+            guestCount: values.guestCount,
+            note: values.note || undefined,
+          },
+        });
+        toastSuccess(t("toastUpdated"));
+        form.reset(values);
+      } else {
+        const created = await createM.mutateAsync({
+          customerId: values.customerId,
+          unitTypeId: values.unitTypeId,
+          unitId: values.unitId || undefined,
+          stayMode: values.stayMode,
+          slotStartAt: localInputToIso(values.slotStartAt),
+          slotEndAt: localInputToIso(values.slotEndAt),
+          depositAmount: values.depositAmount,
+          confirmImmediately: values.confirmImmediately,
+        });
+        toastSuccess(t("toastCreated"));
+        form.reset(values);
+        router.push(`/admin/reservations/${created.id}`);
+      }
+    } catch (err) {
+      toastApiError(err);
+    } finally {
+      inFlight.current = false;
+      setShowSave(false);
+    }
+  };
+
+  const executeConfirm = async () => {
+    if (!reservation || isBusy) return;
+    try {
+      await confirmM.mutateAsync(reservation.id);
+      toastSuccess(t("toastConfirmed"));
+    } catch (err) {
+      toastApiError(err);
+    } finally {
+      setShowConfirm(false);
+    }
+  };
+  const executeAssign = async () => {
+    if (!reservation || !assignUnitId || isBusy) return;
+    try {
+      await assignM.mutateAsync({ id: reservation.id, req: { unitId: assignUnitId } });
+      toastSuccess(t("toastAssigned"));
+      setShowAssign(false);
+      setAssignUnitId("");
+    } catch (err) {
+      toastApiError(err);
+    }
+  };
+  const handleCancel = (markNoShow: boolean) => async (reason: string): Promise<boolean> => {
+    if (!reservation) return false;
+    try {
+      await cancelM.mutateAsync({ id: reservation.id, req: { reason, markNoShow } });
+      toastSuccess(markNoShow ? t("toastNoShow") : t("toastCancelled"));
+      return true;
+    } catch (err) {
+      toastApiError(err);
+      return false;
+    }
+  };
+  const executeDelete = async () => {
+    if (!reservation || isBusy) return;
+    try {
+      await deleteM.mutateAsync(reservation.id);
+      toastSuccess(t("toastDeleted"));
+      router.push("/admin/reservations");
+    } catch (err) {
+      toastApiError(err);
+    } finally {
+      setShowDelete(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         prefixCode="RES"
-        title={`${reservation.documentNumber} — ${reservation.customer.fullName}`}
-        description={`${resolveLocalizedText(reservation.unitType.name, locale)} • ${tModes(
-          reservation.stayMode as StayModeType
-        )}`}
+        title={reservation ? reservation.documentNumber : t("modalTitleCreate")}
+        description={reservation ? t("detailDescription") : t("modalDescCreate")}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href="/admin/reservations">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full text-xs font-mono h-9 px-4 gap-1.5"
-              >
+              <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5 rounded-full px-4 text-xs">
                 <ArrowLeft className="h-4 w-4" />
                 <span>{tCommon("back")}</span>
               </Button>
             </Link>
-
-            {reservation.status === "PendingVerification" && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setShowConfirmModal(true)}
-                disabled={confirmMutation.isPending}
-                className="rounded-full text-xs h-9 px-4 gap-1.5 bg-ink text-canvas hover:bg-neutral-800"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                <span>{tRes("actionConfirm")}</span>
+            {reservation && canManage && !reservation.assignedUnit && editable && (
+              <Button type="button" size="sm" variant="outline" disabled={isBusy} onClick={() => setShowAssign(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <DoorOpen className="h-4 w-4" />
+                <span>{t("actionAssignUnit")}</span>
               </Button>
             )}
-
-            {reservation.status !== "Cancelled" && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCancelModal(true)}
-                className="rounded-full text-xs h-9 px-4 gap-1.5 text-destructive hover:bg-destructive/10"
-              >
-                <XCircle className="h-4 w-4" />
-                <span>{tRes("actionCancel")}</span>
+            {reservation && canManage && CONFIRMABLE_RESERVATION_STATUSES.includes(reservation.status) && (
+              <Button type="button" size="sm" disabled={isBusy} onClick={() => setShowConfirm(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <BadgeCheck className="h-4 w-4" />
+                <span>{t("actionConfirm")}</span>
+              </Button>
+            )}
+            {reservation && canManage && editable && (
+              <Button type="button" size="sm" variant="outline" disabled={isBusy} onClick={() => setShowCancel(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <Ban className="h-4 w-4" />
+                <span>{t("typeCancel")}</span>
+              </Button>
+            )}
+            {reservation && canManage && reservation.status === "Confirmed" && (
+              <Button type="button" size="sm" variant="outline" disabled={isBusy} onClick={() => setShowNoShow(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <Ban className="h-4 w-4" />
+                <span>{t("typeNoShow")}</span>
+              </Button>
+            )}
+            {reservation && canManage && DELETABLE_RESERVATION_STATUSES.includes(reservation.status) && (
+              <Button type="button" size="sm" variant="outline" disabled={isBusy} onClick={() => setShowDelete(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <Trash2 className="h-4 w-4" />
+                <span>{t("btnDelete")}</span>
               </Button>
             )}
           </div>
         }
       />
 
-      {/* Snapshot Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-5 rounded-[12px] border border-hairline bg-canvas font-mono text-xs">
-        <div>
-          <span className="text-mute text-[10px] uppercase block mb-1">Status</span>
-          <Badge variant="outline" className="rounded-full">
-            {reservation.status}
-          </Badge>
+      {reservation && (
+        <div className="grid grid-cols-1 gap-4 rounded-[12px] border border-hairline bg-canvas p-6 shadow-none sm:grid-cols-2 lg:grid-cols-4">
+          <DetailItem label={t("colStatusDeposit")}>
+            <Badge variant={RESERVATION_STATUS_BADGE_VARIANT[reservation.status]}>{t(`status${reservation.status}`)}</Badge>
+          </DetailItem>
+          <DetailItem label={t("colCustomer")}>{reservation.customer.fullName}</DetailItem>
+          <DetailItem label={t("colUnitTypeUnit")}>
+            {resolveLocalizedText(reservation.unitType.name, locale)} / {reservation.assignedUnit ? reservation.assignedUnit.unitNumber : t("quotaUnassignedBadge")}
+          </DetailItem>
+          <DetailItem label={t("fieldDepositAmount")}>{formatCurrencyThb(reservation.depositAmount)}</DetailItem>
+          <DetailItem label={t("holdExpiresAt")}>{formatDateTime(reservation.holdExpiresAt, locale)}</DetailItem>
+          {reservation.cancellationReason != null && <DetailItem label={t("cancelReason")}>{reservation.cancellationReason}</DetailItem>}
         </div>
-        <div>
-          <span className="text-mute text-[10px] uppercase block mb-1">Assigned Unit</span>
-          <span className="font-semibold text-primary">
-            {reservation.assignedUnit ? `Unit ${reservation.assignedUnit.unitNumber}` : "Unassigned"}
-          </span>
-        </div>
-        <div>
-          <span className="text-mute text-[10px] uppercase block mb-1">Check-in / Out</span>
-          <span>
-            {reservation.slotStartAt.slice(0, 10)} → {reservation.slotEndAt.slice(0, 10)}
-          </span>
-        </div>
-        <div>
-          <span className="text-mute text-[10px] uppercase block mb-1">Deposit</span>
-          <span className="font-semibold">{formatCurrencyThb(reservation.depositAmount)}</span>
-        </div>
-      </div>
+      )}
 
-      {/* Assign Unit Box */}
-      <FormSection title={tRes("modalTitleAssign")}>
-        <form onSubmit={assignForm.handleSubmit(handleExecuteAssign)} className="flex items-end gap-3">
-          <div className="flex-1">
+      {canManage && (
+        <form onSubmit={form.handleSubmit(() => setShowSave(true))} className="space-y-4 rounded-[12px] border border-hairline bg-canvas p-6 shadow-none">
+          {isEdit && !editable && <p className="text-xs text-mute">{t("editLockedHint")}</p>}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
-              id="assign-unit-select"
-              label={tRes("fieldSelectUnit")}
-              error={assignForm.formState.errors.unitId?.message}
+              id="res-customer"
+              label={t("fieldCustomer")}
+              required
+              error={customers.isError ? t("customerSearchError") : form.formState.errors.customerId ? t("errorCustomerRequired") : undefined}
             >
               <Controller
-                name="unitId"
-                control={assignForm.control}
+                name="customerId"
+                control={form.control}
                 render={({ field }) => (
-                  <SelectPill
-                    id="assign-unit-select"
+                  <EntityAutocomplete
+                    id="res-customer"
+                    options={reservation ? [{ value: reservation.customer.id, label: `${reservation.customer.fullName} (${reservation.customer.maskedNationalId})` }, ...customers.options.filter((o) => o.value !== reservation.customer.id)] : customers.options}
                     value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    className="h-10 text-xs font-mono"
-                  >
-                    {Object.values(SAMPLE_ASSIGNABLE_UNITS).flat().map((u) => (
-                      <option key={u.id} value={u.id}>
-                        Unit {u.unitNumber} ({resolveLocalizedText(u.buildingName, locale)}) —{" "}
-                        {u.conditionStatus}
-                      </option>
-                    ))}
-                  </SelectPill>
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      customers.pick(val);
+                    }}
+                    onSearchChange={customers.setSearch}
+                    isLoading={customers.isLoading}
+                    disabled={isEdit || isBusy}
+                    placeholder={t("placeholderCustomer")}
+                    searchPlaceholder={t("placeholderCustomer")}
+                    hasError={Boolean(form.formState.errors.customerId)}
+                    wrapperClassName="!mb-0"
+                  />
                 )}
               />
             </FormField>
+            <FormField id="res-mode" label={t("fieldStayMode")}>
+              <SelectPill id="res-mode" disabled={isEdit || isBusy} wrapperClassName="!mb-0" {...form.register("stayMode")}>
+                {RESERVATION_STAY_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {tModes(m)}
+                  </option>
+                ))}
+              </SelectPill>
+            </FormField>
+            <FormField id="res-start" label={t("fieldSlotStart")} required>
+              <Controller name="slotStartAt" control={form.control} render={({ field }) => (
+                <DateTimeInput id="res-start" mode="datetime" value={field.value} onValueChange={field.onChange} disabled={!editable || isBusy} hasError={Boolean(form.formState.errors.slotStartAt)} placeholder={t("fieldSlotStart")} />
+              )} />
+            </FormField>
+            <FormField id="res-end" label={t("fieldSlotEnd")} required error={form.formState.errors.slotEndAt ? t("errorSlotWindow") : undefined}>
+              <Controller name="slotEndAt" control={form.control} render={({ field }) => (
+                <DateTimeInput id="res-end" mode="datetime" value={field.value} onValueChange={field.onChange} disabled={!editable || isBusy} hasError={Boolean(form.formState.errors.slotEndAt)} placeholder={t("fieldSlotEnd")} />
+              )} />
+            </FormField>
+            <FormField id="res-unit-type" label={t("fieldUnitType")} required error={form.formState.errors.unitTypeId ? t("errorUnitTypeRequired") : undefined}>
+              <SelectPill id="res-unit-type" disabled={!editable || isBusy} wrapperClassName="!mb-0" {...form.register("unitTypeId")}>
+                <option value="">{t("placeholderUnitType")}</option>
+                {unitTypes.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {resolveLocalizedText(u.name, locale)} ({u.code})
+                  </option>
+                ))}
+              </SelectPill>
+            </FormField>
+            <FormField id="res-unit" label={t("fieldSpecificUnit")}>
+              <SelectPill id="res-unit" disabled={!editable || isBusy} wrapperClassName="!mb-0" {...form.register("unitId")}>
+                <option value="">{t("allocationQuota")}</option>
+                {reservation?.assignedUnit && !unitOptions.some((u) => u.id === reservation.assignedUnit?.id) && (
+                  <option value={reservation.assignedUnit.id}>{reservation.assignedUnit.unitNumber}</option>
+                )}
+                {unitOptions.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.unitNumber} ({resolveLocalizedText(u.buildingName, locale)})
+                  </option>
+                ))}
+              </SelectPill>
+            </FormField>
+            <FormField id="res-deposit" label={t("fieldDepositAmount")}>
+              <Controller name="depositAmount" control={form.control} render={({ field }) => (
+                <CurrencyInput id="res-deposit" value={field.value} onValueChange={field.onChange} placeholder={t("fieldDepositAmount")} disabled={isEdit || isBusy} wrapperClassName="!mb-0" />
+              )} />
+            </FormField>
+            <FormField id="res-guests" label={t("fieldGuestCount")}>
+              <Controller name="guestCount" control={form.control} render={({ field }) => (
+                <NumberInput id="res-guests" value={field.value} onValueChange={field.onChange} decimals={0} min={1} max={20} placeholder={t("fieldGuestCount")} disabled={!editable || isBusy} wrapperClassName="!mb-0" />
+              )} />
+            </FormField>
           </div>
-          <Button
-            type="submit"
-            disabled={assignMutation.isPending}
-            className="rounded-full text-xs h-10 px-6 font-medium"
-          >
-            {tRes("btnAssignConfirm")}
-          </Button>
+          <FormField id="res-note" label={t("fieldNote")}>
+            <Textarea id="res-note" placeholder={t("placeholderNote")} disabled={!editable || isBusy} {...form.register("note")} />
+          </FormField>
+          {window && (
+            <div className="rounded-[12px] bg-surface-soft p-3 text-xs text-body" data-testid="availability-hint">
+              {availability.isLoading && <span>{tCommon("loading")}</span>}
+              {availability.isError && <span className="text-destructive">{t("availabilityError")}</span>}
+              {availability.data && typeAvailability.length === 0 && <span>{t("availabilityPickType")}</span>}
+              {typeAvailability.map((i) => (
+                <span key={i.unitType.id}>{t("availabilityNet", { count: i.netAvailableQuota })}</span>
+              ))}
+            </div>
+          )}
+          {!isEdit && (
+            <Controller name="confirmImmediately" control={form.control} render={({ field }) => (
+              <div className="flex items-center gap-2">
+                <Switch id="res-confirm-now" checked={field.value} disabled={isBusy} onCheckedChange={field.onChange} />
+                <Label htmlFor="res-confirm-now" className="text-xs">{t("fieldConfirmImmediately")}</Label>
+              </div>
+            )} />
+          )}
+          {editable && (
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isBusy} className="h-10 rounded-full px-5 text-xs">
+                {isBusy ? tCommon("loading") : isEdit ? tCommon("save") : t("saveCreate")}
+              </Button>
+            </div>
+          )}
         </form>
-      </FormSection>
+      )}
 
-      {/* Confirm Modal */}
-      <ConfirmationModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={handleExecuteConfirm}
-        title={tRes("confirmApproveTitle")}
-        message={tRes("confirmApproveMessage")}
-        confirmText={tRes("actionConfirm")}
-        cancelText={tCommon("cancel")}
-        variant="info"
-        isLoading={confirmMutation.isPending}
-      />
-
-      {/* Cancel Modal */}
-      <ConfirmationModal
-        isOpen={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
-        onConfirm={handleExecuteCancel}
-        title={tRes("confirmCancelTitle")}
-        message={tRes("confirmCancelMessage")}
-        confirmText={tRes("actionCancel")}
-        cancelText={tCommon("cancel")}
-        variant="danger"
-        isLoading={cancelMutation.isPending}
-      />
+      <ConfirmationModal isOpen={showSave} onClose={() => setShowSave(false)} onConfirm={execute} title={isEdit ? t("confirmUpdateTitle") : t("confirmCreateTitle")} message={isEdit ? t("confirmUpdateMessage") : t("confirmCreateMessage")} confirmText={isEdit ? tCommon("save") : t("saveCreate")} variant="info" isLoading={createM.isPending || updateM.isPending} />
+      <ConfirmationModal isOpen={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={executeConfirm} title={t("confirmModalTitle")} message={t("confirmModalMessage")} confirmText={t("actionConfirm")} variant="warning" isLoading={confirmM.isPending} />
+      <ConfirmationModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={executeDelete} title={t("confirmDeleteTitle")} message={t("confirmDeleteMessage", { document: reservation?.documentNumber ?? "" })} confirmText={t("btnDelete")} variant="danger" isLoading={deleteM.isPending} />
+      {reservation && (
+        <>
+          <ReasonDialog open={showCancel} onOpenChange={setShowCancel} title={t("modalTitleCancel", { doc: reservation.documentNumber })} description={t("modalDescCancel")} actionText={t("typeCancel")} confirmTitle={t("confirmCancelTitle")} confirmMessage={t("confirmCancelMessage")} isLoading={cancelM.isPending} onConfirm={handleCancel(false)} />
+          <ReasonDialog open={showNoShow} onOpenChange={setShowNoShow} title={t("modalTitleCancel", { doc: reservation.documentNumber })} description={t("modalDescCancel")} actionText={t("typeNoShow")} confirmTitle={t("confirmCancelTitle")} confirmMessage={t("confirmCancelMessage")} isLoading={cancelM.isPending} onConfirm={handleCancel(true)} />
+          <Dialog open={showAssign} onOpenChange={setShowAssign}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("modalTitleAssign", { doc: reservation.documentNumber })}</DialogTitle>
+                <DialogDescription>{t("modalDescAssign")}</DialogDescription>
+              </DialogHeader>
+              <FormField id="assign-unit" label={t("selectUnitLabel")}>
+                <SelectPill id="assign-unit" value={assignUnitId} onChange={(e) => setAssignUnitId(e.target.value)} wrapperClassName="!mb-0">
+                  <option value="">{t("placeholderUnit")}</option>
+                  {unitOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.unitNumber} ({resolveLocalizedText(u.buildingName, locale)})
+                    </option>
+                  ))}
+                </SelectPill>
+              </FormField>
+              {unitOptions.length === 0 && <p className="text-xs text-mute">{t("noCleanUnits")}</p>}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowAssign(false)} className="rounded-full">
+                  {tCommon("cancel")}
+                </Button>
+                <Button type="button" disabled={!assignUnitId || assignM.isPending} onClick={() => void executeAssign()} className="rounded-full">
+                  {assignM.isPending ? tCommon("loading") : t("saveAssign")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 }

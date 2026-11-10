@@ -8,7 +8,7 @@ import { useAdminRoomRack } from "@/features/rack/api/use-rack";
 
 export default function RoomRackPage() {
   const { activeProperty, openQuickWalkIn } = useAdminWorkspace();
-  const { data: rackData } = useAdminRoomRack(activeProperty.id);
+  const { data: rackData, isLoading, isError, refetch } = useAdminRoomRack(activeProperty.id);
   const [stayModeFilter, setStayModeFilter] = useState<string>("All");
 
   const rackItems = rackData?.items ?? [];
@@ -29,6 +29,9 @@ export default function RoomRackPage() {
 
       <UnifiedRoomRackSection
         items={filteredItems}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
         onOpenQuickWalkIn={openQuickWalkIn}
         stayModeFilter={stayModeFilter}
         onSelectStayModeFilter={setStayModeFilter}

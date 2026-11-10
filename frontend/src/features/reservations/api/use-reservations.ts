@@ -3,7 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { queryKeys } from "@/lib/api/query-keys";
-import { INITIAL_RESERVATIONS } from "../constants";
+import { invalidateOperationalCaches } from "@/lib/api/invalidate-operational";
+import type { UpdateReservationRequest } from "@/features/client/types";
 import type {
   ReservationListResponse,
   ReservationItemDto,
@@ -11,162 +12,65 @@ import type {
   AssignReservationUnitRequest,
   CancelReservationRequest,
   AvailabilitySearchResponse,
-  CreateClientHoldReservationRequest,
-  SubmitReservationSlipRequest,
 } from "@/generated/api";
 
-export function useAdminReservations(propertyId: string) {
+export function useAdminReservations(propertyId: string, filters: { status?: string; stayMode?: string } = {}) {
   return useQuery<ReservationListResponse>({
-    queryKey: queryKeys.reservations.list(propertyId),
-    queryFn: async () => {
-      try {
-        return await apiClient.getAdminReservations(propertyId);
-      } catch {
-        return {
-          items: INITIAL_RESERVATIONS,
-        };
-      }
-    },
-    placeholderData: {
-      items: INITIAL_RESERVATIONS,
-    },
+    queryKey: queryKeys.reservations.list(propertyId, filters.status, filters.stayMode),
+    queryFn: () => apiClient.getAdminReservations(propertyId, filters),
   });
 }
 
 export function useAdminReservationDetail(propertyId: string, reservationId: string) {
-  return useQuery<ReservationItemDto | null>({
-    queryKey: queryKeys.reservations.detail(reservationId),
-    queryFn: async () => {
-      try {
-        const res = await apiClient.getAdminReservations(propertyId);
-        const item = res.items.find((r) => r.id === reservationId || r.documentNumber === reservationId);
-        return item ?? null;
-      } catch {
-        const fallback = INITIAL_RESERVATIONS.find(
-          (r) => r.id === reservationId || r.documentNumber === reservationId
-        );
-        return fallback ?? INITIAL_RESERVATIONS[0] ?? null;
-      }
-    },
+  return useQuery<ReservationItemDto>({
+    queryKey: [...queryKeys.reservations.detail(reservationId), propertyId],
+    queryFn: () => apiClient.getAdminReservation(propertyId, reservationId),
     enabled: Boolean(reservationId && reservationId !== "create"),
   });
 }
 
 export function useAdminAvailabilityQuery(
   propertyId: string,
-  params: { checkIn: string; checkOut: string; stayMode?: string }
+  params: { checkIn: string; checkOut: string; stayMode: string } | null
 ) {
   return useQuery<AvailabilitySearchResponse>({
-    queryKey: queryKeys.availability.search(propertyId, params),
-    queryFn: async () => {
-      return await apiClient.getAdminAvailability(propertyId, params);
+    queryKey: queryKeys.availability.search(propertyId, params ?? {}),
+    queryFn: () => apiClient.getAdminAvailability(propertyId, params as { checkIn: string; checkOut: string; stayMode: string }),
+    enabled: params !== null,
+  });
+}
+
+// A reservation changes quota, rack state and availability: await every operational cache plus its own lists.
+function useReservationMutation<TVars>(mutationFn: (vars: TVars) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, TVars>({
+    mutationFn,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all }),
+        queryClient.invalidateQueries({ queryKey: ["admin-reservation-detail"] }),
+        invalidateOperationalCaches(queryClient),
+      ]);
     },
-    enabled: Boolean(params.checkIn && params.checkOut),
   });
 }
 
 export function useCreateAdminReservationMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (req: CreateAdminReservationRequest) => {
-      return await apiClient.createAdminReservation(propertyId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all });
-    },
-  });
+  const m = useReservationMutation((req: CreateAdminReservationRequest) => apiClient.createAdminReservation(propertyId, req));
+  return { ...m, mutateAsync: (req: CreateAdminReservationRequest) => m.mutateAsync(req) as Promise<ReservationItemDto> };
 }
-
+export function useUpdateAdminReservationMutation(propertyId: string) {
+  return useReservationMutation(({ id, req }: { id: string; req: UpdateReservationRequest }) => apiClient.updateAdminReservation(propertyId, id, req));
+}
 export function useAssignReservationUnitMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      reservationId,
-      req,
-    }: {
-      reservationId: string;
-      req: AssignReservationUnitRequest;
-    }) => {
-      return await apiClient.assignAdminReservationUnit(propertyId, reservationId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all });
-    },
-  });
+  return useReservationMutation(({ id, req }: { id: string; req: AssignReservationUnitRequest }) => apiClient.assignAdminReservationUnit(propertyId, id, req));
 }
-
 export function useConfirmAdminReservationMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (reservationId: string) => {
-      return await apiClient.confirmAdminReservation(propertyId, reservationId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all });
-    },
-  });
+  return useReservationMutation((id: string) => apiClient.confirmAdminReservation(propertyId, id));
 }
-
 export function useCancelAdminReservationMutation(propertyId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      reservationId,
-      req,
-    }: {
-      reservationId: string;
-      req: CancelReservationRequest;
-    }) => {
-      return await apiClient.cancelAdminReservation(propertyId, reservationId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all });
-    },
-  });
+  return useReservationMutation(({ id, req }: { id: string; req: CancelReservationRequest }) => apiClient.cancelAdminReservation(propertyId, id, req));
 }
-
-// Client Availability & Reservation Hooks
-export function useClientReservations() {
-  return useQuery<ReservationListResponse>({
-    queryKey: ["client-reservations"],
-    queryFn: async () => {
-      try {
-        return await apiClient.getClientReservations();
-      } catch {
-        return {
-          items: INITIAL_RESERVATIONS,
-        };
-      }
-    },
-  });
-}
-
-export function useCreateClientHoldMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (req: CreateClientHoldReservationRequest) => {
-      return await apiClient.createClientHoldReservation(req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["client-reservations"] });
-    },
-  });
-}
-
-export function useSubmitClientSlipMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      reservationId,
-      req,
-    }: {
-      reservationId: string;
-      req: SubmitReservationSlipRequest;
-    }) => {
-      return await apiClient.submitClientReservationSlip(reservationId, req);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["client-reservations"] });
-    },
-  });
+export function useDeleteAdminReservationMutation(propertyId: string) {
+  return useReservationMutation((id: string) => apiClient.deleteAdminReservation(propertyId, id));
 }

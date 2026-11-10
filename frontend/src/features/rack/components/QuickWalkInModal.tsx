@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,9 @@ import { FormTabs, type FormTabItem } from "@/components/ui/form-tabs";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { CurrencyInput } from "@/components/forms/currency-input";
 import { FormField } from "@/components/forms/form-field";
+import { PhotoAttachmentField } from "@/components/forms/photo-attachment-field";
+import { useStagedPhoto } from "@/hooks/use-staged-photo";
+import { useToast } from "@/hooks/use-toast";
 import { ShiftNotOpenAlert } from "@/components/shared/shift-not-open-alert";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { useCustomerPicker } from "@/hooks/use-customer-picker";
@@ -46,6 +50,8 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
   const hierarchy = usePropertyHierarchy(propertyId);
   const customers = useCustomerPicker(propertyId);
   const checkIn = useCheckInSubmit();
+  const idDocument = useStagedPhoto(propertyId, "IdentityDocument");
+  const { toastApiError } = useToast();
 
   const [activeTab, setActiveTab] = useState("tab-guest");
   const [customerId, setCustomerId] = useState("");
@@ -53,6 +59,10 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
   const [stayMode, setStayMode] = useState<WalkInStayMode>("Hourly");
   const [keyDeposit, setKeyDeposit] = useState(Number(DEFAULT_KEY_DEPOSIT));
   const [overrideReason, setOverrideReason] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [identityNumber, setIdentityNumber] = useState("");
+  const [phone, setPhone] = useState("");
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
 
@@ -60,19 +70,22 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
   const unitById = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
   const selectedUnit = unitById.get(unitId);
   const isDirty = selectedUnit !== undefined && selectedUnit.conditionStatus !== "Clean";
-  useUnsavedChanges(isOpen && (customerId !== "" || unitId !== ""));
+  useUnsavedChanges(isOpen && (customerId !== "" || unitId !== "" || idDocument.queuedFiles.length > 0));
 
   const formErrors = useMemo(() => {
     if (!formSubmitted) return {};
     const errs: Record<string, string> = {};
     if (!customerId) errs["customerId"] = tCommon("required");
+    if (!guestName.trim()) errs["guestName"] = tCommon("required");
+    if (!nationality.trim()) errs["nationality"] = tCommon("required");
+    if (!identityNumber.trim()) errs["identityNumber"] = tCommon("required");
     if (!unitId) errs["unitId"] = tCommon("required");
     if (isDirty && !overrideReason.trim()) errs["overrideReason"] = tCommon("required");
     return errs;
-  }, [formSubmitted, customerId, unitId, isDirty, overrideReason, tCommon]);
+  }, [formSubmitted, customerId, unitId, isDirty, overrideReason, guestName, nationality, identityNumber, tCommon]);
 
   const { hasTabError, firstErrorTab } = useFormTabErrors({
-    fieldToTabMap: { customerId: "tab-guest", unitId: "tab-room", overrideReason: "tab-room" },
+    fieldToTabMap: { customerId: "tab-guest", guestName: "tab-guest", nationality: "tab-guest", identityNumber: "tab-guest", unitId: "tab-room", overrideReason: "tab-room" },
     errors: formErrors,
   });
 
@@ -84,13 +97,18 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
     setStayMode("Hourly");
     setKeyDeposit(Number(DEFAULT_KEY_DEPOSIT));
     setOverrideReason("");
+    setGuestName("");
+    setNationality("");
+    setIdentityNumber("");
+    setPhone("");
+    idDocument.clear();
     setFormSubmitted(false);
     setActiveTab("tab-guest");
   };
 
   const handleAttemptSubmit = () => {
     setFormSubmitted(true);
-    const missing = !customerId || !unitId || (isDirty && !overrideReason.trim());
+    const missing = !customerId || !guestName.trim() || !nationality.trim() || !identityNumber.trim() || !unitId || (isDirty && !overrideReason.trim());
     if (missing) {
       const tab = !customerId ? "tab-guest" : "tab-room";
       setActiveTab(firstErrorTab ?? tab);
@@ -104,6 +122,15 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
   };
 
   const executeCheckIn = async () => {
+    // Deferred upload: only on submit; failure aborts and keeps the form.
+    let identityDocumentFileKey: string | undefined;
+    try {
+      identityDocumentFileKey = await idDocument.commit(null);
+    } catch (err) {
+      toastApiError(err);
+      setShowOverrideConfirm(false);
+      return;
+    }
     const stay = await checkIn.submit({
       propertyId,
       unitId,
@@ -112,6 +139,16 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
       keyDepositAmount: keyDeposit,
       overrideDirtyCheckIn: isDirty,
       overrideReason: isDirty ? overrideReason.trim() : undefined,
+      occupants: [
+        {
+          fullName: guestName.trim(),
+          nationalityCode: nationality.trim(),
+          identityNumber: identityNumber.trim(),
+          isPrimaryOccupant: true,
+          phoneNumber: phone.trim() || undefined,
+          identityDocumentFileKey,
+        },
+      ],
     });
     setShowOverrideConfirm(false);
     if (stay) {
@@ -156,6 +193,28 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
               wrapperClassName="!mb-0"
             />
           </FormField>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField id="walkin-guest-name" label={tModal("fieldGuestName")} required error={formErrors["guestName"]}>
+              <Input id="walkin-guest-name" placeholder={tPlaceholders("guestName")} value={guestName} onChange={(e) => setGuestName(e.target.value)} className="h-10 rounded-full text-xs" wrapperClassName="!mb-0" />
+            </FormField>
+            <FormField id="walkin-nationality" label={tModal("fieldNationality")} required error={formErrors["nationality"]}>
+              <Input id="walkin-nationality" placeholder={tModal("fieldNationality")} value={nationality} onChange={(e) => setNationality(e.target.value)} className="h-10 rounded-full font-mono text-xs" wrapperClassName="!mb-0" />
+            </FormField>
+            <FormField id="walkin-identity" label={tPlaceholders("nationalId")} required error={formErrors["identityNumber"]}>
+              <Input id="walkin-identity" placeholder={tPlaceholders("nationalId")} value={identityNumber} onChange={(e) => setIdentityNumber(e.target.value)} className="h-10 rounded-full font-mono text-xs" wrapperClassName="!mb-0" />
+            </FormField>
+            <FormField id="walkin-phone" label={tModal("phoneLabel")}>
+              <Input id="walkin-phone" placeholder={tPlaceholders("quickWalkInPhone")} value={phone} onChange={(e) => setPhone(e.target.value)} className="h-10 rounded-full font-mono text-xs" wrapperClassName="!mb-0" />
+            </FormField>
+          </div>
+          <PhotoAttachmentField
+            label={tModal("attachIdCardLabel")}
+            queuedFiles={idDocument.queuedFiles}
+            stageFiles={idDocument.stageFiles}
+            removeFile={idDocument.removeFile}
+            isUploading={idDocument.isUploading}
+            accept="image/*,.pdf"
+          />
         </div>
       ),
     },
@@ -232,6 +291,12 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
             <DialogDescription>{tModal("description")}</DialogDescription>
           </DialogHeader>
           {checkIn.shiftNotOpen && <ShiftNotOpenAlert />}
+          <p className="text-[11px] text-mute">
+            {tModal("monthlyHint")}{" "}
+            <Link href="/admin/leases/create" className="font-medium underline">
+              {tModal("monthlyHintLink")}
+            </Link>
+          </p>
           {hierarchy.isError && (
             <div className="flex items-center gap-2 text-xs text-destructive" role="alert">
               <span>{tModal("unitsLoadError")}</span>
@@ -247,7 +312,7 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={checkIn.isPending} className="rounded-full px-5 text-xs">
               {tCommon("cancel")}
             </Button>
-            <Button type="button" size="sm" onClick={handleAttemptSubmit} disabled={checkIn.isPending || hierarchy.isLoading} className="rounded-full px-5 text-xs font-medium">
+            <Button type="button" size="sm" onClick={handleAttemptSubmit} disabled={checkIn.isPending || idDocument.isUploading || hierarchy.isLoading} className="rounded-full px-5 text-xs font-medium">
               {checkIn.isPending ? tCommon("loading") : tModal("completeCheckIn")}
             </Button>
           </div>
@@ -262,7 +327,7 @@ export function QuickWalkInModal({ isOpen, onClose, onSuccess }: QuickWalkInModa
         confirmText={tCommon("confirm")}
         cancelText={tCommon("cancel")}
         variant="danger"
-        isLoading={checkIn.isPending}
+        isLoading={checkIn.isPending || idDocument.isUploading}
       />
     </>
   );

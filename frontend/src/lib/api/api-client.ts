@@ -122,6 +122,19 @@ import type {
   ClientUtilityUsageResponse,
   AnalyticsReportKind,
 } from "@/features/client/types";
+import type {
+  UpsertBuildingRequest,
+  BuildingDetailDto,
+  UpsertFloorRequest,
+  FloorDetailDto,
+  UpsertUnitTypeRequest,
+  UnitTypeDetailDto,
+  UpdateReservationRequest,
+  UpdateStayRequest,
+  UpdateStayOccupantRequest,
+  ReverseFolioPaymentRequest,
+  CheckInOccupantInputDto,
+} from "@/features/client/types";
 import { ApiError } from "./api-error";
 
 export interface ApiClientConfig {
@@ -339,11 +352,18 @@ export class ApiClient {
     );
   }
 
-  async getAdminReservations(propertyId: string): Promise<ReservationListResponse> {
-    return this.request<ReservationListResponse>(`/api/v1/admin/properties/${propertyId}/reservations`, {
-      method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
-    });
+  async getAdminReservations(
+    propertyId: string,
+    params: { status?: string; stayMode?: string } = {}
+  ): Promise<ReservationListResponse> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.stayMode) qs.set("stayMode", params.stayMode);
+    const query = qs.toString();
+    return this.request<ReservationListResponse>(
+      `/api/v1/admin/properties/${propertyId}/reservations${query ? `?${query}` : ""}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
   }
 
   async createAdminReservation(propertyId: string, req: CreateAdminReservationRequest): Promise<ReservationItemDto> {
@@ -449,8 +469,12 @@ export class ApiClient {
     });
   }
 
-  async getAdminStays(propertyId: string): Promise<StayListResponse> {
-    return this.request<StayListResponse>(`/api/v1/admin/properties/${propertyId}/stays`, {
+  async getAdminStays(propertyId: string, params: { status?: string; stayMode?: string } = {}): Promise<StayListResponse> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.stayMode) qs.set("stayMode", params.stayMode);
+    const query = qs.toString();
+    return this.request<StayListResponse>(`/api/v1/admin/properties/${propertyId}/stays${query ? `?${query}` : ""}`, {
       method: "GET",
       headers: { "X-TanPms-Scope": "AdminScope" },
     });
@@ -492,11 +516,16 @@ export class ApiClient {
     });
   }
 
-  async getAdminRegulatoryExports(propertyId: string): Promise<RegulatoryExportResponse> {
-    return this.request<RegulatoryExportResponse>(`/api/v1/admin/properties/${propertyId}/regulatory-exports`, {
-      method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
-    });
+  async getAdminRegulatoryExports(
+    propertyId: string,
+    params: { reportType: "RR4" | "TM30"; unmaskPii?: boolean }
+  ): Promise<RegulatoryExportResponse> {
+    const qs = new URLSearchParams({ reportType: params.reportType });
+    if (params.unmaskPii) qs.set("unmaskPii", "true");
+    return this.request<RegulatoryExportResponse>(
+      `/api/v1/admin/properties/${propertyId}/regulatory-exports?${qs.toString()}`,
+      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+    );
   }
 
   // --- 6b. Monthly Leases APIs (PM-06) ---
@@ -889,6 +918,104 @@ export class ApiClient {
   }
   downloadAdminReceiptPdf(propertyId: string, receiptId: string) {
     return this.requestBlob(`/api/v1/admin/properties/${propertyId}/receipts/${receiptId}/pdf`);
+  }
+
+  // --- 6f2. PM-01..PM-05 CRUD completion ---
+  private adminRootCall<T>(path: string, method: string, body?: unknown): Promise<T> {
+    return this.request<T>(`/api/v1/admin/${path}`, {
+      method,
+      headers: { "X-TanPms-Scope": "AdminScope" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  }
+
+  getAdminUser(userId: string) {
+    return this.adminRootCall<AdminUserDto>(`users/${userId}`, "GET");
+  }
+  deactivateAdminUser(userId: string, reason: string) {
+    return this.adminRootCall<AdminUserDto>(`users/${userId}/deactivate`, "POST", { reason });
+  }
+  reactivateAdminUser(userId: string) {
+    return this.adminRootCall<AdminUserDto>(`users/${userId}/reactivate`, "POST");
+  }
+
+  getAdminUnit(propertyId: string, unitId: string) {
+    return this.adminCall<UnitMasterItemDto>(propertyId, `units/${unitId}`, "GET");
+  }
+  deleteAdminUnit(propertyId: string, unitId: string) {
+    return this.adminCall<UnitMasterItemDto>(propertyId, `units/${unitId}`, "DELETE");
+  }
+  upsertAdminBuilding(propertyId: string, req: UpsertBuildingRequest) {
+    return this.adminCall<BuildingDetailDto>(propertyId, "buildings", "POST", req);
+  }
+  deleteAdminBuilding(propertyId: string, buildingId: string) {
+    return this.adminCall<BuildingDetailDto>(propertyId, `buildings/${buildingId}`, "DELETE");
+  }
+  upsertAdminFloor(propertyId: string, req: UpsertFloorRequest) {
+    return this.adminCall<FloorDetailDto>(propertyId, "floors", "POST", req);
+  }
+  deleteAdminFloor(propertyId: string, floorId: string) {
+    return this.adminCall<FloorDetailDto>(propertyId, `floors/${floorId}`, "DELETE");
+  }
+  upsertAdminUnitType(propertyId: string, req: UpsertUnitTypeRequest) {
+    return this.adminCall<UnitTypeDetailDto>(propertyId, "unit-types", "POST", req);
+  }
+  deleteAdminUnitType(propertyId: string, unitTypeId: string) {
+    return this.adminCall<UnitTypeDetailDto>(propertyId, `unit-types/${unitTypeId}`, "DELETE");
+  }
+
+  getAdminRatePlan(propertyId: string, id: string) {
+    return this.adminCall<RatePlanItemDto>(propertyId, `rates/plans/${id}`, "GET");
+  }
+  deleteAdminRatePlan(propertyId: string, id: string) {
+    return this.adminCall<RatePlanItemDto>(propertyId, `rates/plans/${id}`, "DELETE");
+  }
+  getAdminUtilityTariff(propertyId: string, id: string) {
+    return this.adminCall<UtilityTariffItemDto>(propertyId, `rates/utilities/${id}`, "GET");
+  }
+  deleteAdminUtilityTariff(propertyId: string, id: string) {
+    return this.adminCall<UtilityTariffItemDto>(propertyId, `rates/utilities/${id}`, "DELETE");
+  }
+  getAdminTaxProfile(propertyId: string, id: string) {
+    return this.adminCall<TaxProfileItemDto>(propertyId, `rates/taxes/${id}`, "GET");
+  }
+  deleteAdminTaxProfile(propertyId: string, id: string) {
+    return this.adminCall<TaxProfileItemDto>(propertyId, `rates/taxes/${id}`, "DELETE");
+  }
+
+  getAdminReservation(propertyId: string, id: string) {
+    return this.adminCall<ReservationItemDto>(propertyId, `reservations/${id}`, "GET");
+  }
+  updateAdminReservation(propertyId: string, id: string, req: UpdateReservationRequest) {
+    return this.adminCall<ReservationItemDto>(propertyId, `reservations/${id}`, "PUT", req);
+  }
+  deleteAdminReservation(propertyId: string, id: string) {
+    return this.adminCall<ReservationItemDto>(propertyId, `reservations/${id}`, "DELETE");
+  }
+
+  getAdminStay(propertyId: string, stayId: string) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}`, "GET");
+  }
+  updateAdminStay(propertyId: string, stayId: string, req: UpdateStayRequest) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}`, "PUT", req);
+  }
+  cancelAdminStay(propertyId: string, stayId: string, reason: string) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}/cancel`, "POST", { reason });
+  }
+  addAdminStayOccupant(propertyId: string, stayId: string, req: CheckInOccupantInputDto) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}/occupants`, "POST", req);
+  }
+  updateAdminStayOccupant(propertyId: string, stayId: string, occupantId: string, req: UpdateStayOccupantRequest) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}/occupants/${occupantId}`, "PUT", req);
+  }
+  deleteAdminStayOccupant(propertyId: string, stayId: string, occupantId: string) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}/occupants/${occupantId}`, "DELETE");
+  }
+  voidAdminFolioCharge(propertyId: string, stayId: string, chargeId: string, reason: string) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}/folio/charges/${chargeId}/void`, "POST", { reason });
+  }
+  reverseAdminFolioPayment(propertyId: string, stayId: string, req: ReverseFolioPaymentRequest) {
+    return this.adminCall<StayDetailDto>(propertyId, `stays/${stayId}/folio/payments/reverse`, "POST", req);
   }
 
   // --- 6g. Client portal (ClientScope) ---
