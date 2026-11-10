@@ -226,8 +226,8 @@ export function UnitTypeDialog({ open, onOpenChange, propertyId, unitType }: Bas
           totalQuotaUnits: unitType.totalQuotaUnits,
           supportedStayModes: unitType.supportedStayModes,
           hourlyBasePackagePrice: unitType.hourlyBasePackagePrice,
-          hourlyBasePackageHours: UNIT_TYPE_FORM_DEFAULTS.hourlyBasePackageHours,
-          hourlyAdditionalHourPrice: UNIT_TYPE_FORM_DEFAULTS.hourlyAdditionalHourPrice,
+          hourlyBasePackageHours: unitType.hourlyBasePackageHours,
+          hourlyAdditionalHourPrice: unitType.hourlyAdditionalHourPrice,
           dailyRate: unitType.dailyRate,
           monthlyRentRate: unitType.monthlyRentRate,
         }
@@ -334,7 +334,6 @@ export function UnitTypeDialog({ open, onOpenChange, propertyId, unitType }: Bas
               ))}
             </div>
           </FormField>
-          {unitType && <p className="text-[11px] text-mute">{t("hourlyOverwriteHint")}</p>}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {money("hourlyBasePackagePrice", t("fieldHourlyPrice"))}
             <FormField id="ut-hours" label={t("fieldHourlyHours")}>

@@ -133,7 +133,7 @@ describe("PM-04 reservations (real API)", () => {
     fireEvent.change(document.getElementById("res-end") as HTMLInputElement, { target: { value: "2026-11-22T12:00" } });
     fireEvent.change(document.getElementById("res-unit-type") as HTMLSelectElement, { target: { value: "ut1" } });
     await waitFor(() => expect(avail).toHaveBeenCalled());
-    expect(await screen.findByText(/3/, { selector: "[data-testid='availability-hint'] span" })).toBeInTheDocument();
+    expect(await screen.findByText(/โควตาว่างสุทธิ 3/)).toBeInTheDocument();
     const spy = vi.spyOn(queryClient, "invalidateQueries");
     fireEvent.click(screen.getByRole("button", { name: rs.saveCreate }));
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: rs.saveCreate }));

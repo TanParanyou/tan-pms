@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Calculator, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -24,6 +24,7 @@ import {
 import { PERMISSION_RATES_MANAGE } from "../constants";
 import type { RatePlanItemDto, UtilityTariffItemDto, TaxProfileItemDto } from "../types";
 import { UtilityTariffDialog, TaxProfileDialog } from "./RateDialogs";
+import { RateSimulatorDialog } from "./RateSimulatorDialog";
 
 type DeleteTarget =
   | { kind: "plan"; id: string; name: string }
@@ -50,6 +51,7 @@ export function RateTariffTaxSection() {
   const [tariffDialog, setTariffDialog] = useState<{ id: string | null } | null>(null);
   const [taxDialog, setTaxDialog] = useState<{ id: string | null } | null>(null);
   const [target, setTarget] = useState<DeleteTarget | null>(null);
+  const [showSimulator, setShowSimulator] = useState(false);
 
   const plans = useMemo(() => catalog.data?.ratePlans ?? [], [catalog.data]);
   const tableState = {
@@ -141,7 +143,19 @@ export function RateTariffTaxSection() {
 
   return (
     <div className="space-y-6">
-      <PageHeader prefixCode="RTE" title={t("title")} description={t("description")} />
+      <PageHeader
+        prefixCode="RTE"
+        title={t("title")}
+        description={t("description")}
+        actions={
+          canManage ? (
+            <Button type="button" size="sm" variant="outline" disabled={catalog.isLoading || catalog.isError} onClick={() => setShowSimulator(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+              <Calculator className="h-4 w-4" />
+              <span>{t("openSimulator")}</span>
+            </Button>
+          ) : undefined
+        }
+      />
       <Tabs defaultValue="plans">
         <TabsList>
           <TabsTrigger value="plans">{t("tabRatePlans")}</TabsTrigger>
@@ -182,6 +196,7 @@ export function RateTariffTaxSection() {
           <DataTable columns={taxColumns} data={catalog.data?.taxProfiles ?? []} getRowId={(x) => x.id} emptyTitle={t("emptyTaxProfiles")} {...tableState} />
         </TabsContent>
       </Tabs>
+      <RateSimulatorDialog open={showSimulator} onOpenChange={setShowSimulator} propertyId={pid} plans={plans} taxProfiles={catalog.data?.taxProfiles ?? []} />
       <UtilityTariffDialog open={tariffDialog !== null} onOpenChange={(o) => !o && setTariffDialog(null)} propertyId={pid} id={tariffDialog?.id ?? null} />
       <TaxProfileDialog open={taxDialog !== null} onOpenChange={(o) => !o && setTaxDialog(null)} propertyId={pid} id={taxDialog?.id ?? null} />
       <ConfirmationModal

@@ -598,7 +598,6 @@
       "fieldHourlyExtra": "ราคาต่อชั่วโมงเพิ่ม",
       "fieldDailyRate": "ราคารายวัน",
       "fieldMonthlyRate": "ค่าเช่ารายเดือน",
-      "hourlyOverwriteHint": "ระบบไม่ส่งค่าแพ็กเกจรายชั่วโมงกลับมา ค่าที่กรอกจะบันทึกทับค่าเดิม",
       "buildingsTitle": "อาคาร",
       "floorsTitle": "ชั้น",
       "unitTypesTitle": "ประเภทห้องพัก",
@@ -789,7 +788,10 @@
       "toastDeleted": "ลบรายการแล้ว",
       "toastPlanDeleted": "ลบแผนราคาแล้ว",
       "toastTariffSaved": "บันทึกอัตราสาธารณูปโภคแล้ว",
-      "toastTaxSaved": "บันทึกโปรไฟล์ภาษีแล้ว"
+      "toastTaxSaved": "บันทึกโปรไฟล์ภาษีแล้ว",
+      "btnSimulate": "คำนวณราคา",
+      "simError": "คำนวณไม่สำเร็จ",
+      "fieldOccupantCount": "จำนวนผู้เข้าพัก"
     },
     "reservations": {
       "title": "การจัดการใบจองและโควตาห้องว่างรวม (Reservations & Quota Locks)",
@@ -901,7 +903,11 @@
       "toastAssigned": "จัดสรรห้องแล้ว",
       "toastCancelled": "ยกเลิกใบจองแล้ว",
       "toastNoShow": "บันทึกไม่มาแสดงตัวแล้ว",
-      "toastDeleted": "ลบใบจองแล้ว"
+      "toastDeleted": "ลบใบจองแล้ว",
+      "inspectorSoldOut": "โควตาเต็ม",
+      "inspectorFreeUnits": "ห้องว่างที่จัดสรรได้",
+      "inspectorHint": "เลือกโหมดและช่วงเวลาเพื่อตรวจสอบโควตา",
+      "inspectorEmpty": "ไม่พบประเภทห้องที่เปิดให้บริการในช่วงนี้"
     },
     "stays": {
       "title": "งานต้อนรับและการเข้าพัก (Front Desk: Stays & Guest Folio)",

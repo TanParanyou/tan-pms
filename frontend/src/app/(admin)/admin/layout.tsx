@@ -9,6 +9,7 @@ import { AdminMobileDrawer } from "@/components/layout/admin-mobile-drawer";
 import { QuickWalkInModal } from "@/features/rack/components/QuickWalkInModal";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
+import { adminModuleKeyFromPath } from "@/lib/admin-nav";
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const {
@@ -28,7 +29,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   // Derive active module title from current pathname
-  const activeModuleKey = pathname.split("/")[2] || "rack";
+  const activeModuleKey = adminModuleKeyFromPath(pathname);
   const activeModuleName = tNav.has(activeModuleKey)
     ? tNav(activeModuleKey)
     : activeModuleKey.toUpperCase();

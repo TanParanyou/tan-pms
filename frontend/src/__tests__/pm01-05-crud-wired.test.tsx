@@ -44,7 +44,7 @@ const user = (over: Partial<AdminUserDto> = {}): AdminUserDto => ({
 const roles = { roles: [{ code: "FrontDesk", name: { th: "พนักงานต้อนรับ", en: "Front desk" }, scope: "AdminScope" as const, defaultPermissions: [] }], permissions: [] };
 
 const building = { id: "b1", code: "B1", name: { th: "อาคาร 1", en: "Building 1" }, floors: [{ id: "f1", floorNumber: 1, name: { th: "ชั้น 1", en: "Floor 1" }, unitCount: 2 }] };
-const unitType = { id: "ut1", code: "STD", name: { th: "สตูดิโอ", en: "Studio" }, areaSqm: 24, totalQuotaUnits: 5, supportedStayModes: ["Daily" as const], hourlyBasePackagePrice: 0, dailyRate: 900, monthlyRentRate: 9000 };
+const unitType = { id: "ut1", code: "STD", name: { th: "สตูดิโอ", en: "Studio" }, areaSqm: 24, totalQuotaUnits: 5, supportedStayModes: ["Daily" as const], hourlyBasePackagePrice: 0, hourlyBasePackageHours: 3, hourlyAdditionalHourPrice: 0, dailyRate: 900, monthlyRentRate: 9000 };
 const unitMaster = {
   id: "un1",
   unitNumber: "A-101",
@@ -125,6 +125,19 @@ describe("PM-01 users (real API, create / view / edit / deactivate)", () => {
     await waitFor(() => expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ username: "newuser", roleCode: "FrontDesk", allowedPropertyIds: ["11111111-1111-1111-1111-111111111101"] })));
     await waitFor(() => expect(spy.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey))).toContain(JSON.stringify(queryKeys.users.all)));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/users/u9"));
+  });
+
+  it("edits an existing user keeping its id and changed properties", async () => {
+    vi.spyOn(apiClient, "getAdminUser").mockResolvedValue(user());
+    const upsert = vi.spyOn(apiClient, "upsertAdminUser").mockResolvedValue(user());
+    renderAdmin(<AdminUserEditor userId="u1" />);
+    const name = await screen.findByPlaceholderText(rb.placeholderFullName);
+    expect((name as HTMLInputElement).value).toBe("Mali Dee");
+    fireEvent.change(name, { target: { value: "Mali Dee Updated" } });
+    fireEvent.click(screen.getByRole("button", { name: rb.saveUser }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: tc.save }));
+    await waitFor(() => expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ id: "u1", fullName: "Mali Dee Updated", isActive: true })));
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("deactivates only with reason and confirmation, and surfaces the server error", async () => {
@@ -297,6 +310,24 @@ describe("PM-03 rates, tariffs and taxes", () => {
     fireEvent.click(within(confirm).getByRole("button", { name: rt.btnDelete }));
     await waitFor(() => expect(del).toHaveBeenCalledWith(expect.any(String), "tf1"));
     await waitFor(() => expect(toastMessages()).toContain(thMessages.errors.master_data_in_use));
+  });
+
+  it("creates a utility tariff through the dialog", async () => {
+    const upsert = vi.spyOn(apiClient, "upsertAdminUtilityTariff").mockResolvedValue(tariff);
+    renderAdmin(<RateTariffTaxSection />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: rt.tabUtilityTariffs }), { button: 0 });
+    fireEvent.click(screen.getByRole("tab", { name: rt.tabUtilityTariffs }));
+    fireEvent.click(await screen.findByRole("button", { name: rt.createTariff }));
+    const dialog = await screen.findByRole("dialog", { name: rt.modalTitleCreateTariff });
+    fireEvent.click(within(dialog).getByRole("button", { name: tc.save }));
+    expect(await within(dialog).findByText(thMessages.common.localized.errorThaiRequired)).toBeInTheDocument();
+    expect(upsert).not.toHaveBeenCalled();
+    fireEvent.change(document.getElementById("tf-name-th") as HTMLInputElement, { target: { value: "ค่าไฟ" } });
+    fireEvent.change(document.getElementById("tf-type") as HTMLSelectElement, { target: { value: "Electric" } });
+    fireEvent.change(document.getElementById("tf-ratePerUnit") as HTMLInputElement, { target: { value: "7" } });
+    fireEvent.blur(document.getElementById("tf-ratePerUnit") as HTMLInputElement);
+    fireEvent.click(within(dialog).getByRole("button", { name: tc.save }));
+    await waitFor(() => expect(upsert).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ utilityType: "Electric", ratePerUnit: 7, name: { th: "ค่าไฟ" } })));
   });
 
   it("loads a tax profile via GET and saves the edit through the upsert", async () => {

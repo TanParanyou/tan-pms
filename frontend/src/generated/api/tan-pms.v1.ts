@@ -2433,6 +2433,9 @@ export interface components {
             hourlyBasePackagePrice: number;
             dailyRate: number;
             monthlyRentRate: number;
+            hourlyBasePackageHours: number;
+            /** Format: double */
+            hourlyAdditionalHourPrice: number;
         };
         BuildingRefDto: {
             /** Format: uuid */

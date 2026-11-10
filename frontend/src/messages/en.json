@@ -598,7 +598,6 @@
       "fieldHourlyExtra": "Additional hour price",
       "fieldDailyRate": "Daily rate",
       "fieldMonthlyRate": "Monthly rent",
-      "hourlyOverwriteHint": "Hourly package values are not returned by the API; the values entered will overwrite the existing ones.",
       "buildingsTitle": "Buildings",
       "floorsTitle": "Floors",
       "unitTypesTitle": "Unit types",
@@ -789,7 +788,10 @@
       "toastDeleted": "Record deleted",
       "toastPlanDeleted": "Rate plan deleted",
       "toastTariffSaved": "Utility tariff saved",
-      "toastTaxSaved": "Tax profile saved"
+      "toastTaxSaved": "Tax profile saved",
+      "btnSimulate": "Calculate quote",
+      "simError": "Simulation failed",
+      "fieldOccupantCount": "Occupants"
     },
     "reservations": {
       "title": "Reservations & Quota Lock Management",
@@ -901,7 +903,11 @@
       "toastAssigned": "Unit assigned",
       "toastCancelled": "Reservation cancelled",
       "toastNoShow": "No-show recorded",
-      "toastDeleted": "Reservation deleted"
+      "toastDeleted": "Reservation deleted",
+      "inspectorSoldOut": "Sold out",
+      "inspectorFreeUnits": "Assignable free units",
+      "inspectorHint": "Choose a stay mode and time window to check quotas",
+      "inspectorEmpty": "No unit types available in this window"
     },
     "stays": {
       "title": "Front Desk: Active Stays & Guest Folio",

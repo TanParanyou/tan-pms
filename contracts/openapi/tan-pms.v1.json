@@ -10659,7 +10659,9 @@
           "supportedStayModes",
           "hourlyBasePackagePrice",
           "dailyRate",
-          "monthlyRentRate"
+          "monthlyRentRate",
+          "hourlyBasePackageHours",
+          "hourlyAdditionalHourPrice"
         ],
         "properties": {
           "id": {
@@ -10700,6 +10702,13 @@
           },
           "monthlyRentRate": {
             "type": "number"
+          },
+          "hourlyBasePackageHours": {
+            "type": "integer"
+          },
+          "hourlyAdditionalHourPrice": {
+            "type": "number",
+            "format": "double"
           }
         }
       },

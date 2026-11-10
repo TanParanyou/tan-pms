@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations, useLocale } from "next-intl";
-import { ArrowLeft, Ban, BadgeCheck, DoorOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, Ban, BadgeCheck, DoorOpen, SearchCheck, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -44,6 +44,7 @@ import {
   useCancelAdminReservationMutation,
   useDeleteAdminReservationMutation,
 } from "../api/use-reservations";
+import { AvailabilityInspectorDialog } from "./AvailabilityInspectorDialog";
 import { reservationFormSchema, type ReservationFormValues } from "../schemas/reservation-schemas";
 import {
   CONFIRMABLE_RESERVATION_STATUSES,
@@ -117,6 +118,7 @@ function ReservationBody({ propertyId, unitTypes, reservation }: BodyProps) {
   const [showNoShow, setShowNoShow] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [showInspector, setShowInspector] = useState(false);
   const [assignUnitId, setAssignUnitId] = useState("");
 
   const form = useForm<ReservationFormValues>({
@@ -392,6 +394,10 @@ function ReservationBody({ propertyId, unitTypes, reservation }: BodyProps) {
               {availability.isLoading && <span>{tCommon("loading")}</span>}
               {availability.isError && <span className="text-destructive">{t("availabilityError")}</span>}
               {availability.data && typeAvailability.length === 0 && <span>{t("availabilityPickType")}</span>}
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowInspector(true)} className="ml-3 h-7 gap-1 rounded-full px-3 text-[11px]">
+                <SearchCheck className="h-3.5 w-3.5" />
+                <span>{t("inspectAvailability")}</span>
+              </Button>
               {typeAvailability.map((i) => (
                 <span key={i.unitType.id}>{t("availabilityNet", { count: i.netAvailableQuota })}</span>
               ))}
@@ -418,6 +424,12 @@ function ReservationBody({ propertyId, unitTypes, reservation }: BodyProps) {
       <ConfirmationModal isOpen={showSave} onClose={() => setShowSave(false)} onConfirm={execute} title={isEdit ? t("confirmUpdateTitle") : t("confirmCreateTitle")} message={isEdit ? t("confirmUpdateMessage") : t("confirmCreateMessage")} confirmText={isEdit ? tCommon("save") : t("saveCreate")} variant="info" isLoading={createM.isPending || updateM.isPending} />
       <ConfirmationModal isOpen={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={executeConfirm} title={t("confirmModalTitle")} message={t("confirmModalMessage")} confirmText={t("actionConfirm")} variant="warning" isLoading={confirmM.isPending} />
       <ConfirmationModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={executeDelete} title={t("confirmDeleteTitle")} message={t("confirmDeleteMessage", { document: reservation?.documentNumber ?? "" })} confirmText={t("btnDelete")} variant="danger" isLoading={deleteM.isPending} />
+      <AvailabilityInspectorDialog
+        open={showInspector}
+        onOpenChange={setShowInspector}
+        propertyId={propertyId}
+        initial={{ stayMode: v.stayMode, slotStartAt: v.slotStartAt, slotEndAt: v.slotEndAt }}
+      />
       {reservation && (
         <>
           <ReasonDialog open={showCancel} onOpenChange={setShowCancel} title={t("modalTitleCancel", { doc: reservation.documentNumber })} description={t("modalDescCancel")} actionText={t("typeCancel")} confirmTitle={t("confirmCancelTitle")} confirmMessage={t("confirmCancelMessage")} isLoading={cancelM.isPending} onConfirm={handleCancel(false)} />
