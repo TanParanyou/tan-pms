@@ -14,7 +14,7 @@
 |---|---|---|---|
 | **ฝั่งพนักงานและผู้บริหาร** | `/api/v1/admin/...` | `AdminScope` (`AllowedPropertyIds` + Permission Key) | `GET /api/v1/admin/properties/{propertyId}/units` |
 | **ฝั่งลูกค้าและผู้เช่า** | `/api/v1/client/...` | `ClientScope` (`CustomerId == CurrentUser.CustomerId`) | `GET /api/v1/client/invoices` |
-| **ระบบยืนยันตัวตน** | `/api/v1/auth/...` | Public / Refresh Token | `POST /api/v1/auth/login` |
+| **ระบบยืนยันตัวตน** | `/api/v1/auth/...` | `login`/`refresh` เป็น Public (Rate Limited); ที่เหลือต้อง Bearer Token | `POST /api/v1/auth/login` |
 
 ---
 
@@ -116,3 +116,22 @@
 - **`tags`:** ขึ้นต้น `Admin`/`Client`/`Auth`/`Health` ตามกลุ่ม URL แล้วตามด้วยโมดูล (เช่น `AdminBilling`, `ClientFiles`) หมายเหตุ: ปัจจุบันมี Tag ที่ซ้ำความหมาย (เช่น `AdminLease`/`AdminLeases`, `AdminMeter`/`AdminMeters`) ควรรวมในรอบ Contract ถัดไป
 - **Additive Change Policy (ภายใน `v1`):** อนุญาตเฉพาะการเพิ่ม Endpoint, ฟิลด์ Response, ฟิลด์ Request ที่ Optional, Query Parameter ที่ Optional และค่า Enum ใหม่ที่ Client เดิมรับมือได้ (เช่น `pagination` Nullable ตาม ADR-0007) ห้ามเปลี่ยนชื่อ/ชนิด/ลบฟิลด์ เปลี่ยนความหมาย Status Code หรือทำฟิลด์เดิมเป็น Required — การเปลี่ยนแบบ Breaking ต้องผ่าน `/api/v2` หรือประกาศ Deprecation พร้อมระยะเปลี่ยนผ่าน และบันทึกใน ADR
 - ผลตรวจสัญญา: Frontend ใช้ Type จากไฟล์ Generated เท่านั้น ห้ามประกาศ DTO ซ้ำด้วยมือ
+
+---
+
+## 7. Authentication (Bearer JWT)
+
+ตัดสินใจไว้ใน [ADR-0011](../adr/0011-authentication-with-own-jwt.md) ทุก Request ใต้ `/api/v1` ยกเว้น `login` และ `refresh` ต้องมี Header `Authorization: Bearer <accessToken>` (Access Token อายุ 15 นาที) ส่วน Header `X-TanPms-*` ใช้ได้เฉพาะ Dev/Test เมื่อ `Auth:Mode=Headers` และไม่ใช่กลไกยืนยันตัวตนของ Production ([rbac-and-scopes.md](./rbac-and-scopes.md))
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `POST /api/v1/auth/login` (Rate Limited) | `LoginRequest { scope: "admin"\|"client", identifier, password }` (admin ใช้ `username`, client ใช้อีเมล/Login Identifier) | `200` `AuthSessionResponse` (`userId`, `scope`, `displayName`, `roleCode`, `roleName`, `allowedProperties`, `permissions`, `customer`, `accessToken`, `accessTokenExpiresAt`, `refreshToken`, `refreshTokenExpiresAt`, `tokenType`) |
+| `POST /api/v1/auth/refresh` (Rate Limited) | `RefreshSessionRequest { refreshToken }` | `200` `AuthSessionResponse` ชุดใหม่ (Refresh Token หมุนเปลี่ยนทุกครั้ง); ล้มเหลว `401` `auth.refresh_token_invalid` |
+| `POST /api/v1/auth/logout` | `LogoutRequest { refreshToken? }` (Body เป็น Optional) | `204` |
+| `POST /api/v1/auth/change-password` | `ChangePasswordRequest { currentPassword, newPassword }` | `204`; รหัสใหม่ผิดนโยบาย `400` `auth.password_policy` |
+| `GET /api/v1/auth/me` | — | `200` `AuthSessionResponse` ของผู้ใช้ปัจจุบัน (Profile/สิทธิ์ปัจจุบันจาก Store; Frontend ใช้ฟิลด์ Token จาก `login`/`refresh` เท่านั้น) |
+| `POST /api/v1/admin/users/{userId}/reset-password` | `ResetPasswordRequest { newPassword }` (ต้องมี `admin.users.manage`) | `200` `AdminUserDto` |
+| `POST /api/v1/admin/customers/{customerId}/account` | `CustomerAccountRequest { loginIdentifier, initialPassword }` (ต้องมี `admin.leases.manage` หรือ `admin.stay.checkin`) | `200` `CustomerAccountDto { customerId, loginIdentifier, isActive, passwordChangedAt }` |
+
+- ไม่มีการสมัครสมาชิกเอง และยังไม่มี Forgot-Password; ข้อผิดพลาดดู [error-contract.md](./error-contract.md) หัวข้อ 2.1 (`401` กับ `403`)
+- Frontend เก็บ Token ตาม [ADR-0011](../adr/0011-authentication-with-own-jwt.md) ข้อ 10 และต้องเรียกผ่าน `ApiClient` กลางเท่านั้น

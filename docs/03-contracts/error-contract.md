@@ -35,7 +35,7 @@ Frontend ต้องใช้ค่า `errorCode` ในการแปลข�
 | `localized_text.thai_required` | `400` | `LocalizedText` ไม่มีค่าภาษาไทย (`th` ว่างหรือเป็นช่องว่าง) ตาม [ADR-0004](../adr/0004-localized-jsonb-for-master-data-text.md) |
 | `localized_text.too_long` | `400` | ข้อความใน `LocalizedText` (`th` หรือ `en`) ยาวเกินความยาวสูงสุดที่กำหนด |
 | `auth.unauthenticated` | `401` | ไม่ได้เข้าสู่ระบบหรือ Token หมดอายุ |
-| `auth.invalid_credentials` | `401` | `POST /api/v1/auth/login` ด้วย Identifier/Password ไม่ถูกต้อง (ข้อความ Detail: "identifier or password is invalid" ไม่แยกว่าผิดที่ส่วนใด; ตรรกะการยืนยันตัวตนจริงอยู่ระหว่างพัฒนาในรอบถัดไป) |
+| `auth.invalid_credentials` | `401` | `POST /api/v1/auth/login` ด้วย Identifier/Password ไม่ถูกต้อง (ข้อความ Detail: "identifier or password is invalid" ไม่แยกว่าผิดที่ส่วนใด; รวมกรณีผู้ใช้ถูกล็อก (Lockout) และบัญชีไม่ Active เพื่อไม่เปิดเผยสถานะบัญชี) |
 | `auth.property_scope_denied` | `403` | พนักงานฝั่ง `admin` พยายามเข้าถึง `PropertyId` ที่ไม่อยู่ใน `AllowedPropertyIds` |
 | `auth.permission_denied` | `403` | ไม่มีสิทธิ์ตาม Permission Key ที่กำหนดสำหรับคำสั่งนั้น |
 | `unit.not_clean` | `409` | พยายามทำรายการ Check-in เข้า `Unit` ที่ `ConditionStatus` ไม่ใช่ `Clean` โดยไม่มีสิทธิ์ Override |
@@ -50,13 +50,21 @@ Frontend ต้องใช้ค่า `errorCode` ในการแปลข�
 | `file.not_found` | `404` | ไม่พบไฟล์ตาม `fileKey` ในที่เก็บไฟล์ หรือเป็น Legacy Key (เช่น `slips/x.jpg`) ที่ดาวน์โหลดผ่าน File Service ไม่ได้ (ไฟล์ของลูกค้าอื่นที่ฝั่ง `client` ไม่มีสิทธิ์เห็นจะตอบเป็น `auth.permission_denied` เพื่อไม่ให้เดา key ได้) |
 | `internal.unexpected_error` | `500` | Fallback ของ `ProblemDetailsMapper` เมื่อ `Error.Code` ว่างหรือไม่อยู่ในตาราง (ไม่ได้ประกาศใน `DomainErrorCodes`; มี `Title`/`Detail` ใน `.resx`) |
 
-### 2.1 ตำแหน่งสงวนสำหรับรหัส `auth.*` ชุดใหม่ (Reserved for Authentication Pass)
+### 2.1 รหัส `auth.*` ของระบบยืนยันตัวตน (JWT)
 
-<!-- AUTH-ERROR-CODES-PLACEHOLDER: รอบถัดไปเพิ่มรหัสข้อผิดพลาดของระบบยืนยันตัวตนจริง (เช่น Token/Refresh/Lockout) ในตารางนี้ ห้ามเพิ่มรหัสก่อนมีใน DomainErrorCodes.cs -->
+ตามที่กำหนดใน [ADR-0011](../adr/0011-authentication-with-own-jwt.md):
 
 | `errorCode` | HTTP Status | ความหมายและการเกิดข้อผิดพลาด |
 |---|---|---|
-| _(ยังไม่มี — จะเพิ่มในรอบถัดไป)_ | — | — |
+| `auth.password_policy` | `400` | รหัสผ่านใหม่ (`change-password`, `reset-password`, สร้างบัญชีลูกค้า) ยาวไม่อยู่ในช่วง 10–256 ตัวอักษรหรือเป็นช่องว่างล้วน |
+| `auth.refresh_token_invalid` | `401` | `POST /api/v1/auth/refresh` ด้วย Refresh Token ที่ไม่พบ, หมดอายุ, ถูกเพิกถอน, เคยถูกหมุนไปแล้ว (ใช้ซ้ำ = เพิกถอนทั้ง Family) หรือเจ้าของบัญชีไม่ Active — Frontend ต้องบังคับ Login ใหม่ |
+| `auth.rate_limited` | `429` | เกินโควตาต่อ IP บน `POST /auth/login` หรือ `/auth/refresh` (ค่าเริ่มต้น 10 ครั้ง/60 วินาที) พร้อม Header `Retry-After` (วินาที) |
+
+**ความหมาย 401 กับ 403 (โหมด `Jwt`):**
+
+- **`401`** (`auth.unauthenticated`): ไม่มี Bearer Token, Token ไม่ถูกต้อง/หมดอายุ/ลายเซ็นผิด, หรือผู้ใช้ถูก Deactivate/ไม่พบ (Token ที่ยังไม่หมดอายุของผู้ใช้ที่ปิดใช้งานก็เป็น `401`); `auth.invalid_credentials` และ `auth.refresh_token_invalid` เป็น `401` เช่นกัน
+- **`403`**: Scope ใน Token ไม่ตรงกลุ่ม Route (เช่น Token `client` เรียก `/api/v1/admin/...` = `auth.permission_denied`), ไม่มี Permission Key, หรือ `PropertyId` นอก `AllowedPropertyIds` (`auth.property_scope_denied`)
+- **Header `WWW-Authenticate: Bearer`:** `ProblemDetailsMapper.ToProblemResult` ตั้ง Header นี้ทุกครั้งที่ Status เป็น `401` (ตรวจแล้วที่ `backend/src/TanPms.WebApi/ErrorHandling/ProblemDetailsMapper.cs`) Client ยังควรอาศัย `errorCode` และ Status เป็นหลัก
 
 ### 2.2 กฎการแมป Status และข้อความ (Source of Truth ในโค้ด)
 

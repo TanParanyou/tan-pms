@@ -45,10 +45,13 @@
 
 ---
 
-## 3. สถานะการยืนยันตัวตนและการบังคับใช้ในโค้ดปัจจุบัน
+## 3. การยืนยันตัวตนและการบังคับใช้ในโค้ดปัจจุบัน
 
-- **Authentication จริงยังไม่แล้วเสร็จ (อยู่ระหว่างพัฒนา):** `HttpCurrentUserContext` อ่าน `UserId`, Scope, `AllowedPropertyIds`, `Permissions`, `CustomerId` จาก Header ชุด `X-TanPms-*` (และตั้งค่าเริ่มต้นสำหรับ Dev) ซึ่ง**ปลอมได้โดย Client** — ใช้ได้เฉพาะ Dev/Test เท่านั้น และต้องถูกแทนที่ด้วย Identity จาก Token ก่อน Production
-- **ชุดสิทธิ์เริ่มต้นของ Dev และสิทธิ์ High-Risk ที่ไม่ให้โดยปริยาย:** ดู [permission-catalog.md](./permission-catalog.md) หัวข้อ 3
-- **กะแคชเชียร์ระดับสาขา:** การตรวจ `HasOpenCashierShiftIn(propertyId)` ต้องอยู่ใน `AllowedPropertyIds` และมีกะ `Open` จริงของผู้ใช้ในสาขานั้น ตาม [ADR-0009](../adr/0009-cash-binding-to-cashier-shift.md) (Header `X-TanPms-Open-Shift` ใช้ Override ได้เฉพาะ Dev/Test)
-- **ไฟล์แนบ:** ตรวจสิทธิ์ตาม `purpose` และเจ้าของไฟล์ ตาม [ADR-0005](../adr/0005-authorized-file-storage-stored-file.md); ฝั่ง `client` ตอบ `auth.permission_denied` แบบเดียวกันทั้งกรณีไม่พบและเป็นของผู้อื่น
+- **Bearer JWT (โหมด `Auth:Mode=Jwt` ค่าเริ่มต้น):** ทุก Endpoint ใต้ `/api/v1` ยกเว้น `/auth/login` และ `/auth/refresh` ต้องส่ง `Authorization: Bearer <accessToken>` Token มีเฉพาะ `sub`, `scope`, `jti`, `iat`, `exp`; `JwtCurrentUserContext` อ่าน `Permissions`, `AllowedPropertyIds`, `CustomerId` และกะเปิดจาก Store ต่อ Request ดังนั้นการ Deactivate/เปลี่ยนสิทธิ์มีผลทันที ตาม [ADR-0011](../adr/0011-authentication-with-own-jwt.md)
+- **Header `X-TanPms-*` (`X-TanPms-User-Id`, `-Scope`, `-Allowed-Properties`, `-Permissions`, `-Customer-Id`, `-Open-Shift`) ใช้ได้เฉพาะ Dev/Test:** อ่านโดย `HttpCurrentUserContext` เมื่อ `Auth:Mode=Headers` เท่านั้น ซึ่งระบบปฏิเสธการเริ่มทำงานนอก `Development`/`Testing`; **ไม่ใช่กลไกยืนยันตัวตนของ Production** และโหมด `Jwt` ไม่อ่าน Header เหล่านี้
+- **`AuthGateMiddleware`:** ไม่มี/Token ไม่ถูกต้อง/ผู้ใช้ไม่ Active = `401`; Scope ของ Token ไม่ตรงกลุ่ม `/admin` หรือ `/client` = `403` (`auth.permission_denied`) ส่วนสิทธิ์รายฟีเจอร์และ `AllowedPropertyIds` ตรวจต่อใน Handler
+- **Endpoint ยืนยันตัวตน:** ดูรายละเอียดใน [api-conventions.md](./api-conventions.md) หัวข้อ 7
+- **กะแคชเชียร์ระดับสาขา:** `HasOpenCashierShiftIn(propertyId)` ต้องอยู่ใน `AllowedPropertyIds` และมีกะ `Open` จริงของผู้ใช้ในสาขานั้น ตาม [ADR-0009](../adr/0009-cash-binding-to-cashier-shift.md) (Header `X-TanPms-Open-Shift` Override ได้เฉพาะโหมด `Headers`)
+- **บัญชีลูกค้า:** สร้างโดยพนักงาน (สิทธิ์ `admin.leases.manage` หรือ `admin.stay.checkin`) ไม่มีการสมัครเอง/Forgot-Password
+- **ไฟล์แนบ:** ตรวจสิทธิ์ตาม `purpose` และเจ้าของ ตาม [ADR-0005](../adr/0005-authorized-file-storage-stored-file.md); ฝั่ง `client` ตอบ `auth.permission_denied` เหมือนกันทั้งกรณีไม่พบและเป็นของผู้อื่น
 - **ผู้ใช้:** Deactivate แทนการลบ และห้ามปิดใช้งาน/ลดสิทธิ์ `OrganizationAdmin` คนสุดท้าย ตาม [ADR-0010](../adr/0010-delete-cancel-void-policy.md)

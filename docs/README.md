@@ -80,6 +80,7 @@
 - [adr/0008-invoice-due-date-payment-terms-and-overdue-sweeper.md](adr/0008-invoice-due-date-payment-terms-and-overdue-sweeper.md) — `DueDate`, Payment Terms ราย `Property` และ `OverdueInvoiceSweeper` (60 นาที, แจ้งเตือนครั้งเดียวต่อบิล)
 - [adr/0009-cash-binding-to-cashier-shift.md](adr/0009-cash-binding-to-cashier-shift.md) — ผูกเงินสดกับ `CashierShift` และตรวจกะเปิดระดับ `Property`
 - [adr/0010-delete-cancel-void-policy.md](adr/0010-delete-cancel-void-policy.md) — นโยบาย Delete/Cancel/Void, ข้อมูล Immutable และ Deactivate ผู้ใช้
+- [adr/0011-authentication-with-own-jwt.md](adr/0011-authentication-with-own-jwt.md) — Authentication ด้วย JWT ของระบบเอง (Access 15 นาที, Rotating Refresh Token, PBKDF2, Lockout, `Auth:Mode`)
 
 ### `superpowers` — เอกสารสเปกและแผนการดำเนินงาน
 - [superpowers/specs/2026-11-06-tan-pms-enterprise-foundation-and-features-design.md](superpowers/specs/2026-11-06-tan-pms-enterprise-foundation-and-features-design.md) — เอกสารออกแบบระบบฉบับเต็ม

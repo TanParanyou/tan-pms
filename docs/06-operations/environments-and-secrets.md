@@ -25,7 +25,27 @@
    - เมื่อ `TanPms.WebApi` เริ่มทำงาน ต้องตรวจสอบความครบถ้วนของ Configuration ด้วย `ValidateDataAnnotations()` และ `ValidateOnStart()` หากขาดค่าสำคัญ (เช่น `PII_ENCRYPTION_KEY` หรือ `ConnectionStrings:DefaultConnection`) แอปพลิเคชันต้องหยุดทำงานพร้อมแจ้งชื่อค่าที่ขาดทันที
 3. **รายการตัวแปรสำคัญที่ต้องกำหนด:**
    - `ConnectionStrings__DefaultConnection`: PostgreSQL Connection String
-   - `Security__JwtSigningKey`: กุญแจเซ็น Token (ความยาวอย่างน้อย 256 บิต)
+   - `Auth__Mode` (`Jwt` ค่าเริ่มต้น | `Headers`): `Headers` อนุญาตเฉพาะ `Development`/`Testing` มิฉะนั้นระบบไม่ยอมเริ่มทำงาน
+   - `Auth__Jwt__SigningKey`: กุญแจเซ็น Access Token (HS256) **บังคับนอก Development/Testing** ยาวอย่างน้อย 32 bytes (แนะนำสร้างด้วย `openssl rand -base64 48`) ห้าม Commit; ว่างหรือสั้นเกินไปทำให้ Start-up ล้มเหลว
+   - `Auth__Jwt__Issuer` (`tan-pms`), `Auth__Jwt__Audience` (`tan-pms-web`), `Auth__Jwt__AccessTokenMinutes` (`15`), `Auth__Jwt__RefreshTokenDays` (`7`), `Auth__Jwt__RequireHttpsMetadata` (ค่าเริ่มต้น `true` นอก Dev/Testing, `false` ใน Dev/Testing)
+   - `Auth__Lockout__Threshold` (`5`), `Auth__Lockout__Minutes` (`15`)
+   - `Auth__RateLimit__Enabled` (`true`), `Auth__RateLimit__PermitLimit` (`10`), `Auth__RateLimit__WindowSeconds` (`60`): Fixed Window ต่อ IP บน `login`/`refresh`
+   - `Seed__DevPassword`: รหัสผ่านของบัญชี Seed **เฉพาะ Dev/Testing** ห้ามตั้งใน Production (ถูกละเลยนอก Dev/Testing)
+   - ค่าตัวเลขของ `Auth__*` ต้องเป็นจำนวนเต็มบวก ไม่เช่นนั้น Start-up ล้มเหลว
+   - หมายเหตุ: `appsettings.json` มี Connection String เริ่มต้นสำหรับเครื่องพัฒนา (`postgres/postgres`) ต้อง Override ด้วย `ConnectionStrings__DefaultConnection` ในทุกสภาพแวดล้อมที่ Deploy
    - `Security__PiiEncryptionKey`: กุญแจ AES-256 สำหรับเข้ารหัสเลขบัตรประชาชน/พาสปอร์ต
    - `Security__PiiBlindIndexKey`: กุญแจ HMAC-SHA256 สำหรับสร้าง `identity_hash`
    - `Storage__RootPath`: โฟลเดอร์เก็บไฟล์แนบส่วนตัวของ Local-Disk Provider ที่ Backend อ่านจริง (`Storage__Provider`/`Storage__PrivateBucketName` เป็นค่าสงวน ยังไม่มีโค้ดอ่าน — ดู `.env.example`)
+
+---
+
+## Dev Login (เฉพาะ Development/Testing)
+
+Backend ใน `Development` สร้างรหัสผ่านให้บัญชี Seed จากค่า `Seed:DevPassword` ใน `appsettings.Development.json` (เปิดอ่านค่าเองในไฟล์นั้น เอกสารนี้ไม่แสดงรหัสผ่าน):
+
+| Scope (`scope` ใน `POST /api/v1/auth/login`) | Identifier |
+|---|---|
+| `admin` | `naphat.admin` (Organization Admin), `pimchanok.bkk` (แคชเชียร์ สาขา BKK), `kittisak.cnx` (ผู้จัดการ สาขา CNX) |
+| `client` | `somchai@example.test`, `sudaawattana@example.test` |
+
+ห้ามใช้บัญชีและรหัสผ่านนี้ใน Staging/Production
