@@ -42,3 +42,13 @@
 | `HousekeepingStaff` | `AdminScope` | เฉพาะ `Property` ที่ดูแล | อัปเดตสถานะความสะอาดห้อง (`HousekeepingTask`: `Dirty` -> `Cleaning` -> `Clean`) |
 | `MaintenanceTechnician` | `AdminScope` | เฉพาะ `Property` ที่ดูแล | รับใบงานแจ้งซ่อม (`WorkOrder`), อัปเดตผลซ่อมและแนบรูปหลังซ่อม |
 | `ClientCustomer` | `ClientScope` | ผูกตาม `CustomerId` | จองห้องออนไลน์ (`Hold TTL`), ดูสัญญาเช่า/ใบแจ้งหนี้, แนบสลิป, แจ้งซ่อม และดูพัสดุของตนเอง |
+
+---
+
+## 3. สถานะการยืนยันตัวตนและการบังคับใช้ในโค้ดปัจจุบัน
+
+- **Authentication จริงยังไม่แล้วเสร็จ (อยู่ระหว่างพัฒนา):** `HttpCurrentUserContext` อ่าน `UserId`, Scope, `AllowedPropertyIds`, `Permissions`, `CustomerId` จาก Header ชุด `X-TanPms-*` (และตั้งค่าเริ่มต้นสำหรับ Dev) ซึ่ง**ปลอมได้โดย Client** — ใช้ได้เฉพาะ Dev/Test เท่านั้น และต้องถูกแทนที่ด้วย Identity จาก Token ก่อน Production
+- **ชุดสิทธิ์เริ่มต้นของ Dev และสิทธิ์ High-Risk ที่ไม่ให้โดยปริยาย:** ดู [permission-catalog.md](./permission-catalog.md) หัวข้อ 3
+- **กะแคชเชียร์ระดับสาขา:** การตรวจ `HasOpenCashierShiftIn(propertyId)` ต้องอยู่ใน `AllowedPropertyIds` และมีกะ `Open` จริงของผู้ใช้ในสาขานั้น ตาม [ADR-0009](../adr/0009-cash-binding-to-cashier-shift.md) (Header `X-TanPms-Open-Shift` ใช้ Override ได้เฉพาะ Dev/Test)
+- **ไฟล์แนบ:** ตรวจสิทธิ์ตาม `purpose` และเจ้าของไฟล์ ตาม [ADR-0005](../adr/0005-authorized-file-storage-stored-file.md); ฝั่ง `client` ตอบ `auth.permission_denied` แบบเดียวกันทั้งกรณีไม่พบและเป็นของผู้อื่น
+- **ผู้ใช้:** Deactivate แทนการลบ และห้ามปิดใช้งาน/ลดสิทธิ์ `OrganizationAdmin` คนสุดท้าย ตาม [ADR-0010](../adr/0010-delete-cancel-void-policy.md)

@@ -28,4 +28,4 @@
    - `Security__JwtSigningKey`: กุญแจเซ็น Token (ความยาวอย่างน้อย 256 บิต)
    - `Security__PiiEncryptionKey`: กุญแจ AES-256 สำหรับเข้ารหัสเลขบัตรประชาชน/พาสปอร์ต
    - `Security__PiiBlindIndexKey`: กุญแจ HMAC-SHA256 สำหรับสร้าง `identity_hash`
-   - `Storage__Provider` & `Storage__PrivateBucketName`: การตั้งค่าพื้นที่เก็บไฟล์แนบส่วนตัว
+   - `Storage__RootPath`: โฟลเดอร์เก็บไฟล์แนบส่วนตัวของ Local-Disk Provider ที่ Backend อ่านจริง (`Storage__Provider`/`Storage__PrivateBucketName` เป็นค่าสงวน ยังไม่มีโค้ดอ่าน — ดู `.env.example`)

@@ -74,6 +74,12 @@
 - [adr/0002-hybrid-availability-and-ttl-hold.md](adr/0002-hybrid-availability-and-ttl-hold.md) — กลไกป้องกันการจองซ้อนด้วย `tstzrange` + โควตา `UnitType` + `Hold TTL 15 นาที`
 - [adr/0003-ollama-design-system-and-shadcn.md](adr/0003-ollama-design-system-and-shadcn.md) — การใช้ระบบการออกแบบ **Ollama Minimal Design System** ร่วมกับ `Tailwind CSS` และ `shadcn/ui`
 - [adr/0004-localized-jsonb-for-master-data-text.md](adr/0004-localized-jsonb-for-master-data-text.md) — การใช้ `LocalizedText` (`jsonb` `{ "th": string, "en"?: string }`) สำหรับชื่อและคำอธิบายหลายภาษาใน Master Data และ Billing Snapshot
+- [adr/0005-authorized-file-storage-stored-file.md](adr/0005-authorized-file-storage-stored-file.md) — ที่เก็บไฟล์แนบแบบตรวจสิทธิ์ (`StoredFile` + Local Disk, Magic-Byte Validation, กฎความเป็นเจ้าของ)
+- [adr/0006-pdf-generation-questpdf-sarabun.md](adr/0006-pdf-generation-questpdf-sarabun.md) — สร้าง PDF ด้วย QuestPDF (Community License) และฟอนต์ Sarabun (OFL 1.1)
+- [adr/0007-server-side-pagination-contract.md](adr/0007-server-side-pagination-contract.md) — `page`/`pageSize` แบบ Optional (เพดาน 200) + `PaginationMetadata` แบบ Backward Compatible
+- [adr/0008-invoice-due-date-payment-terms-and-overdue-sweeper.md](adr/0008-invoice-due-date-payment-terms-and-overdue-sweeper.md) — `DueDate`, Payment Terms ราย `Property` และ `OverdueInvoiceSweeper` (60 นาที, แจ้งเตือนครั้งเดียวต่อบิล)
+- [adr/0009-cash-binding-to-cashier-shift.md](adr/0009-cash-binding-to-cashier-shift.md) — ผูกเงินสดกับ `CashierShift` และตรวจกะเปิดระดับ `Property`
+- [adr/0010-delete-cancel-void-policy.md](adr/0010-delete-cancel-void-policy.md) — นโยบาย Delete/Cancel/Void, ข้อมูล Immutable และ Deactivate ผู้ใช้
 
 ### `superpowers` — เอกสารสเปกและแผนการดำเนินงาน
 - [superpowers/specs/2026-11-06-tan-pms-enterprise-foundation-and-features-design.md](superpowers/specs/2026-11-06-tan-pms-enterprise-foundation-and-features-design.md) — เอกสารออกแบบระบบฉบับเต็ม
