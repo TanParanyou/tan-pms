@@ -45,119 +45,6 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         _documentNumberService = documentNumberService;
     }
 
-    public Result<AuthSessionResponse> Login(LoginAuthSessionCommand command)
-    {
-        var isClient = string.Equals(command.Scope, "client", StringComparison.OrdinalIgnoreCase);
-        if (isClient)
-        {
-            var customer = EnsureCustomerExists(PmsSeedConstants.PrimaryCustomerId, "Somchai Rakdee", "1100501234123");
-            var customerRef = new CustomerRefDto(
-                customer.Id,
-                customer.FullName,
-                customer.GetMaskedIdentity());
-
-            return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-                UserId: $"client-{customer.Id:N}",
-                Scope: "client",
-                DisplayName: customer.FullName,
-                RoleCode: RoleCodes.ClientCustomer,
-                RoleName: new LocalizedTextDto("ลูกค้า / ผู้เช่า", "Client / Tenant"),
-                AllowedProperties: [],
-                Permissions: [],
-                Customer: customerRef,
-                AccessToken: $"tok_client_{customer.Id:N}"));
-        }
-
-        var adminUsers = _dbContext.AdminUsers
-            .AsNoTracking()
-            .OrderBy(u => u.Username)
-            .ToList();
-
-        var matchedUser = adminUsers.FirstOrDefault(u =>
-                string.Equals(u.Username, command.Identifier, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(u.Email, command.Identifier, StringComparison.OrdinalIgnoreCase))
-            ?? adminUsers.FirstOrDefault(u => u.RoleCode == RoleCodes.OrganizationAdmin)
-            ?? adminUsers.FirstOrDefault();
-
-        if (matchedUser is null)
-        {
-            return Result<AuthSessionResponse>.Failure(new Error(
-                DomainErrorCodes.InvalidCredentials,
-                "No administrator account is configured."));
-        }
-
-        var propertiesById = _dbContext.Properties
-            .AsNoTracking()
-            .ToDictionary(p => p.Id);
-
-        var allowedProps = matchedUser.AllowedPropertyIds
-            .Where(propertiesById.ContainsKey)
-            .Select(id =>
-            {
-                var prop = propertiesById[id];
-                return new PropertyRefDto(prop.Id, prop.Code, LocalizedTextDto.FromDomain(prop.Name));
-            })
-            .ToList();
-
-        return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-            UserId: matchedUser.Id.ToString(),
-            Scope: "admin",
-            DisplayName: matchedUser.FullName,
-            RoleCode: matchedUser.RoleCode,
-            RoleName: LocalizedTextDto.FromDomain(matchedUser.RoleName),
-            AllowedProperties: allowedProps,
-            Permissions: matchedUser.Permissions.ToList(),
-            Customer: null,
-            AccessToken: $"tok_admin_{matchedUser.Id:N}"));
-    }
-
-    public Result<AuthSessionResponse> GetCurrentAuthSession(ICurrentUserContext currentUser)
-    {
-        if (currentUser.IsClientScope)
-        {
-            var customerId = currentUser.CustomerId ?? PmsSeedConstants.PrimaryCustomerId;
-            var customer = _dbContext.Customers
-                .AsNoTracking()
-                .FirstOrDefault(c => c.Id == customerId)
-                ?? EnsureCustomerExists(PmsSeedConstants.PrimaryCustomerId, "Somchai Rakdee", "1100501234123");
-
-            return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-                UserId: currentUser.UserId,
-                Scope: "client",
-                DisplayName: customer.FullName,
-                RoleCode: RoleCodes.ClientCustomer,
-                RoleName: new LocalizedTextDto("ลูกค้า / ผู้เช่า", "Client / Tenant"),
-                AllowedProperties: [],
-                Permissions: [],
-                Customer: new CustomerRefDto(customer.Id, customer.FullName, customer.GetMaskedIdentity()),
-                AccessToken: $"tok_client_{customer.Id:N}"));
-        }
-
-        var propertiesById = _dbContext.Properties
-            .AsNoTracking()
-            .ToDictionary(p => p.Id);
-
-        var allowedProps = currentUser.AllowedPropertyIds
-            .Where(propertiesById.ContainsKey)
-            .Select(id =>
-            {
-                var prop = propertiesById[id];
-                return new PropertyRefDto(prop.Id, prop.Code, LocalizedTextDto.FromDomain(prop.Name));
-            })
-            .ToList();
-
-        return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-            UserId: currentUser.UserId,
-            Scope: "admin",
-            DisplayName: "Admin Operator",
-            RoleCode: RoleCodes.PropertyManager,
-            RoleName: new LocalizedTextDto("ผู้จัดการสาขา", "Property Manager"),
-            AllowedProperties: allowedProps,
-            Permissions: currentUser.Permissions.ToList(),
-            Customer: null,
-            AccessToken: "tok_admin_session"));
-    }
-
     public Result<RoleCatalogResponse> GetRoleCatalog() =>
         Result<RoleCatalogResponse>.Success(new RoleCatalogResponse(
             Roles: PmsRoleCatalog.Roles,
@@ -188,7 +75,7 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
         return Result<AdminUserListResponse>.Success(new AdminUserListResponse(items, pagination));
     }
 
-    public Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command)
+    public Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command, string? passwordHash = null)
     {
         var role = PmsRoleCatalog.Roles.FirstOrDefault(r =>
             string.Equals(r.Code, command.RoleCode, StringComparison.OrdinalIgnoreCase));
@@ -254,6 +141,11 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                 command.AllowedPropertyIds,
                 role.DefaultPermissions,
                 command.IsActive);
+
+            if (passwordHash is not null && user.PasswordHash is null)
+            {
+                user.SetPasswordHash(passwordHash, DateTimeOffset.UtcNow);
+            }
 
             _dbContext.SaveChanges();
         }

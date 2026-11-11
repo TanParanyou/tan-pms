@@ -7,4 +7,5 @@ public sealed record UpsertAdminUserCommand(
     string Email,
     string RoleCode,
     IReadOnlyList<Guid> AllowedPropertyIds,
-    bool IsActive);
+    bool IsActive,
+    string? InitialPassword = null);

@@ -31,8 +31,8 @@ const string FrontendCorsPolicy = "TanPmsFrontend";
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
 builder.Services.AddTanPmsInfrastructure(builder.Configuration);
+var authMode = builder.AddTanPmsAuthentication();
 
 builder.Services.AddCors(options =>
 {
@@ -123,6 +123,10 @@ builder.Services.AddScoped<GetClientDashboardHandler>();
 builder.Services.AddScoped<GetAdminBillingSettingsHandler>();
 builder.Services.AddScoped<UpdateAdminBillingSettingsHandler>();
 builder.Services.AddScoped<LogoutAuthSessionHandler>();
+builder.Services.AddScoped<RefreshAuthSessionHandler>();
+builder.Services.AddScoped<ChangePasswordHandler>();
+builder.Services.AddScoped<ResetAdminUserPasswordHandler>();
+builder.Services.AddScoped<UpsertCustomerAccountHandler>();
 builder.Services.AddHostedService<OverdueInvoiceSweeper>();
 builder.Services.AddScoped<GetAdminUserHandler>();
 builder.Services.AddScoped<DeactivateAdminUserHandler>();
@@ -221,6 +225,7 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseCors(FrontendCorsPolicy);
+app.UseTanPmsAuthentication(authMode);
 
 app.MapGet("/health/live", () => Results.Ok(new { status = "Live" }));
 app.MapGet("/health/ready", () => Results.Ok(new { status = "Ready" }));
@@ -235,11 +240,38 @@ authGroup.MapPost("/login", (
     var result = handler.Handle(new LoginAuthSessionCommand(
         Scope: request.Scope,
         Identifier: request.Identifier,
-        Password: request.Password));
+        Password: request.Password,
+        ClientIp: httpContext.Connection.RemoteIpAddress?.ToString(),
+        UserAgent: httpContext.Request.Headers.UserAgent.ToString()));
 
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.Ok(result.Value);
+}).RequireRateLimiting(TanPmsAuthenticationExtensions.AuthRateLimitPolicy);
+
+authGroup.MapPost("/refresh", (
+    RefreshSessionRequest request,
+    RefreshAuthSessionHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new RefreshAuthSessionCommand(
+        request,
+        httpContext.Connection.RemoteIpAddress?.ToString(),
+        httpContext.Request.Headers.UserAgent.ToString()));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+}).RequireRateLimiting(TanPmsAuthenticationExtensions.AuthRateLimitPolicy);
+
+authGroup.MapPost("/change-password", (
+    ChangePasswordRequest request,
+    ChangePasswordHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ChangePasswordCommand(request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.NoContent();
 });
 
 authGroup.MapGet("/me", (
@@ -289,7 +321,8 @@ adminGroup.MapPost("/users", (
         Email: request.Email,
         RoleCode: request.RoleCode,
         AllowedPropertyIds: request.AllowedPropertyIds,
-        IsActive: request.IsActive));
+        IsActive: request.IsActive,
+        InitialPassword: request.InitialPassword));
 
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
@@ -1583,6 +1616,30 @@ adminGroup.MapPost("/users/{userId:guid}/deactivate", (
         : Results.Ok(result.Value);
 });
 
+adminGroup.MapPost("/users/{userId:guid}/reset-password", (
+    Guid userId,
+    ResetPasswordRequest request,
+    ResetAdminUserPasswordHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new ResetAdminUserPasswordCommand(userId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
+adminGroup.MapPost("/customers/{customerId:guid}/account", (
+    Guid customerId,
+    CustomerAccountRequest request,
+    UpsertCustomerAccountHandler handler,
+    HttpContext httpContext) =>
+{
+    var result = handler.Handle(new UpsertCustomerAccountCommand(customerId, request));
+    return result.IsFailure
+        ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
+        : Results.Ok(result.Value);
+});
+
 adminGroup.MapPost("/users/{userId:guid}/reactivate", (
     Guid userId,
     ReactivateAdminUserHandler handler,
@@ -1905,10 +1962,11 @@ adminGroup.MapPost("/properties/{propertyId:guid}/stays/{stayId:guid}/folio/paym
 });
 
 authGroup.MapPost("/logout", (
+    LogoutRequest? request,
     LogoutAuthSessionHandler handler,
     HttpContext httpContext) =>
 {
-    var result = handler.Handle(new LogoutAuthSessionCommand());
+    var result = handler.Handle(new LogoutAuthSessionCommand(request?.RefreshToken));
     return result.IsFailure
         ? ProblemDetailsMapper.ToProblemResult(result.Error, httpContext)
         : Results.NoContent();
@@ -2327,13 +2385,15 @@ clientGroup.MapPost("/reservations/{reservationId:guid}/slip", (
         : Results.Ok(result.Value);
 });
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() && string.IsNullOrEmpty(app.Configuration["Seed:DevPassword"]))
 {
     await PmsDatabaseInitializer.InitializeIfPostgresAsync(
         app.Services,
         app.Configuration,
         app.Logger);
 }
+
+await app.SeedDevCredentialsIfAllowedAsync();
 
 app.Run();
 

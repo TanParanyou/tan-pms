@@ -101,104 +101,6 @@ public sealed partial class InMemoryOperationalService
         return Task.CompletedTask;
     }
 
-    public Result<AuthSessionResponse> Login(LoginAuthSessionCommand command)
-    {
-        lock (_syncRoot)
-        {
-            var isClient = string.Equals(command.Scope, "client", StringComparison.OrdinalIgnoreCase);
-            if (isClient)
-            {
-                var customer = _customers[PmsSeedConstants.PrimaryCustomerId];
-                var customerRef = new CustomerRefDto(
-                    customer.Id,
-                    customer.FullName,
-                    customer.GetMaskedIdentity());
-
-                return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-                    UserId: $"client-{customer.Id:N}",
-                    Scope: "client",
-                    DisplayName: customer.FullName,
-                    RoleCode: RoleCodes.ClientCustomer,
-                    RoleName: new LocalizedTextDto("ลูกค้า / ผู้เช่า", "Client / Tenant"),
-                    AllowedProperties: [],
-                    Permissions: [],
-                    Customer: customerRef,
-                    AccessToken: $"tok_client_{customer.Id:N}"));
-            }
-
-            var matchedUser = _adminUsers.FirstOrDefault(u =>
-                    string.Equals(u.Username, command.Identifier, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(u.Email, command.Identifier, StringComparison.OrdinalIgnoreCase))
-                ?? _adminUsers[0];
-
-            var allowedProps = matchedUser.AllowedPropertyIds
-                .Where(id => _properties.ContainsKey(id))
-                .Select(id =>
-                {
-                    var prop = _properties[id];
-                    return new PropertyRefDto(prop.Id, prop.Code, LocalizedTextDto.FromDomain(prop.Name));
-                })
-                .ToList();
-
-            return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-                UserId: matchedUser.Id.ToString(),
-                Scope: "admin",
-                DisplayName: matchedUser.FullName,
-                RoleCode: matchedUser.RoleCode,
-                RoleName: LocalizedTextDto.FromDomain(matchedUser.RoleName),
-                AllowedProperties: allowedProps,
-                Permissions: matchedUser.Permissions.ToList(),
-                Customer: null,
-                AccessToken: $"tok_admin_{matchedUser.Id:N}"));
-        }
-    }
-
-    public Result<AuthSessionResponse> GetCurrentAuthSession(ICurrentUserContext currentUser)
-    {
-        lock (_syncRoot)
-        {
-            if (currentUser.IsClientScope)
-            {
-                var customerId = currentUser.CustomerId ?? PmsSeedConstants.PrimaryCustomerId;
-                if (!_customers.TryGetValue(customerId, out var customer))
-                {
-                    customer = _customers[PmsSeedConstants.PrimaryCustomerId];
-                }
-
-                return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-                    UserId: currentUser.UserId,
-                    Scope: "client",
-                    DisplayName: customer.FullName,
-                    RoleCode: RoleCodes.ClientCustomer,
-                    RoleName: new LocalizedTextDto("ลูกค้า / ผู้เช่า", "Client / Tenant"),
-                    AllowedProperties: [],
-                    Permissions: [],
-                    Customer: new CustomerRefDto(customer.Id, customer.FullName, customer.GetMaskedIdentity()),
-                    AccessToken: $"tok_client_{customer.Id:N}"));
-            }
-
-            var allowedProps = currentUser.AllowedPropertyIds
-                .Where(id => _properties.ContainsKey(id))
-                .Select(id =>
-                {
-                    var prop = _properties[id];
-                    return new PropertyRefDto(prop.Id, prop.Code, LocalizedTextDto.FromDomain(prop.Name));
-                })
-                .ToList();
-
-            return Result<AuthSessionResponse>.Success(new AuthSessionResponse(
-                UserId: currentUser.UserId,
-                Scope: "admin",
-                DisplayName: "Admin Operator",
-                RoleCode: RoleCodes.PropertyManager,
-                RoleName: new LocalizedTextDto("ผู้จัดการสาขา", "Property Manager"),
-                AllowedProperties: allowedProps,
-                Permissions: currentUser.Permissions.ToList(),
-                Customer: null,
-                AccessToken: "tok_admin_session"));
-        }
-    }
-
     public Result<RoleCatalogResponse> GetRoleCatalog()
     {
         lock (_syncRoot)
@@ -227,7 +129,7 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
-    public Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command)
+    public Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command, string? passwordHash = null)
     {
         lock (_syncRoot)
         {
@@ -292,6 +194,11 @@ public sealed partial class InMemoryOperationalService
                     command.AllowedPropertyIds,
                     role.DefaultPermissions,
                     command.IsActive);
+
+                if (passwordHash is not null && user.PasswordHash is null)
+                {
+                    user.SetPasswordHash(passwordHash, DateTimeOffset.UtcNow);
+                }
             }
             catch (DomainRuleException ex)
             {

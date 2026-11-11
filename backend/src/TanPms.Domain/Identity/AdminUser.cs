@@ -2,7 +2,7 @@ using TanPms.Domain.Common;
 
 namespace TanPms.Domain.Identity;
 
-public sealed class AdminUser : AuditableEntity
+public sealed class AdminUser : CredentialHolder
 {
     public required string Username { get; set; }
     public required string FullName { get; set; }

@@ -23,6 +23,7 @@ using TanPms.Application.Stays;
 using TanPms.Application.WorkOrders;
 using TanPms.Infrastructure.Pdf;
 using TanPms.Infrastructure.Persistence;
+using TanPms.Infrastructure.Security;
 using TanPms.Infrastructure.Services;
 
 namespace TanPms.Infrastructure;
@@ -48,10 +49,12 @@ public static class DependencyInjection
         });
 
         // Private local folder (never a public bucket); default lives under the git-ignored build output.
+        var storageRoot = configuration["Storage:RootPath"];
         services.AddSingleton<IFileStorage>(new LocalDiskFileStorage(
-            configuration["Storage:RootPath"] ?? Path.Combine(AppContext.BaseDirectory, "App_Data", "files")));
+            string.IsNullOrWhiteSpace(storageRoot) ? Path.Combine(AppContext.BaseDirectory, "App_Data", "files") : storageRoot));
 
         services.AddSingleton<IPdfDocumentRenderer, QuestPdfDocumentRenderer>();
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 
         var provider = configuration["Persistence:Provider"] ?? "Postgres";
         if (string.Equals(provider, "InMemory", StringComparison.OrdinalIgnoreCase))
@@ -59,6 +62,7 @@ public static class DependencyInjection
             services.AddSingleton<InMemoryOperationalService>();
             services.AddSingleton<IPmsOperationalStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IIdentityStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
+            services.AddSingleton<IAuthStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<INotificationStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IPropertyCatalogStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
             services.AddSingleton<IRateCatalogStore>(sp => sp.GetRequiredService<InMemoryOperationalService>());
@@ -92,6 +96,7 @@ public static class DependencyInjection
             services.AddScoped<EfCorePmsStore>();
             services.AddScoped<IPmsOperationalStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IIdentityStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
+            services.AddScoped<IAuthStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<INotificationStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IPropertyCatalogStore>(sp => sp.GetRequiredService<EfCorePmsStore>());
             services.AddScoped<IRateCatalogStore>(sp => sp.GetRequiredService<EfCorePmsStore>());

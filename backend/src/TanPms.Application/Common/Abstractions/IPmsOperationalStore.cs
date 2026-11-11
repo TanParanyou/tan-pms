@@ -22,6 +22,7 @@ namespace TanPms.Application.Common.Abstractions;
 
 public interface IPmsOperationalStore
     : IIdentityStore,
+      IAuthStore,
       INotificationStore,
       IPropertyCatalogStore,
       IRateCatalogStore,

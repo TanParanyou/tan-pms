@@ -26,9 +26,9 @@ public static class AuditLoggerExtensions
             EntityId = entityId,
             Reason = reason,
             BeforeStateJson = beforeState is not null
-                ? JsonSerializer.Serialize(beforeState, JsonOptions)
+                ? AuditRedactor.RedactJson(JsonSerializer.Serialize(beforeState, JsonOptions))
                 : null,
-            AfterStateJson = JsonSerializer.Serialize(afterState, JsonOptions)
+            AfterStateJson = AuditRedactor.RedactJson(JsonSerializer.Serialize(afterState, JsonOptions))
         }).GetAwaiter().GetResult();
     }
 }

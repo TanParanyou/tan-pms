@@ -4,18 +4,22 @@ using TanPms.Domain.Common;
 
 namespace TanPms.Application.Identity;
 
-// Tokens are stateless in this phase, so logout only records the event; the client discards its token.
+// Revokes the presented refresh token's family (the server session). The short-lived access token simply expires.
 public sealed class LogoutAuthSessionHandler
 {
     public const string ActionKey = "auth.logout";
 
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
+    private readonly IAuthStore _store;
+    private readonly TimeProvider _timeProvider;
 
-    public LogoutAuthSessionHandler(ICurrentUserContext currentUser, IAuditLogger auditLogger)
+    public LogoutAuthSessionHandler(ICurrentUserContext currentUser, IAuditLogger auditLogger, IAuthStore store, TimeProvider timeProvider)
     {
         _currentUser = currentUser;
         _auditLogger = auditLogger;
+        _store = store;
+        _timeProvider = timeProvider;
     }
 
     public Result<string> Handle(LogoutAuthSessionCommand command)
@@ -25,6 +29,16 @@ public sealed class LogoutAuthSessionHandler
             return Result<string>.Failure(new Error(DomainErrorCodes.Unauthenticated, "Caller is not authenticated."));
         }
 
+        var scope = _currentUser.IsAdminScope ? AuthScopes.Admin : AuthScopes.Client;
+        var revoked = 0;
+        if (!string.IsNullOrWhiteSpace(command.RefreshToken)
+            && _store.FindRefreshToken(RefreshTokenCodec.Hash(command.RefreshToken)) is { } token
+            && token.Scope == scope
+            && string.Equals(token.SubjectId, _currentUser.UserId, StringComparison.OrdinalIgnoreCase))
+        {
+            revoked = _store.RevokeRefreshTokenFamily(token.FamilyId, _timeProvider.GetUtcNow());
+        }
+
         var propertyId = _currentUser.IsAdminScope ? _currentUser.AllowedPropertyIds.FirstOrDefault() : Guid.Empty;
         var entityId = _currentUser.CustomerId ?? (Guid.TryParse(_currentUser.UserId, out var userId) ? userId : Guid.Empty);
         _auditLogger.RecordMutation(
@@ -32,7 +46,7 @@ public sealed class LogoutAuthSessionHandler
             actionKey: ActionKey,
             entityId: entityId,
             reason: $"{(_currentUser.IsAdminScope ? "Admin" : "Client")} user {_currentUser.UserId} logged out",
-            afterState: new { _currentUser.UserId, Scope = _currentUser.IsAdminScope ? "admin" : "client" });
+            afterState: new { _currentUser.UserId, Scope = scope, RevokedSessions = revoked });
         return Result<string>.Success(_currentUser.UserId);
     }
 }

@@ -11,15 +11,18 @@ public sealed class UpsertAdminUserHandler
     private readonly IIdentityStore _store;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuditLogger _auditLogger;
+    private readonly IPasswordHasher _passwordHasher;
 
     public UpsertAdminUserHandler(
         IIdentityStore store,
         ICurrentUserContext currentUser,
-        IAuditLogger auditLogger)
+        IAuditLogger auditLogger,
+        IPasswordHasher passwordHasher)
     {
         _store = store;
         _currentUser = currentUser;
         _auditLogger = auditLogger;
+        _passwordHasher = passwordHasher;
     }
 
     public Result<AdminUserDto> Handle(UpsertAdminUserCommand command)
@@ -50,7 +53,20 @@ public sealed class UpsertAdminUserHandler
         }
 
         var before = command.Id is { } existingId ? _store.GetAdminUser(existingId).Value : null;
-        var result = _store.UpsertAdminUser(command);
+
+        // The initial password is required for new users and ignored on updates (use reset-password instead).
+        string? passwordHash = null;
+        if (before is null)
+        {
+            if (PasswordPolicy.Validate(command.InitialPassword) is { } policyError)
+            {
+                return Result<AdminUserDto>.Failure(policyError);
+            }
+
+            passwordHash = _passwordHasher.Hash(command.InitialPassword!);
+        }
+
+        var result = _store.UpsertAdminUser(command with { InitialPassword = null }, passwordHash);
         if (result.IsSuccess && result.Value is not null)
         {
             _auditLogger.RecordMutation(

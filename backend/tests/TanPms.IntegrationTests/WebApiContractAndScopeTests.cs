@@ -92,8 +92,12 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         Assert.NotEmpty(session.AllowedProperties);
         Assert.Contains(PermissionKeys.AdminUsersManage, session.Permissions);
 
-        var meRes = await client.GetAsync("/api/v1/auth/me");
+        using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/me");
+        meRequest.Headers.Add("X-TanPms-User-Id", session.UserId);
+        var meRes = await client.SendAsync(meRequest);
         Assert.Equal(HttpStatusCode.OK, meRes.StatusCode);
+        var me = await meRes.Content.ReadFromJsonAsync<AuthSessionResponse>();
+        Assert.Equal("Naphat Wattanakul", me!.DisplayName);
     }
 
     [Fact]
@@ -124,7 +128,8 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
             Email: "arthit@tan-pms.internal",
             RoleCode: RoleCodes.FrontDeskCashier,
             AllowedPropertyIds: [PmsSeedConstants.BkkPropertyId],
-            IsActive: true);
+            IsActive: true,
+            InitialPassword: "arthit-initial-pass");
 
         var noManagePermRes = await bkkOnlyClient.PostAsJsonAsync("/api/v1/admin/users", upsertReq);
         Assert.Equal(HttpStatusCode.Forbidden, noManagePermRes.StatusCode);
@@ -139,6 +144,10 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
             "X-TanPms-Permissions",
             $"{PermissionKeys.AdminUsersRead},{PermissionKeys.AdminUsersManage}");
 
+        var missingPasswordRes = await adminManagerClient.PostAsJsonAsync("/api/v1/admin/users", upsertReq with { InitialPassword = null });
+        Assert.Equal(HttpStatusCode.BadRequest, missingPasswordRes.StatusCode);
+        Assert.Equal(DomainErrorCodes.PasswordPolicyViolation, (await missingPasswordRes.Content.ReadFromJsonAsync<ApiProblemDetails>())!.ErrorCode);
+
         var createdUserRes = await adminManagerClient.PostAsJsonAsync("/api/v1/admin/users", upsertReq);
         Assert.Equal(HttpStatusCode.OK, createdUserRes.StatusCode);
         var createdUser = await createdUserRes.Content.ReadFromJsonAsync<AdminUserDto>();
@@ -149,6 +158,10 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         var operationalService = _factory.Services.GetRequiredService<InMemoryOperationalService>();
         Assert.Contains(operationalService.AuditEvents, e =>
             e.ActionKey == PermissionKeys.AdminUsersManage && e.EntityId == createdUser.Id);
+        Assert.DoesNotContain("arthit-initial-pass", await createdUserRes.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.DoesNotContain(operationalService.AuditEvents, e =>
+            (e.AfterStateJson ?? string.Empty).Contains("arthit-initial-pass", StringComparison.Ordinal)
+            || (e.AfterStateJson ?? string.Empty).Contains("pbkdf2", StringComparison.Ordinal));
     }
 
     [Fact]

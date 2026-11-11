@@ -31,6 +31,9 @@ public static class ProblemDetailsMapper
         DomainErrorCodes.MeterRolloverUnconfirmed => StatusCodes.Status409Conflict,
         DomainErrorCodes.MasterDataInUse => StatusCodes.Status409Conflict,
         DomainErrorCodes.FileNotFound => StatusCodes.Status404NotFound,
+        DomainErrorCodes.PasswordPolicyViolation => StatusCodes.Status400BadRequest,
+        DomainErrorCodes.RefreshTokenInvalid => StatusCodes.Status401Unauthorized,
+        DomainErrorCodes.RateLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status500InternalServerError
     };
 
@@ -64,6 +67,11 @@ public static class ProblemDetailsMapper
     public static IResult ToProblemResult(Error error, HttpContext context)
     {
         var problem = CreateProblem(error, context);
+        if (problem.Status == StatusCodes.Status401Unauthorized)
+        {
+            context.Response.Headers.WWWAuthenticate = "Bearer";
+        }
+
         return Results.Json(
             problem,
             contentType: "application/problem+json",

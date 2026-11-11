@@ -38,6 +38,8 @@ public sealed class TanPmsDbContext : DbContext
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Occupant> Occupants => Set<Occupant>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<NotificationMessage> NotificationMessages => Set<NotificationMessage>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<Stay> Stays => Set<Stay>();
@@ -283,6 +285,33 @@ public sealed class TanPmsDbContext : DbContext
         modelBuilder.Entity<Invoice>(b =>
         {
             b.HasIndex(x => new { x.Status, x.DueDate });
+        });
+
+        modelBuilder.Entity<AdminUser>(b =>
+        {
+            b.Property(x => x.PasswordHash).HasMaxLength(256);
+        });
+
+        modelBuilder.Entity<CustomerAccount>(b =>
+        {
+            b.Property(x => x.LoginIdentifier).HasMaxLength(128);
+            b.Property(x => x.PasswordHash).HasMaxLength(256);
+            b.HasIndex(x => x.CustomerId).IsUnique();
+            b.HasIndex(x => x.LoginIdentifier).IsUnique();
+            b.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RefreshToken>(b =>
+        {
+            b.Property(x => x.TokenHash).HasMaxLength(64);
+            b.Property(x => x.ReplacedByTokenHash).HasMaxLength(64);
+            b.Property(x => x.SubjectId).HasMaxLength(64);
+            b.Property(x => x.Scope).HasMaxLength(16);
+            b.Property(x => x.CreatedByIp).HasMaxLength(64);
+            b.Property(x => x.UserAgent).HasMaxLength(512);
+            b.HasIndex(x => x.TokenHash).IsUnique();
+            b.HasIndex(x => x.FamilyId);
+            b.HasIndex(x => new { x.Scope, x.SubjectId });
         });
 
         modelBuilder.Entity<StoredFile>(b =>

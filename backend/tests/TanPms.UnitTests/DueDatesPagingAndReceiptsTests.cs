@@ -138,9 +138,9 @@ public sealed class DueDatesPagingAndReceiptsTests
     public void Logout_Should_Audit_Authenticated_Callers_And_Reject_Anonymous()
     {
         var store = new InMemoryOperationalService();
-        Assert.Equal("pimchanok.bkk", new LogoutAuthSessionHandler(Admin(), store).Handle(new LogoutAuthSessionCommand()).Value);
+        Assert.Equal("pimchanok.bkk", new LogoutAuthSessionHandler(Admin(), store, store, TimeProvider.System).Handle(new LogoutAuthSessionCommand()).Value);
         Assert.Contains(store.AuditEvents, e => e.ActionKey == LogoutAuthSessionHandler.ActionKey);
-        Assert.Equal(DomainErrorCodes.Unauthenticated, new LogoutAuthSessionHandler(new TestCurrentUserContext { UserId = "" }, store)
+        Assert.Equal(DomainErrorCodes.Unauthenticated, new LogoutAuthSessionHandler(new TestCurrentUserContext { UserId = "" }, store, store, TimeProvider.System)
             .Handle(new LogoutAuthSessionCommand()).Error!.Code);
     }
 

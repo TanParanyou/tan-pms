@@ -1,16 +1,14 @@
 using TanPms.Application.Common.Models;
-using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
 
 namespace TanPms.Application.Identity;
 
 public interface IIdentityStore
 {
-    Result<AuthSessionResponse> Login(LoginAuthSessionCommand command);
-    Result<AuthSessionResponse> GetCurrentAuthSession(ICurrentUserContext currentUser);
     Result<RoleCatalogResponse> GetRoleCatalog();
     Result<AdminUserListResponse> GetAdminUsers(Guid? propertyId, IReadOnlySet<Guid> callerAllowedPropertyIds, PageRequest? paging = null);
-    Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command);
+    // passwordHash is applied only when the user is created; existing passwords change via IAuthStore.SetPassword.
+    Result<AdminUserDto> UpsertAdminUser(UpsertAdminUserCommand command, string? passwordHash = null);
 
     Result<AdminUserDto> GetAdminUser(Guid userId);
 

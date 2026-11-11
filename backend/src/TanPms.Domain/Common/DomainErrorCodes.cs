@@ -19,4 +19,7 @@ public static class DomainErrorCodes
     public const string MeterRolloverUnconfirmed = "meter.rollover_unconfirmed";
     public const string MasterDataInUse = "master_data.in_use";
     public const string FileNotFound = "file.not_found";
+    public const string PasswordPolicyViolation = "auth.password_policy";
+    public const string RefreshTokenInvalid = "auth.refresh_token_invalid";
+    public const string RateLimited = "auth.rate_limited";
 }

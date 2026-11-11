@@ -27,6 +27,7 @@ public static class PmsDatabaseInitializer
         IServiceProvider serviceProvider,
         IConfiguration configuration,
         ILogger logger,
+        string? devPassword = null,
         CancellationToken cancellationToken = default)
     {
         var provider = configuration["Persistence:Provider"] ?? "Postgres";
@@ -44,6 +45,10 @@ public static class PmsDatabaseInitializer
             await dbContext.Database.MigrateAsync(cancellationToken);
             await SeedIfEmptyAsync(dbContext, docNumberService, cancellationToken);
             await ApplySeedUpgradesAsync(dbContext, cancellationToken);
+            if (!string.IsNullOrEmpty(devPassword))
+            {
+                await SeedDevCredentialsAsync(dbContext, scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), devPassword, cancellationToken);
+            }
         }
         catch (Exception ex)
         {
@@ -57,6 +62,42 @@ public static class PmsDatabaseInitializer
     // 1) adds UTILITY_WATER / UTILITY_ELECTRIC TaxProfiles to properties that already configure tax profiles but lack them
     //    (a soft-deleted profile counts as present, so an admin's deliberate removal is respected);
     // 2) advances document_sequences past the highest number already issued, so seeded/imported documents never collide.
+    // Dev/Testing only (the host checks the environment): sets the configured dev password on seeded admins without one
+    // and creates the seeded client logins listed in PmsSeedConstants.DevCustomerLogins. Idempotent.
+    public static async Task SeedDevCredentialsAsync(
+        TanPmsDbContext dbContext,
+        IPasswordHasher passwordHasher,
+        string devPassword,
+        CancellationToken cancellationToken = default)
+    {
+        var admins = await dbContext.AdminUsers.Where(u => u.PasswordHash == null).ToListAsync(cancellationToken);
+        var existingCustomerIds = await dbContext.Customers.Select(c => c.Id).ToListAsync(cancellationToken);
+        var accountCustomerIds = await dbContext.CustomerAccounts.Select(a => a.CustomerId).ToListAsync(cancellationToken);
+        var missingLogins = PmsSeedConstants.DevCustomerLogins
+            .Where(l => existingCustomerIds.Contains(l.CustomerId) && !accountCustomerIds.Contains(l.CustomerId))
+            .ToList();
+        if (admins.Count == 0 && missingLogins.Count == 0)
+        {
+            return;
+        }
+
+        var hash = passwordHasher.Hash(devPassword);
+        var now = DateTimeOffset.UtcNow;
+        foreach (var admin in admins)
+        {
+            admin.SetPasswordHash(hash, now);
+        }
+
+        foreach (var (customerId, identifier) in missingLogins)
+        {
+            var account = new CustomerAccount { CustomerId = customerId, LoginIdentifier = identifier };
+            account.SetPasswordHash(hash, now);
+            dbContext.CustomerAccounts.Add(account);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task ApplySeedUpgradesAsync(TanPmsDbContext dbContext, CancellationToken cancellationToken = default)
     {
         var profiles = await dbContext.TaxProfiles.IgnoreQueryFilters().AsNoTracking()

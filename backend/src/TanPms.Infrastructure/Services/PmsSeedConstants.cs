@@ -32,4 +32,14 @@ public static class PmsSeedConstants
 
     public static readonly Guid SampleHoldReservationId = Guid.Parse("88888888-8888-8888-8888-888888888801");
     public static readonly Guid SampleConfirmedReservationId = Guid.Parse("88888888-8888-8888-8888-888888888802");
+
+    // Dev/Testing login identifiers (seeded only when the environment is Development or Testing).
+    // Admin scope: naphat.admin (Organization Admin), pimchanok.bkk (BKK cashier), kittisak.cnx (CNX manager).
+    // Client scope: somchai@example.test, sudaawattana@example.test.
+    // All share the password from configuration key Seed:DevPassword; no password is hard-coded here.
+    public static readonly IReadOnlyList<(Guid CustomerId, string LoginIdentifier)> DevCustomerLogins =
+    [
+        (PrimaryCustomerId, "somchai@example.test"),
+        (SecondaryCustomerId, "sudaawattana@example.test")
+    ];
 }

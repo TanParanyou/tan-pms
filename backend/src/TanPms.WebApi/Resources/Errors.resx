@@ -120,4 +120,22 @@
   <data name="file.not_found_DETAIL" xml:space="preserve">
     <value>ไม่พบไฟล์ที่ร้องขอ หรือเป็นรหัสไฟล์รูปแบบเก่าที่ไม่ได้อัปโหลดผ่านระบบไฟล์จึงไม่สามารถดาวน์โหลดได้</value>
   </data>
+  <data name="auth.password_policy_TITLE" xml:space="preserve">
+    <value>รหัสผ่านไม่ผ่านเกณฑ์</value>
+  </data>
+  <data name="auth.password_policy_DETAIL" xml:space="preserve">
+    <value>รหัสผ่านต้องมีความยาว 10 ถึง 256 ตัวอักษร</value>
+  </data>
+  <data name="auth.refresh_token_invalid_TITLE" xml:space="preserve">
+    <value>เซสชันหมดอายุ</value>
+  </data>
+  <data name="auth.refresh_token_invalid_DETAIL" xml:space="preserve">
+    <value>โทเคนต่ออายุไม่ถูกต้อง หมดอายุ หรือถูกเพิกถอนแล้ว กรุณาเข้าสู่ระบบใหม่</value>
+  </data>
+  <data name="auth.rate_limited_TITLE" xml:space="preserve">
+    <value>พยายามบ่อยเกินไป</value>
+  </data>
+  <data name="auth.rate_limited_DETAIL" xml:space="preserve">
+    <value>มีการเรียกใช้งานถี่เกินกำหนด กรุณารอสักครู่แล้วลองใหม่</value>
+  </data>
 </root>

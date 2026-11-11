@@ -39,7 +39,9 @@ public sealed class AnalyticsParityPostgresTests
         {
             await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             {
-                builder.UseEnvironment("Production");
+                builder.UseEnvironment("Testing");
+                builder.UseSetting("Auth:Mode", "Headers");
+                builder.UseSetting("Auth:Jwt:SigningKey", InMemoryWebApiFactory.TestSigningKey);
                 builder.UseSetting("Persistence:Provider", "Postgres");
                 builder.UseSetting("ConnectionStrings:DefaultConnection", $"Host=localhost;Port=5432;Database={dbName};Username=postgres;Password=postgres");
             });

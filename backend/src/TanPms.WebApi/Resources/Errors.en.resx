@@ -120,4 +120,22 @@
   <data name="file.not_found_DETAIL" xml:space="preserve">
     <value>The requested file does not exist, or it is a legacy file key that was not uploaded through the file service and cannot be downloaded.</value>
   </data>
+  <data name="auth.password_policy_TITLE" xml:space="preserve">
+    <value>Password does not meet policy</value>
+  </data>
+  <data name="auth.password_policy_DETAIL" xml:space="preserve">
+    <value>The password must be between 10 and 256 characters long.</value>
+  </data>
+  <data name="auth.refresh_token_invalid_TITLE" xml:space="preserve">
+    <value>Session expired</value>
+  </data>
+  <data name="auth.refresh_token_invalid_DETAIL" xml:space="preserve">
+    <value>The refresh token is invalid, expired or revoked. Please sign in again.</value>
+  </data>
+  <data name="auth.rate_limited_TITLE" xml:space="preserve">
+    <value>Too many attempts</value>
+  </data>
+  <data name="auth.rate_limited_DETAIL" xml:space="preserve">
+    <value>Too many requests were made in a short time. Please wait a moment and try again.</value>
+  </data>
 </root>
