@@ -36,6 +36,7 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { CurrencyInput } from "@/components/forms/currency-input";
 import { ReasonDialog } from "@/components/forms/reason-dialog";
 import { FormField } from "@/components/forms/form-field";
+import { CustomerPortalAccountButton } from "./CustomerPortalAccountButton";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { usePermission } from "@/hooks/use-permission";
@@ -347,7 +348,10 @@ function LeaseDetailBody({ lease, propertyId }: LeaseDetailBodyProps) {
         <SummaryItem label={t("colUnit")}>
           {lease.unit.unitNumber} ({resolveLocalizedText(lease.unit.buildingName, locale)})
         </SummaryItem>
-        <SummaryItem label={t("colCustomer")}>{lease.customer.fullName}</SummaryItem>
+        <SummaryItem label={t("colCustomer")}>
+          <span className="block">{lease.customer.fullName}</span>
+          <CustomerPortalAccountButton customerId={lease.customer.id} />
+        </SummaryItem>
         <SummaryItem label={t("colPeriod")}>
           <span className="font-mono text-xs tabular-nums">
             {lease.startDate} - {lease.endDate}

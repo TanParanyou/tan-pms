@@ -27,10 +27,12 @@ import {
   LogOut,
   Menu,
   Search,
+  KeyRound,
   Settings,
   User,
 } from "lucide-react";
 import { useSignOut } from "@/hooks/use-sign-out";
+import { ChangePasswordDialog } from "@/components/forms/change-password-dialog";
 
 export interface AdminNavbarProps {
   selectedProperty: string;
@@ -56,6 +58,7 @@ export function AdminNavbar({
   const { locale, setLocale } = useAppLocale();
   const tCommon = useTranslations("common");
   const { signOut, isSigningOut } = useSignOut();
+  const [showChangePassword, setShowChangePassword] = React.useState(false);
   const tShell = useTranslations("admin.shell");
 
   return (
@@ -303,6 +306,14 @@ export function AdminNavbar({
                 </button>
               </DropdownMenuItem>
 
+              <DropdownMenuItem
+                onSelect={() => setShowChangePassword(true)}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-body hover:text-ink hover:bg-surface-soft rounded-lg cursor-pointer transition-colors"
+              >
+                <KeyRound className="h-3.5 w-3.5 text-mute" />
+                <span>{tShell("changePassword")}</span>
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator className="bg-hairline my-1" />
 
               <DropdownMenuItem
@@ -317,6 +328,7 @@ export function AdminNavbar({
           </DropdownMenu>
         </div>
       </div>
+      <ChangePasswordDialog open={showChangePassword} onOpenChange={setShowChangePassword} />
     </header>
   );
 }

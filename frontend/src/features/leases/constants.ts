@@ -1,6 +1,8 @@
 import type { BadgeProps } from "@/components/ui/badge";
 import type { LeaseStatusType } from "./types";
 
+export const PERMISSION_LEASES_MANAGE = "admin.leases.manage";
+
 export const LEASE_STATUS_OPTIONS: readonly LeaseStatusType[] = [
   "Active",
   "MoveOutNotice",

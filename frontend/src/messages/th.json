@@ -67,7 +67,11 @@
     "master_data_in_use": "ไม่สามารถลบได้ เนื่องจากข้อมูลนี้ถูกใช้งานอยู่ในรายการอื่น กรุณาปิดการใช้งานแทนหรือเลิกใช้งานก่อน",
     "localized_text_thai_required": "ต้องระบุข้อความภาษาไทย",
     "localized_text_too_long": "ข้อความยาวเกินกำหนด",
-    "auth_invalid_credentials": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
+    "auth_invalid_credentials": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
+    "auth_rate_limited": "มีการเรียกใช้งานบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่",
+    "auth_refresh_token_invalid": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
+    "auth_password_policy": "รหัสผ่านไม่ผ่านเงื่อนไข ต้องมีความยาวอย่างน้อย 10 ตัวอักษร",
+    "retry_after": "ลองใหม่ได้ใน {seconds} วินาที"
   },
   "common": {
     "currencySymbol": "฿",
@@ -195,17 +199,49 @@
     "password": "รหัสผ่าน",
     "loginAsAdmin": "เข้าสู่ระบบ Admin",
     "loginAsClient": "เข้าสู่ระบบ Client",
-    "propertyScopeLabel": "สิทธิ์สาขาที่ได้รับอนุญาต",
     "scopeTag": "ขอบเขตสิทธิ์การใช้งาน",
     "scopeAdmin": "AdminScope",
     "scopeClient": "ClientScope",
     "footer": "องค์กรเดียว หลายสาขา • แยกการยืนยันตัวตนอย่างเคร่งครัด",
-    "demoRole": "เลือกบทบาททดสอบ (Demo Role)",
-    "roleSuperAdmin": "Super Admin (สำนักงานใหญ่ HQ)",
-    "rolePropertyManager": "ผู้จัดการสาขา (BKK)",
-    "roleFrontDesk": "พนักงานต้อนรับ (BKK01)",
-    "permissionsBadge": "{count} สิทธิ์",
-    "propertiesBadge": "{count} สาขา"
+    "loginIdentifier": "เลขประจำตัวประชาชน / อีเมล / ชื่อผู้ใช้",
+    "signingIn": "กำลังเข้าสู่ระบบ...",
+    "errorInvalidCredentials": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง หรือบัญชีไม่สามารถใช้งานได้ในขณะนี้",
+    "errorRateLimited": "พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่",
+    "errorRateLimitedWithSeconds": "พยายามเข้าสู่ระบบบ่อยเกินไป กรุณาลองใหม่ใน {seconds} วินาที",
+    "errorNetwork": "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่",
+    "restoringSession": "กำลังกู้คืนเซสชัน...",
+    "changePassword": {
+      "title": "เปลี่ยนรหัสผ่าน",
+      "description": "กรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่อย่างน้อย {min} ตัวอักษร",
+      "current": "รหัสผ่านปัจจุบัน",
+      "new": "รหัสผ่านใหม่",
+      "confirm": "ยืนยันรหัสผ่านใหม่",
+      "hint": "อย่างน้อย {min} ตัวอักษร",
+      "errorCurrent": "กรุณากรอกรหัสผ่านปัจจุบัน",
+      "errorPolicy": "รหัสผ่านใหม่ต้องมีอย่างน้อย {min} ตัวอักษร",
+      "errorMismatch": "รหัสผ่านยืนยันไม่ตรงกัน",
+      "submit": "เปลี่ยนรหัสผ่าน",
+      "doneDescription": "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว",
+      "doneMessage": "ระบบได้ออกจากระบบทุกอุปกรณ์แล้ว กรุณาเข้าสู่ระบบใหม่ด้วยรหัสผ่านใหม่",
+      "goToLogin": "ไปหน้าเข้าสู่ระบบ"
+    },
+    "setPassword": {
+      "password": "รหัสผ่าน",
+      "hint": "อย่างน้อย {min} ตัวอักษร รหัสผ่านจะไม่ถูกแสดงอีกหลังบันทึก",
+      "errorPolicy": "รหัสผ่านต้องมีอย่างน้อย {min} ตัวอักษร",
+      "errorIdentifier": "กรุณากรอกชื่อเข้าสู่ระบบ"
+    },
+    "portalAccount": {
+      "button": "บัญชีพอร์ทัลลูกค้า",
+      "title": "บัญชีเข้าสู่ระบบของลูกค้า",
+      "description": "สร้างหรือตั้งค่าบัญชีสำหรับให้ลูกค้าเข้าใช้งานฝั่ง Client",
+      "action": "บันทึกบัญชี",
+      "confirmTitle": "ยืนยันการตั้งค่าบัญชีลูกค้า",
+      "confirmMessage": "ต้องการสร้างหรือแก้ไขบัญชีเข้าสู่ระบบของลูกค้ารายนี้ใช่หรือไม่",
+      "identifier": "ชื่อเข้าสู่ระบบของลูกค้า",
+      "identifierPlaceholder": "อีเมลหรือชื่อผู้ใช้",
+      "success": "บันทึกบัญชีลูกค้าเรียบร้อยแล้ว"
+    }
   },
   "admin": {
     "shell": {
@@ -228,7 +264,8 @@
       "mobileTabStays": "เข้าพัก",
       "mobileTabReservations": "การจอง",
       "mobileTabMeters": "มิเตอร์",
-      "mobileTabMore": "เมนู"
+      "mobileTabMore": "เมนู",
+      "changePassword": "เปลี่ยนรหัสผ่าน"
     },
     "nav": {
       "rack": "ผังห้องพักรวม",
@@ -318,7 +355,17 @@
       "confirmReactivateTitle": "เปิดใช้งานบัญชีอีกครั้ง",
       "confirmReactivateMessage": "ผู้ใช้จะกลับมาเข้าสู่ระบบได้ตามสิทธิ์เดิม",
       "toastDeactivated": "ระงับบัญชีแล้ว",
-      "toastReactivated": "เปิดใช้งานบัญชีแล้ว"
+      "toastReactivated": "เปิดใช้งานบัญชีแล้ว",
+      "btnResetPassword": "รีเซ็ตรหัสผ่าน",
+      "fieldInitialPassword": "รหัสผ่านเริ่มต้น",
+      "initialPasswordHint": "อย่างน้อย {min} ตัวอักษร และจะไม่ถูกแสดงอีกหลังบันทึก",
+      "errorInitialPassword": "รหัสผ่านต้องมีอย่างน้อย {min} ตัวอักษร",
+      "placeholderInitialPassword": "กรอกรหัสผ่านเริ่มต้น",
+      "resetPasswordTitle": "รีเซ็ตรหัสผ่านผู้ใช้",
+      "resetPasswordDescription": "ตั้งรหัสผ่านใหม่ให้ผู้ใช้ ผู้ใช้จะถูกออกจากระบบทุกอุปกรณ์",
+      "confirmResetPasswordTitle": "ยืนยันการรีเซ็ตรหัสผ่าน",
+      "confirmResetPasswordMessage": "ต้องการรีเซ็ตรหัสผ่านของ {name} ใช่หรือไม่ เซสชันเดิมทั้งหมดจะสิ้นสุด",
+      "toastPasswordReset": "รีเซ็ตรหัสผ่านเรียบร้อยแล้ว"
     },
     "propertySwitcher": "สาขาปฏิบัติการ",
     "roomRack": {
@@ -1839,7 +1886,8 @@
         "usage": "น้ำ-ไฟ",
         "workOrders": "แจ้งซ่อม",
         "parcels": "พัสดุ",
-        "badge": "ผู้เช่า"
+        "badge": "ผู้เช่า",
+        "changePassword": "เปลี่ยนรหัสผ่าน"
       },
       "booking": {
         "fieldProperty": "สาขา",

@@ -5,7 +5,29 @@ import { NextIntlClientProvider } from "next-intl";
 import thMessages from "@/messages/th.json";
 import { AdminWorkspaceProvider } from "@/components/shared/admin-workspace-provider";
 import { PermissionProvider } from "@/hooks/use-permission";
-import type { PropertyHierarchyResponse } from "@/generated/api";
+import type { AuthSessionResponse, PropertyHierarchyResponse } from "@/generated/api";
+import { setSession } from "@/lib/auth/session-store";
+
+/** Puts a signed-in session (memory token + refresh token in sessionStorage) into the auth store. */
+export function signInAs(scope: "admin" | "client", overrides: Partial<AuthSessionResponse> = {}): AuthSessionResponse {
+  const response: AuthSessionResponse = {
+    userId: "u-test",
+    scope,
+    displayName: "Test User",
+    roleCode: scope === "admin" ? "OrganizationAdmin" : "Customer",
+    roleName: { th: "ผู้ใช้ทดสอบ", en: "Test user" },
+    allowedProperties: [],
+    permissions: scope === "admin" ? ["*"] : [],
+    accessToken: "access-token-1",
+    accessTokenExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    refreshToken: "refresh-token-1",
+    refreshTokenExpiresAt: new Date(Date.now() + 7 * 24 * 3_600_000).toISOString(),
+    tokenType: "Bearer",
+    ...overrides,
+  };
+  setSession(response);
+  return response;
+}
 
 export function renderAdmin(ui: React.ReactElement, permissions: string[] = ["*"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

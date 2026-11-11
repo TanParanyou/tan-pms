@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations, useLocale } from "next-intl";
-import { ArrowLeft, UserCheck, UserX } from "lucide-react";
+import { ArrowLeft, KeyRound, UserCheck, UserX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageLoading } from "@/components/ui/mono-spinner";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { FormField } from "@/components/forms/form-field";
+import { SetPasswordDialog } from "@/components/forms/set-password-dialog";
 import { ReasonDialog } from "@/components/forms/reason-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { DetailItem } from "@/components/shared/detail-item";
@@ -24,6 +25,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useToast } from "@/hooks/use-toast";
 import { CENTRAL_PROPERTIES } from "@/constants/master-data";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 import { resolveLocalizedText } from "@/lib/i18n/localized-text";
 import {
   useAdminRoles,
@@ -31,8 +33,9 @@ import {
   useUpsertAdminUserMutation,
   useDeactivateAdminUserMutation,
   useReactivateAdminUserMutation,
+  useResetAdminUserPasswordMutation,
 } from "../api/use-users";
-import { upsertAdminUserSchema, type UpsertAdminUserFormValues } from "../schemas/user-schemas";
+import { createAdminUserSchema, upsertAdminUserSchema, type UpsertAdminUserFormValues } from "../schemas/user-schemas";
 import { PERMISSION_USERS_MANAGE, PERMISSION_USERS_DEACTIVATE, PERMISSION_USERS_REACTIVATE, USER_FORM_DEFAULTS } from "../constants";
 import type { AdminUserDto } from "../types";
 
@@ -85,14 +88,16 @@ function UserBody({ user, roles }: UserBodyProps) {
   const upsert = useUpsertAdminUserMutation();
   const deactivate = useDeactivateAdminUserMutation();
   const reactivate = useReactivateAdminUserMutation();
+  const resetPassword = useResetAdminUserPasswordMutation();
   const inFlight = useRef(false);
   const isBusy = upsert.isPending || deactivate.isPending || reactivate.isPending;
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showReactivate, setShowReactivate] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   const form = useForm<UpsertAdminUserFormValues>({
-    resolver: zodResolver(upsertAdminUserSchema),
+    resolver: zodResolver(isEdit ? upsertAdminUserSchema : createAdminUserSchema),
     values: user
       ? {
           username: user.username,
@@ -111,9 +116,10 @@ function UserBody({ user, roles }: UserBodyProps) {
     inFlight.current = true;
     const v = form.getValues();
     try {
-      const saved = await upsert.mutateAsync({ id: user?.id, ...v });
+      const { initialPassword, ...rest } = v;
+      const saved = await upsert.mutateAsync({ id: user?.id, ...rest, ...(isEdit ? {} : { initialPassword }) });
       toastSuccess(t("saveSuccess"));
-      form.reset(v);
+      form.reset({ ...v, initialPassword: "" });
       if (!isEdit) router.push(`/admin/users/${saved.id}`);
     } catch (err) {
       toastApiError(err);
@@ -164,6 +170,12 @@ function UserBody({ user, roles }: UserBodyProps) {
                 <span>{tCommon("back")}</span>
               </Button>
             </Link>
+            {user && canManage && (
+              <Button type="button" size="sm" variant="outline" disabled={isBusy} onClick={() => setShowResetPassword(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
+                <KeyRound className="h-4 w-4" />
+                <span>{t("btnResetPassword")}</span>
+              </Button>
+            )}
             {user && canDeactivate && user.isActive && (
               <Button type="button" size="sm" variant="outline" disabled={isBusy} onClick={() => setShowDeactivate(true)} className="h-9 gap-1.5 rounded-full px-4 text-xs">
                 <UserX className="h-4 w-4" />
@@ -218,6 +230,11 @@ function UserBody({ user, roles }: UserBodyProps) {
                 ))}
               </SelectPill>
             </FormField>
+            {!isEdit && (
+              <FormField id="user-initial-password" label={t("fieldInitialPassword")} required helperText={t("initialPasswordHint", { min: PASSWORD_MIN_LENGTH })} error={form.formState.errors.initialPassword ? t("errorInitialPassword", { min: PASSWORD_MIN_LENGTH }) : undefined}>
+                <Input id="user-initial-password" type="password" autoComplete="new-password" placeholder={t("placeholderInitialPassword")} disabled={isBusy} className="h-10 rounded-full text-sm" {...form.register("initialPassword")} />
+              </FormField>
+            )}
           </div>
           <FormField label={t("allowedProperties")} required error={form.formState.errors.allowedPropertyIds ? t("errorProperties") : undefined}>
             <Controller
@@ -267,6 +284,27 @@ function UserBody({ user, roles }: UserBodyProps) {
         variant="info"
         isLoading={reactivate.isPending}
       />
+      {user && (
+        <SetPasswordDialog
+          open={showResetPassword}
+          onOpenChange={setShowResetPassword}
+          title={t("resetPasswordTitle")}
+          description={t("resetPasswordDescription")}
+          actionText={t("btnResetPassword")}
+          confirmTitle={t("confirmResetPasswordTitle")}
+          confirmMessage={t("confirmResetPasswordMessage", { name: user.fullName })}
+          onSubmit={async (v) => {
+            try {
+              await resetPassword.mutateAsync({ id: user.id, newPassword: v.password });
+              toastSuccess(t("toastPasswordReset"));
+              return true;
+            } catch (err) {
+              toastApiError(err);
+              return false;
+            }
+          }}
+        />
+      )}
       {user && (
         <ReasonDialog
           open={showDeactivate}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { AdminWorkspaceProvider, useAdminWorkspace } from "@/components/shared/admin-workspace-provider";
 import { AdminNavbar } from "@/components/layout/admin-navbar";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
@@ -8,6 +8,9 @@ import { AdminBottomBar } from "@/components/layout/admin-bottom-bar";
 import { AdminMobileDrawer } from "@/components/layout/admin-mobile-drawer";
 import { QuickWalkInModal } from "@/features/rack/components/QuickWalkInModal";
 import { useTranslations } from "next-intl";
+import { RequireAuth } from "@/components/shared/require-auth";
+import { PermissionProvider } from "@/hooks/use-permission";
+import { useAuthState } from "@/lib/auth/use-auth-state";
 import { usePathname } from "next/navigation";
 import { adminModuleKeyFromPath } from "@/lib/admin-nav";
 
@@ -85,10 +88,26 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AdminShell({ children }: { children: React.ReactNode }) {
+  const { profile } = useAuthState();
+  const properties = useMemo(
+    () => (profile?.allowedProperties ?? []).map((p) => ({ id: p.id, code: p.code, name: p.name })),
+    [profile]
+  );
+  const allowedPropertyIds = useMemo(() => properties.map((p) => p.id), [properties]);
+  return (
+    <PermissionProvider roleCode={profile?.roleCode ?? ""} permissions={profile?.permissions ?? []} allowedPropertyIds={allowedPropertyIds}>
+      <AdminWorkspaceProvider properties={properties.length > 0 ? properties : undefined}>
+        <AdminLayoutInner>{children}</AdminLayoutInner>
+      </AdminWorkspaceProvider>
+    </PermissionProvider>
+  );
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AdminWorkspaceProvider>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
-    </AdminWorkspaceProvider>
+    <RequireAuth scope="admin">
+      <AdminShell>{children}</AdminShell>
+    </RequireAuth>
   );
 }

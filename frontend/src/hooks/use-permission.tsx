@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useMemo } from "react";
-import { CENTRAL_PROPERTIES } from "@/constants/master-data";
+import { getAuthState } from "@/lib/auth/session-store";
 
 export interface PermissionContextValue {
   permissions: readonly string[];
@@ -11,20 +11,6 @@ export interface PermissionContextValue {
   hasAnyPermission: (permissions: string[]) => boolean;
   hasPropertyAccess: (propertyId: string) => boolean;
 }
-
-const DEFAULT_ADMIN_PERMISSIONS: readonly string[] = [
-  "*",
-  "admin.users.manage",
-  "admin.users.view",
-  "admin.roles.view",
-  "admin.properties.all",
-  "admin.properties.scoped",
-  "admin.financial.all",
-  "admin.financial.approve",
-  "admin.operations.all",
-];
-
-const DEFAULT_ALLOWED_PROPERTIES: readonly string[] = CENTRAL_PROPERTIES.map((p) => p.id);
 
 const PermissionContext = createContext<PermissionContextValue | null>(null);
 
@@ -37,9 +23,9 @@ export interface PermissionProviderProps {
 
 export function PermissionProvider({
   children,
-  roleCode = "OrganizationAdmin",
-  permissions = DEFAULT_ADMIN_PERMISSIONS,
-  allowedPropertyIds = DEFAULT_ALLOWED_PROPERTIES,
+  roleCode = "",
+  permissions = [],
+  allowedPropertyIds = [],
 }: PermissionProviderProps) {
   const value = useMemo<PermissionContextValue>(() => {
     const hasPermission = (permission: string) => {
@@ -82,19 +68,17 @@ export function usePermission(): PermissionContextValue {
     return context;
   }
 
-  // Fallback defaults for dev/demo or unnested components
+  // No provider mounted: use the real session profile (never a hardcoded permission list).
+  const profile = getAuthState().profile;
+  const permissions = profile?.permissions ?? [];
+  const allowedPropertyIds = (profile?.allowedProperties ?? []).map((p) => p.id);
+  const has = (permission: string) => permissions.includes("*") || permissions.includes(permission);
   return {
-    permissions: DEFAULT_ADMIN_PERMISSIONS,
-    roleCode: "OrganizationAdmin",
-    allowedPropertyIds: DEFAULT_ALLOWED_PROPERTIES,
-    hasPermission: (permission: string) => {
-      if (DEFAULT_ADMIN_PERMISSIONS.includes("*")) return true;
-      return DEFAULT_ADMIN_PERMISSIONS.includes(permission);
-    },
-    hasAnyPermission: (required: string[]) => {
-      if (DEFAULT_ADMIN_PERMISSIONS.includes("*")) return true;
-      return required.some((req) => DEFAULT_ADMIN_PERMISSIONS.includes(req));
-    },
-    hasPropertyAccess: () => true,
+    permissions,
+    roleCode: profile?.roleCode ?? "",
+    allowedPropertyIds,
+    hasPermission: has,
+    hasAnyPermission: (required: string[]) => required.some(has),
+    hasPropertyAccess: (propertyId: string) => has("admin.properties.all") || allowedPropertyIds.includes(propertyId),
   };
 }

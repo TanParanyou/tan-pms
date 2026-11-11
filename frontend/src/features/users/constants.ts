@@ -11,4 +11,5 @@ export const USER_FORM_DEFAULTS = {
   roleCode: "",
   allowedPropertyIds: [] as string[],
   isActive: true,
+  initialPassword: "",
 };

@@ -3,6 +3,7 @@ import "./globals.css";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { LocaleProvider } from "@/components/shared/locale-provider";
+import { AuthProvider } from "@/components/shared/auth-provider";
 import { QueryProvider } from "@/components/shared/query-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { siteConfig } from "@/config/site";
@@ -25,7 +26,9 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages}>
           <LocaleProvider>
             <QueryProvider>
-              <ToastProvider>{children}</ToastProvider>
+              <AuthProvider>
+                <ToastProvider>{children}</ToastProvider>
+              </AuthProvider>
             </QueryProvider>
           </LocaleProvider>
         </NextIntlClientProvider>

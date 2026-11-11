@@ -26,11 +26,12 @@ import type { InvoiceItemDto } from "@/features/billing/types";
 import type { LeaseItemDto } from "@/features/leases/types";
 import type { StayDetailDto } from "@/generated/api";
 import type { ReceiptItemDto } from "@/features/files/types";
-import { renderAdmin, customerRef, unitRef, hierarchy } from "./test-utils";
+import { resetSessionForTests, REFRESH_TOKEN_STORAGE_KEY } from "@/lib/auth/session-store";
+import { renderAdmin, signInAs, customerRef, unitRef, hierarchy } from "./test-utils";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace: vi.fn() }),
   usePathname: () => "/client/dashboard",
 }));
 
@@ -392,6 +393,7 @@ describe("F4 sign-out and notification templates", () => {
   const renderLayout = () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     queryClient.setQueryData(["secret"], { token: "x" });
+    signInAs("client");
     const result = render(
       <QueryClientProvider client={queryClient}>
         <NextIntlClientProvider locale="th" messages={thMessages}>
@@ -408,15 +410,12 @@ describe("F4 sign-out and notification templates", () => {
 
   it("calls the logout endpoint, clears browser storage and the query cache, then routes to /login", async () => {
     const logout = vi.spyOn(apiClient, "logout").mockResolvedValue(undefined);
-    window.sessionStorage.setItem("auth", "token");
-    window.localStorage.setItem("tan-pms.session", "token");
     const { queryClient } = renderLayout();
     expect(screen.getByText(thMessages.client.portal.nav.badge)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: tc.logout }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/login"));
-    expect(logout).toHaveBeenCalledTimes(1);
-    expect(window.sessionStorage.getItem("auth")).toBeNull();
-    expect(window.localStorage.getItem("tan-pms.session")).toBeNull();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/login?scope=client"));
+    expect(logout).toHaveBeenCalledWith("refresh-token-1");
+    expect(window.sessionStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBeNull();
     expect(queryClient.getQueryData(["secret"])).toBeUndefined();
   });
 
@@ -424,8 +423,9 @@ describe("F4 sign-out and notification templates", () => {
     vi.spyOn(apiClient, "logout").mockRejectedValue(new Error("offline"));
     const { queryClient } = renderLayout();
     fireEvent.click(screen.getByRole("button", { name: tc.logout }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/login?scope=client"));
     expect(queryClient.getQueryData(["secret"])).toBeUndefined();
+    expect(window.sessionStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBeNull();
   });
 
   it("renders template titles through i18n and never shows raw template codes", async () => {

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { resetSessionForTests } from "@/lib/auth/session-store";
+import { signInAs } from "./test-utils";
 import { render, screen, fireEvent, act, renderHook } from "@testing-library/react";
 import React from "react";
 import { NextIntlClientProvider } from "next-intl";
@@ -495,13 +497,18 @@ describe("Enterprise Foundation Suite", () => {
       expect(result.current.hasActiveFilters).toBe(true);
     });
 
-    it("evaluates RBAC permissions with usePermission defaulting to full admin", () => {
-      const { result } = renderHook(() => usePermission());
+    it("denies everything without a session or provider and reads the real profile once signed in", () => {
+      resetSessionForTests();
+      const { result: anonymous } = renderHook(() => usePermission());
+      expect(anonymous.current.hasPermission("admin.users.manage")).toBe(false);
 
+      signInAs("admin", { permissions: ["admin.users.manage"], allowedProperties: [{ id: "prop-bkk01", code: "BKK01", name: { th: "สาขา", en: "Branch" } }] });
+      const { result } = renderHook(() => usePermission());
       expect(result.current.roleCode).toBe("OrganizationAdmin");
       expect(result.current.hasPermission("admin.users.manage")).toBe(true);
+      expect(result.current.hasPermission("admin.leases.manage")).toBe(false);
       expect(result.current.hasAnyPermission(["unknown.action", "admin.users.manage"])).toBe(true);
-      expect(result.current.hasPropertyAccess("prop-bkk01")).toBe(true);
+      resetSessionForTests();
     });
 
     it("evaluates custom restricted permissions inside PermissionProvider", () => {

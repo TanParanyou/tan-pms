@@ -40,3 +40,6 @@ export type ReverseFolioPaymentRequest = Schemas["ReverseFolioPaymentRequest"];
 export type CheckInOccupantInputDto = Schemas["CheckInOccupantInputDto"];
 export type BillingSettingsDto = Schemas["BillingSettingsDto"];
 export type UpdateBillingSettingsRequest = Schemas["UpdateBillingSettingsRequest"];
+export type ChangePasswordRequest = Schemas["ChangePasswordRequest"];
+export type CustomerAccountRequest = Schemas["CustomerAccountRequest"];
+export type CustomerAccountDto = Schemas["CustomerAccountDto"];

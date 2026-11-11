@@ -125,6 +125,9 @@ import type {
 import type {
   BillingSettingsDto,
   UpdateBillingSettingsRequest,
+  ChangePasswordRequest,
+  CustomerAccountRequest,
+  CustomerAccountDto,
   UpsertBuildingRequest,
   BuildingDetailDto,
   UpsertFloorRequest,
@@ -138,6 +141,7 @@ import type {
   CheckInOccupantInputDto,
 } from "@/features/client/types";
 import { ApiError } from "./api-error";
+import { getAccessToken, getRefreshToken, setSession } from "@/lib/auth/session-store";
 
 export interface PagingParams {
   page?: number;
@@ -156,47 +160,71 @@ export function toQueryString(params: Record<string, string | number | null | un
 
 export interface ApiClientConfig {
   baseUrl?: string;
-  defaultScope?: "AdminScope" | "ClientScope";
-  defaultPropertyId?: string;
 }
+
+/** Endpoints that never carry a bearer token and are never retried after a refresh. */
+const PUBLIC_AUTH_ENDPOINTS = ["/api/v1/auth/login", "/api/v1/auth/refresh"];
+/** Endpoints that carry the token but must not trigger refresh-and-retry (avoids loops on sign-out). */
+const NO_RETRY_ENDPOINTS = [...PUBLIC_AUTH_ENDPOINTS, "/api/v1/auth/logout"];
+
+const matchesEndpoint = (endpoint: string, list: string[]) => list.some((e) => endpoint.startsWith(e));
+
+export type AuthFailureHandler = () => void;
 
 export class ApiClient {
   private baseUrl: string;
-  private defaultScope?: "AdminScope" | "ClientScope";
-  private defaultPropertyId?: string;
+  private refreshPromise: Promise<boolean> | null = null;
+  private authFailureHandler: AuthFailureHandler | null = null;
 
   constructor(config: ApiClientConfig = {}) {
     this.baseUrl = config.baseUrl ?? "";
-    this.defaultScope = config.defaultScope;
-    this.defaultPropertyId = config.defaultPropertyId;
   }
 
-  public setScope(scope: "AdminScope" | "ClientScope") {
-    this.defaultScope = scope;
+  /** Called once when a refresh fails (session is over): the app clears caches and redirects to login. */
+  public setAuthFailureHandler(handler: AuthFailureHandler | null) {
+    this.authFailureHandler = handler;
   }
 
-  public setPropertyId(propertyId: string) {
-    this.defaultPropertyId = propertyId;
+  /**
+   * Single-flight refresh: concurrent callers (several 401s, timer, tab focus) share one in-flight request,
+   * because refresh tokens rotate and a second call with the old token would revoke the whole family.
+   * Resolves true when a new session was stored, false when the session could not be renewed.
+   */
+  public refreshSession(): Promise<boolean> {
+    if (this.refreshPromise) return this.refreshPromise;
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return Promise.resolve(false);
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${this.baseUrl}/api/v1/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json, application/problem+json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (!response.ok) return false;
+        setSession((await response.json()) as AuthSessionResponse);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+    return this.refreshPromise;
   }
 
-  private async fetchOk(endpoint: string, options: RequestInit, accept: string): Promise<Response> {
-    const url = `${this.baseUrl}${endpoint}`;
+  private async send(url: string, endpoint: string, options: RequestInit, accept: string): Promise<Response> {
     const headers = new Headers(options.headers);
     if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
       headers.set("Content-Type", "application/json");
     }
     headers.set("Accept", accept);
-
-    if (this.defaultScope && !headers.has("X-TanPms-Scope")) {
-      headers.set("X-TanPms-Scope", this.defaultScope);
+    const token = getAccessToken();
+    if (token && !matchesEndpoint(endpoint, PUBLIC_AUTH_ENDPOINTS)) {
+      headers.set("Authorization", `Bearer ${token}`);
     }
-    if (this.defaultPropertyId && !headers.has("X-TanPms-Property-Id")) {
-      headers.set("X-TanPms-Property-Id", this.defaultPropertyId);
-    }
-
-    let response: Response;
     try {
-      response = await fetch(url, { ...options, headers });
+      return await fetch(url, { ...options, headers });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
         throw ApiError.fromAbort();
@@ -207,6 +235,21 @@ export class ApiClient {
         message: err instanceof Error ? err.message : "Network failure",
       });
     }
+  }
+
+  private async fetchOk(endpoint: string, options: RequestInit, accept: string): Promise<Response> {
+    const url = `${this.baseUrl}${endpoint}`;
+    let response = await this.send(url, endpoint, options, accept);
+
+    if (response.status === 401 && !matchesEndpoint(endpoint, NO_RETRY_ENDPOINTS)) {
+      const refreshed = await this.refreshSession();
+      if (refreshed) {
+        response = await this.send(url, endpoint, options, accept);
+      }
+      if (!refreshed || response.status === 401) {
+        this.authFailureHandler?.();
+      }
+    }
 
     if (!response.ok) {
       let problemDetails: ProblemDetailsResponse | null = null;
@@ -215,12 +258,14 @@ export class ApiClient {
       } catch {
         // Response was not JSON
       }
+      const retryAfterHeader = response.headers.get("Retry-After");
+      const retryAfter = retryAfterHeader && /^\d+$/.test(retryAfterHeader) ? Number(retryAfterHeader) : undefined;
 
       if (problemDetails && (problemDetails.errorCode || problemDetails.title)) {
-        throw ApiError.fromProblemDetails(response.status, problemDetails);
+        throw ApiError.fromProblemDetails(response.status, problemDetails, retryAfter);
       }
 
-      throw ApiError.fromUnknown(response.status);
+      throw ApiError.fromUnknown(response.status, undefined, retryAfter);
     }
     return response;
   }
@@ -233,12 +278,8 @@ export class ApiClient {
     return (await response.json()) as T;
   }
 
-  private async requestBlob(endpoint: string, scope: "AdminScope" | "ClientScope" = "AdminScope"): Promise<Blob> {
-    const response = await this.fetchOk(
-      endpoint,
-      { method: "GET", headers: { "X-TanPms-Scope": scope } },
-      "*/*, application/problem+json"
-    );
+  private async requestBlob(endpoint: string): Promise<Blob> {
+    const response = await this.fetchOk(endpoint, { method: "GET" }, "*/*, application/problem+json");
     return response.blob();
   }
 
@@ -256,29 +297,41 @@ export class ApiClient {
     });
   }
 
-  async logout(): Promise<void> {
-    await this.request<void>(`/api/v1/auth/logout`, { method: "POST" });
+  async logout(refreshToken?: string | null): Promise<void> {
+    await this.request<void>(`/api/v1/auth/logout`, {
+      method: "POST",
+      body: JSON.stringify({ refreshToken: refreshToken ?? null }),
+    });
+  }
+
+  async changePassword(req: ChangePasswordRequest): Promise<void> {
+    await this.request<void>(`/api/v1/auth/change-password`, { method: "POST", body: JSON.stringify(req) });
+  }
+
+  resetAdminUserPassword(userId: string, newPassword: string) {
+    return this.adminRootCall<AdminUserDto>(`users/${userId}/reset-password`, "POST", { newPassword });
+  }
+
+  upsertCustomerAccount(customerId: string, req: CustomerAccountRequest) {
+    return this.adminRootCall<CustomerAccountDto>(`customers/${customerId}/account`, "POST", req);
   }
 
   // --- 2. RBAC & Notifications APIs ---
   async getAdminRoles(): Promise<RoleCatalogResponse> {
     return this.request<RoleCatalogResponse>(`/api/v1/admin/roles`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async getAdminUsers(params: PagingParams = {}): Promise<AdminUserListResponse> {
     return this.request<AdminUserListResponse>(`/api/v1/admin/users${toQueryString({ ...params })}`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async upsertAdminUser(req: UpsertAdminUserRequest): Promise<AdminUserDto> {
     return this.request<AdminUserDto>(`/api/v1/admin/users`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -286,7 +339,6 @@ export class ApiClient {
   async dispatchAdminNotification(req: DispatchNotificationRequest): Promise<NotificationItemDto> {
     return this.request<NotificationItemDto>(`/api/v1/admin/notifications/dispatch`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -294,7 +346,6 @@ export class ApiClient {
   async getClientNotifications(params: PagingParams = {}): Promise<NotificationListResponse> {
     return this.request<NotificationListResponse>(`/api/v1/client/notifications${toQueryString({ ...params })}`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "ClientScope" },
     });
   }
 
@@ -302,14 +353,12 @@ export class ApiClient {
   async getAdminPropertyHierarchy(propertyId: string): Promise<PropertyHierarchyResponse> {
     return this.request<PropertyHierarchyResponse>(`/api/v1/admin/properties/${propertyId}/hierarchy`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async upsertAdminUnitMaster(propertyId: string, req: UpsertUnitMasterRequest): Promise<UnitMasterItemDto> {
     return this.request<UnitMasterItemDto>(`/api/v1/admin/properties/${propertyId}/units`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -318,14 +367,12 @@ export class ApiClient {
   async getAdminPropertyRates(propertyId: string): Promise<PropertyRateCatalogResponse> {
     return this.request<PropertyRateCatalogResponse>(`/api/v1/admin/properties/${propertyId}/rates`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async upsertAdminRatePlan(propertyId: string, req: UpsertRatePlanRequest): Promise<RatePlanItemDto> {
     return this.request<RatePlanItemDto>(`/api/v1/admin/properties/${propertyId}/rates/plans`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -333,7 +380,6 @@ export class ApiClient {
   async upsertAdminUtilityTariff(propertyId: string, req: UpsertUtilityTariffRequest): Promise<UtilityTariffItemDto> {
     return this.request<UtilityTariffItemDto>(`/api/v1/admin/properties/${propertyId}/rates/utilities`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -341,7 +387,6 @@ export class ApiClient {
   async upsertAdminTaxProfile(propertyId: string, req: UpsertTaxProfileRequest): Promise<TaxProfileItemDto> {
     return this.request<TaxProfileItemDto>(`/api/v1/admin/properties/${propertyId}/rates/taxes`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -349,7 +394,6 @@ export class ApiClient {
   async simulateAdminRateAndTax(propertyId: string, req: RateSimulationRequest): Promise<RateSimulationResponse> {
     return this.request<RateSimulationResponse>(`/api/v1/admin/properties/${propertyId}/rates/simulate`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -368,7 +412,6 @@ export class ApiClient {
       `/api/v1/admin/properties/${propertyId}/availability?${query.toString()}`,
       {
         method: "GET",
-        headers: { "X-TanPms-Scope": "AdminScope" },
       }
     );
   }
@@ -379,14 +422,13 @@ export class ApiClient {
   ): Promise<ReservationListResponse> {
     return this.request<ReservationListResponse>(
       `/api/v1/admin/properties/${propertyId}/reservations${toQueryString({ ...params })}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
   async createAdminReservation(propertyId: string, req: CreateAdminReservationRequest): Promise<ReservationItemDto> {
     return this.request<ReservationItemDto>(`/api/v1/admin/properties/${propertyId}/reservations`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -400,7 +442,6 @@ export class ApiClient {
       `/api/v1/admin/properties/${propertyId}/reservations/${reservationId}/assign-unit`,
       {
         method: "POST",
-        headers: { "X-TanPms-Scope": "AdminScope" },
         body: JSON.stringify(req),
       }
     );
@@ -411,7 +452,6 @@ export class ApiClient {
       `/api/v1/admin/properties/${propertyId}/reservations/${reservationId}/confirm`,
       {
         method: "POST",
-        headers: { "X-TanPms-Scope": "AdminScope" },
       }
     );
   }
@@ -425,7 +465,6 @@ export class ApiClient {
       `/api/v1/admin/properties/${propertyId}/reservations/${reservationId}/cancel`,
       {
         method: "POST",
-        headers: { "X-TanPms-Scope": "AdminScope" },
         body: JSON.stringify(req),
       }
     );
@@ -440,21 +479,18 @@ export class ApiClient {
     const query = new URLSearchParams(params);
     return this.request<AvailabilitySearchResponse>(`/api/v1/client/availability?${query.toString()}`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "ClientScope" },
     });
   }
 
   async getClientReservations(params: PagingParams = {}): Promise<ReservationListResponse> {
     return this.request<ReservationListResponse>(`/api/v1/client/reservations${toQueryString({ ...params })}`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "ClientScope" },
     });
   }
 
   async createClientHoldReservation(req: CreateClientHoldReservationRequest): Promise<ReservationItemDto> {
     return this.request<ReservationItemDto>(`/api/v1/client/reservations/hold`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "ClientScope" },
       body: JSON.stringify(req),
     });
   }
@@ -465,7 +501,6 @@ export class ApiClient {
   ): Promise<ReservationItemDto> {
     return this.request<ReservationItemDto>(`/api/v1/client/reservations/${reservationId}/slip`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "ClientScope" },
       body: JSON.stringify(req),
     });
   }
@@ -474,14 +509,12 @@ export class ApiClient {
   async getAdminRoomRack(propertyId: string): Promise<RoomRackResponse> {
     return this.request<RoomRackResponse>(`/api/v1/admin/properties/${propertyId}/rack`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async checkInStay(req: CheckInStayRequest): Promise<StaySummaryDto> {
     return this.request<StaySummaryDto>(`/api/v1/admin/stays/check-in`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -492,14 +525,12 @@ export class ApiClient {
   ): Promise<StayListResponse> {
     return this.request<StayListResponse>(`/api/v1/admin/properties/${propertyId}/stays${toQueryString({ ...params })}`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async extendAdminStay(propertyId: string, stayId: string, req: ExtendStayRequest): Promise<StayDetailDto> {
     return this.request<StayDetailDto>(`/api/v1/admin/properties/${propertyId}/stays/${stayId}/extend`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -507,7 +538,6 @@ export class ApiClient {
   async addAdminFolioCharge(propertyId: string, stayId: string, req: AddFolioChargeRequest): Promise<StayDetailDto> {
     return this.request<StayDetailDto>(`/api/v1/admin/properties/${propertyId}/stays/${stayId}/folio/charges`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -519,7 +549,6 @@ export class ApiClient {
   ): Promise<StayDetailDto> {
     return this.request<StayDetailDto>(`/api/v1/admin/properties/${propertyId}/stays/${stayId}/folio/payments`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -527,7 +556,6 @@ export class ApiClient {
   async checkOutAdminStay(propertyId: string, stayId: string, req: CheckOutStayRequest): Promise<StayDetailDto> {
     return this.request<StayDetailDto>(`/api/v1/admin/properties/${propertyId}/stays/${stayId}/check-out`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -540,7 +568,7 @@ export class ApiClient {
     if (params.unmaskPii) qs.set("unmaskPii", "true");
     return this.request<RegulatoryExportResponse>(
       `/api/v1/admin/properties/${propertyId}/regulatory-exports?${qs.toString()}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
@@ -551,14 +579,13 @@ export class ApiClient {
   ): Promise<LeaseListResponse> {
     return this.request<LeaseListResponse>(
       `/api/v1/admin/properties/${propertyId}/leases${toQueryString({ ...params })}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
   async getAdminLease(propertyId: string, leaseId: string): Promise<LeaseItemDto> {
     return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
@@ -566,14 +593,12 @@ export class ApiClient {
     const query = search ? `?search=${encodeURIComponent(search)}` : "";
     return this.request<CustomerListResponse>(`/api/v1/admin/properties/${propertyId}/customers${query}`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async createAdminLease(propertyId: string, req: CreateLeaseRequest): Promise<LeaseItemDto> {
     return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -581,7 +606,6 @@ export class ApiClient {
   async addAdminLeaseOccupant(propertyId: string, leaseId: string, req: LeaseOccupantRequest): Promise<LeaseItemDto> {
     return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/occupants`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -589,7 +613,6 @@ export class ApiClient {
   async addAdminLeaseVehicle(propertyId: string, leaseId: string, req: LeaseVehicleRequest): Promise<LeaseItemDto> {
     return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/vehicles`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -597,7 +620,6 @@ export class ApiClient {
   async renewAdminLease(propertyId: string, leaseId: string, req: RenewLeaseRequest): Promise<LeaseItemDto> {
     return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/renew`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -605,7 +627,6 @@ export class ApiClient {
   async giveAdminLeaseMoveOutNotice(propertyId: string, leaseId: string): Promise<LeaseItemDto> {
     return this.request<LeaseItemDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/move-out-notice`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
@@ -616,7 +637,6 @@ export class ApiClient {
   ): Promise<LeaseSettlementDto> {
     return this.request<LeaseSettlementDto>(`/api/v1/admin/properties/${propertyId}/leases/${leaseId}/settle-move-out`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -630,7 +650,7 @@ export class ApiClient {
     if (params.buildingId) qs.set("buildingId", params.buildingId);
     return this.request<MeterReadingSheetResponse>(
       `/api/v1/admin/properties/${propertyId}/meter-readings?${qs.toString()}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
@@ -640,7 +660,6 @@ export class ApiClient {
   ): Promise<SaveMeterReadingsResponse> {
     return this.request<SaveMeterReadingsResponse>(`/api/v1/admin/properties/${propertyId}/meter-readings`, {
       method: "PUT",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -648,14 +667,14 @@ export class ApiClient {
   async runAdminBatchInvoices(propertyId: string, req: BatchInvoiceRunRequest): Promise<BatchInvoiceRunResponse> {
     return this.request<BatchInvoiceRunResponse>(
       `/api/v1/admin/properties/${propertyId}/billing/batch-invoice-runs`,
-      { method: "POST", headers: { "X-TanPms-Scope": "AdminScope" }, body: JSON.stringify(req) }
+      { method: "POST", body: JSON.stringify(req) }
     );
   }
 
   async issueAdminInvoicesForPeriod(propertyId: string, req: IssueInvoicesRequest): Promise<InvoiceIssueResponse> {
     return this.request<InvoiceIssueResponse>(
       `/api/v1/admin/properties/${propertyId}/billing/batch-invoice-runs/issue`,
-      { method: "POST", headers: { "X-TanPms-Scope": "AdminScope" }, body: JSON.stringify(req) }
+      { method: "POST", body: JSON.stringify(req) }
     );
   }
 
@@ -665,21 +684,19 @@ export class ApiClient {
   ): Promise<InvoiceListResponse> {
     return this.request<InvoiceListResponse>(
       `/api/v1/admin/properties/${propertyId}/invoices${toQueryString({ ...params })}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
   async issueAdminInvoice(propertyId: string, invoiceId: string): Promise<InvoiceItemDto> {
     return this.request<InvoiceItemDto>(`/api/v1/admin/properties/${propertyId}/invoices/${invoiceId}/issue`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
   async deleteAdminInvoice(propertyId: string, invoiceId: string): Promise<InvoiceItemDto> {
     return this.request<InvoiceItemDto>(`/api/v1/admin/properties/${propertyId}/invoices/${invoiceId}`, {
       method: "DELETE",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
@@ -687,7 +704,6 @@ export class ApiClient {
   async openAdminCashierShift(propertyId: string, req: OpenCashierShiftRequest): Promise<CashierShiftDto> {
     return this.request<CashierShiftDto>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/open`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -695,7 +711,6 @@ export class ApiClient {
   async getAdminCurrentCashierShift(propertyId: string): Promise<CurrentCashierShiftResponse> {
     return this.request<CurrentCashierShiftResponse>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/current`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
@@ -705,7 +720,7 @@ export class ApiClient {
   ): Promise<CashierShiftListResponse> {
     return this.request<CashierShiftListResponse>(
       `/api/v1/admin/properties/${propertyId}/cashier/shifts${toQueryString({ ...params })}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
@@ -716,7 +731,6 @@ export class ApiClient {
   ): Promise<CashierShiftDto> {
     return this.request<CashierShiftDto>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/${shiftId}/close`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -728,7 +742,6 @@ export class ApiClient {
   ): Promise<CashierShiftDto> {
     return this.request<CashierShiftDto>(`/api/v1/admin/properties/${propertyId}/cashier/shifts/${shiftId}/reconcile`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -739,7 +752,7 @@ export class ApiClient {
   ): Promise<DepositLedgerListResponse> {
     return this.request<DepositLedgerListResponse>(
       `/api/v1/admin/properties/${propertyId}/deposit-ledgers${toQueryString({ ...params })}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
@@ -749,14 +762,13 @@ export class ApiClient {
   ): Promise<PaymentSlipQueueResponse> {
     return this.request<PaymentSlipQueueResponse>(
       `/api/v1/admin/properties/${propertyId}/payments/slips${toQueryString({ ...params })}`,
-      { method: "GET", headers: { "X-TanPms-Scope": "AdminScope" } }
+      { method: "GET" }
     );
   }
 
   async approveAdminPaymentSlip(propertyId: string, slipId: string): Promise<AdminPaymentSlipDto> {
     return this.request<AdminPaymentSlipDto>(`/api/v1/admin/properties/${propertyId}/payments/slips/${slipId}/approve`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
     });
   }
 
@@ -767,7 +779,6 @@ export class ApiClient {
   ): Promise<AdminPaymentSlipDto> {
     return this.request<AdminPaymentSlipDto>(`/api/v1/admin/properties/${propertyId}/payments/slips/${slipId}/reject`, {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: JSON.stringify(req),
     });
   }
@@ -776,7 +787,6 @@ export class ApiClient {
   private adminCall<T>(propertyId: string, path: string, method: string, body?: unknown): Promise<T> {
     return this.request<T>(`/api/v1/admin/properties/${propertyId}/${path}`, {
       method,
-      headers: { "X-TanPms-Scope": "AdminScope" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   }
@@ -910,7 +920,6 @@ export class ApiClient {
     form.append("file", file);
     return this.request<StoredFileDto>("/api/v1/admin/files", {
       method: "POST",
-      headers: { "X-TanPms-Scope": "AdminScope" },
       body: form,
     });
   }
@@ -932,7 +941,6 @@ export class ApiClient {
   private adminRootCall<T>(path: string, method: string, body?: unknown): Promise<T> {
     return this.request<T>(`/api/v1/admin/${path}`, {
       method,
-      headers: { "X-TanPms-Scope": "AdminScope" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   }
@@ -1037,7 +1045,6 @@ export class ApiClient {
   private clientCall<T>(path: string, method: string, body?: unknown): Promise<T> {
     return this.request<T>(`/api/v1/client/${path}`, {
       method,
-      headers: { "X-TanPms-Scope": "ClientScope" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   }
@@ -1048,15 +1055,14 @@ export class ApiClient {
     form.append("file", file);
     return this.request<StoredFileDto>("/api/v1/client/files", {
       method: "POST",
-      headers: { "X-TanPms-Scope": "ClientScope" },
       body: form,
     });
   }
   downloadClientFile(fileKey: string) {
-    return this.requestBlob(`/api/v1/client/files/${encodeURIComponent(fileKey)}`, "ClientScope");
+    return this.requestBlob(`/api/v1/client/files/${encodeURIComponent(fileKey)}`);
   }
   downloadClientReceiptPdf(receiptId: string) {
-    return this.requestBlob(`/api/v1/client/receipts/${receiptId}/pdf`, "ClientScope");
+    return this.requestBlob(`/api/v1/client/receipts/${receiptId}/pdf`);
   }
   getClientReceipts() {
     return this.clientCall<ReceiptListResponse>("receipts", "GET");
@@ -1154,7 +1160,6 @@ export class ApiClient {
   async getClientDashboard(): Promise<ClientDashboardResponse> {
     return this.request<ClientDashboardResponse>(`/api/v1/client/dashboard`, {
       method: "GET",
-      headers: { "X-TanPms-Scope": "ClientScope" },
     });
   }
 }

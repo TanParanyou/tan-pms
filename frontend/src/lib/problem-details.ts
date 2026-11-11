@@ -21,6 +21,9 @@ export const ERROR_CODE_I18N_KEYS: Record<string, string> = {
   "localized_text.thai_required": "errors.localized_text_thai_required",
   "localized_text.too_long": "errors.localized_text_too_long",
   "auth.invalid_credentials": "errors.auth_invalid_credentials",
+  "auth.rate_limited": "errors.auth_rate_limited",
+  "auth.refresh_token_invalid": "errors.auth_refresh_token_invalid",
+  "auth.password_policy": "errors.auth_password_policy",
 };
 
 export function isProblemDetails(data: unknown): data is ProblemDetailsResponse {
@@ -64,6 +67,9 @@ export function getLocalizedErrorMessage(
     "localized_text.thai_required": "localized_text_thai_required",
     "localized_text.too_long": "localized_text_too_long",
     "auth.invalid_credentials": "auth_invalid_credentials",
+    "auth.rate_limited": "auth_rate_limited",
+    "auth.refresh_token_invalid": "auth_refresh_token_invalid",
+    "auth.password_policy": "auth_password_policy",
   };
 
   const errorKey = code ? keyMap[code] : undefined;

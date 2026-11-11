@@ -55,6 +55,10 @@ export function useReactivateAdminUserMutation() {
   return useUserMutation((id: string) => apiClient.reactivateAdminUser(id));
 }
 
+export function useResetAdminUserPasswordMutation() {
+  return useUserMutation(({ id, newPassword }: { id: string; newPassword: string }) => apiClient.resetAdminUserPassword(id, newPassword));
+}
+
 export function useDispatchNotificationMutation() {
   return useMutation({
     mutationFn: async (req: DispatchNotificationRequest) => {

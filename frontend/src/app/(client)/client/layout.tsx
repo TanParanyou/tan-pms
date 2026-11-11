@@ -20,14 +20,17 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
+import { RequireAuth } from "@/components/shared/require-auth";
 import { useSignOut } from "@/hooks/use-sign-out";
+import { ChangePasswordDialog } from "@/components/forms/change-password-dialog";
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+function ClientShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { locale, toggleLocale } = useAppLocale();
   const tPortalNav = useTranslations("client.portal.nav");
   const tCommon = useTranslations("common");
   const { signOut, isSigningOut } = useSignOut();
+  const [showChangePassword, setShowChangePassword] = React.useState(false);
 
   const navLinks = [
     { href: "/client/dashboard", label: tPortalNav("dashboard"), icon: Home },
@@ -107,6 +110,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
             <Button
               type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowChangePassword(true)}
+              className="rounded-full text-xs h-8 px-3 gap-1.5 border-hairline"
+            >
+              <KeyRound className="h-3.5 w-3.5 text-body" />
+              <span className="hidden sm:inline">{tPortalNav("changePassword")}</span>
+            </Button>
+
+            <Button
+              type="button"
               variant="ghost"
               size="sm"
               disabled={isSigningOut}
@@ -144,11 +158,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           })}
         </div>
       </header>
+      <ChangePasswordDialog open={showChangePassword} onOpenChange={setShowChangePassword} />
 
       {/* 2. Main Viewport */}
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6">
         {children}
       </main>
     </div>
+  );
+}
+
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <RequireAuth scope="client">
+      <ClientShell>{children}</ClientShell>
+    </RequireAuth>
   );
 }

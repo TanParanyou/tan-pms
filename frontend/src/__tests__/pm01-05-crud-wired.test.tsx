@@ -117,12 +117,19 @@ describe("PM-01 users (real API, create / view / edit / deactivate)", () => {
     fireEvent.change(screen.getByPlaceholderText(rb.placeholderFullName), { target: { value: "New User" } });
     fireEvent.change(screen.getByPlaceholderText(rb.placeholderEmail), { target: { value: "new@tan-pms.internal" } });
     fireEvent.click(screen.getByLabelText(/BKK01/));
+    fireEvent.click(screen.getByRole("button", { name: rb.saveUser }));
+    expect(await screen.findByText(thMessages.admin.rbac.errorInitialPassword.replace("{min}", "10"))).toBeInTheDocument();
+    expect(upsert).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText(rb.placeholderInitialPassword), { target: { value: "short" } });
+    fireEvent.click(screen.getByRole("button", { name: rb.saveUser }));
+    expect(await screen.findByText(thMessages.admin.rbac.errorInitialPassword.replace("{min}", "10"))).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText(rb.placeholderInitialPassword), { target: { value: "Sup3r-secret-pw" } });
     const spy = vi.spyOn(queryClient, "invalidateQueries");
     fireEvent.click(screen.getByRole("button", { name: rb.saveUser }));
     const confirm = await screen.findByRole("alertdialog");
     expect(upsert).not.toHaveBeenCalled();
     fireEvent.click(within(confirm).getByRole("button", { name: tc.save }));
-    await waitFor(() => expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ username: "newuser", roleCode: "FrontDesk", allowedPropertyIds: ["11111111-1111-1111-1111-111111111101"] })));
+    await waitFor(() => expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ username: "newuser", roleCode: "FrontDesk", initialPassword: "Sup3r-secret-pw", allowedPropertyIds: ["11111111-1111-1111-1111-111111111101"] })));
     await waitFor(() => expect(spy.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey))).toContain(JSON.stringify(queryKeys.users.all)));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/users/u9"));
   });
@@ -137,6 +144,7 @@ describe("PM-01 users (real API, create / view / edit / deactivate)", () => {
     fireEvent.click(screen.getByRole("button", { name: rb.saveUser }));
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: tc.save }));
     await waitFor(() => expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ id: "u1", fullName: "Mali Dee Updated", isActive: true })));
+    expect(upsert.mock.calls[0][0]).not.toHaveProperty("initialPassword");
     expect(push).not.toHaveBeenCalled();
   });
 

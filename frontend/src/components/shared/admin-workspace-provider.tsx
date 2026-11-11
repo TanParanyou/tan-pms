@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useMemo } from "react";
 import { CENTRAL_PROPERTIES, type PropertyMasterItem } from "@/constants/master-data";
-import { apiClient } from "@/lib/api/api-client";
 
 export interface AdminWorkspaceContextType {
   selectedPropertyId: string;
@@ -14,42 +13,42 @@ export interface AdminWorkspaceContextType {
   closeQuickWalkIn: () => void;
 }
 
-const PROPERTY_MAP: Record<string, PropertyMasterItem> = Object.fromEntries(
-  CENTRAL_PROPERTIES.map((p) => [p.id, p])
-);
-
 const AdminWorkspaceContext = createContext<AdminWorkspaceContextType | null>(null);
 
 export interface AdminWorkspaceProviderProps {
   children: React.ReactNode;
   initialPropertyId?: string;
+  /** Properties the signed-in user may work in (from the real session profile); defaults to the central master list. */
+  properties?: readonly PropertyMasterItem[];
 }
 
 export function AdminWorkspaceProvider({
   children,
-  initialPropertyId = CENTRAL_PROPERTIES[0].id,
+  initialPropertyId,
+  properties = CENTRAL_PROPERTIES,
 }: AdminWorkspaceProviderProps) {
-  const [selectedPropertyId, setSelectedPropertyIdState] = useState<string>(initialPropertyId);
+  const firstId = initialPropertyId ?? properties[0]?.id ?? CENTRAL_PROPERTIES[0].id;
+  const [selectedPropertyId, setSelectedPropertyIdState] = useState<string>(firstId);
   const [isQuickWalkInOpen, setIsQuickWalkInOpen] = useState(false);
 
   const setSelectedPropertyId = (id: string) => {
     setSelectedPropertyIdState(id);
-    apiClient.setPropertyId(id);
   };
 
   const activeProperty = useMemo(() => {
-    return PROPERTY_MAP[selectedPropertyId] ?? CENTRAL_PROPERTIES[0];
-  }, [selectedPropertyId]);
+    const propertyMap = new Map(properties.map((p) => [p.id, p]));
+    return propertyMap.get(selectedPropertyId) ?? properties[0] ?? CENTRAL_PROPERTIES[0];
+  }, [selectedPropertyId, properties]);
 
   const value = useMemo<AdminWorkspaceContextType>(() => ({
     selectedPropertyId,
     setSelectedPropertyId,
     activeProperty,
-    properties: CENTRAL_PROPERTIES,
+    properties,
     isQuickWalkInOpen,
     openQuickWalkIn: () => setIsQuickWalkInOpen(true),
     closeQuickWalkIn: () => setIsQuickWalkInOpen(false),
-  }), [selectedPropertyId, activeProperty, isQuickWalkInOpen]);
+  }), [selectedPropertyId, activeProperty, properties, isQuickWalkInOpen]);
 
   return (
     <AdminWorkspaceContext.Provider value={value}>

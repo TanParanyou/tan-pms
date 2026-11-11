@@ -67,7 +67,11 @@
     "master_data_in_use": "This record cannot be deleted because it is in use by other records. Deactivate it or stop using it first.",
     "localized_text_thai_required": "Thai text is required",
     "localized_text_too_long": "The text is too long",
-    "auth_invalid_credentials": "Invalid username or password"
+    "auth_invalid_credentials": "Invalid username or password",
+    "auth_rate_limited": "Too many requests. Please wait a moment and try again.",
+    "auth_refresh_token_invalid": "Your session has expired. Please sign in again.",
+    "auth_password_policy": "The password does not meet the policy: at least 10 characters.",
+    "retry_after": "Retry in {seconds} seconds"
   },
   "common": {
     "currencySymbol": "฿",
@@ -195,17 +199,49 @@
     "password": "Password",
     "loginAsAdmin": "Sign In as Admin",
     "loginAsClient": "Sign In as Client",
-    "propertyScopeLabel": "Authorized Property Scopes",
     "scopeTag": "AUTHORIZATION SCOPE",
     "scopeAdmin": "AdminScope",
     "scopeClient": "ClientScope",
     "footer": "Single-Organization Multi-Property • Strict Token Isolation",
-    "demoRole": "Demo Role Preset",
-    "roleSuperAdmin": "Super Admin (HQ)",
-    "rolePropertyManager": "Property Manager (BKK)",
-    "roleFrontDesk": "Front Desk Cashier (BKK01)",
-    "permissionsBadge": "{count} perms",
-    "propertiesBadge": "{count} properties"
+    "loginIdentifier": "National ID / email / username",
+    "signingIn": "Signing in...",
+    "errorInvalidCredentials": "The username or password is incorrect, or the account cannot be used right now",
+    "errorRateLimited": "Too many sign-in attempts. Please wait a moment and try again.",
+    "errorRateLimitedWithSeconds": "Too many sign-in attempts. Please try again in {seconds} seconds.",
+    "errorNetwork": "Cannot reach the server. Please try again.",
+    "restoringSession": "Restoring session...",
+    "changePassword": {
+      "title": "Change password",
+      "description": "Enter your current password and a new one of at least {min} characters",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "hint": "At least {min} characters",
+      "errorCurrent": "Enter your current password",
+      "errorPolicy": "The new password must be at least {min} characters",
+      "errorMismatch": "The confirmation does not match",
+      "submit": "Change password",
+      "doneDescription": "Your password has been changed",
+      "doneMessage": "You have been signed out on all devices. Please sign in again with the new password.",
+      "goToLogin": "Go to sign in"
+    },
+    "setPassword": {
+      "password": "Password",
+      "hint": "At least {min} characters. It is never shown again after saving.",
+      "errorPolicy": "The password must be at least {min} characters",
+      "errorIdentifier": "Enter a login identifier"
+    },
+    "portalAccount": {
+      "button": "Portal account",
+      "title": "Customer portal account",
+      "description": "Create or update the login this customer uses on the client side",
+      "action": "Save account",
+      "confirmTitle": "Confirm customer account",
+      "confirmMessage": "Create or update the portal login for this customer?",
+      "identifier": "Customer login identifier",
+      "identifierPlaceholder": "Email or username",
+      "success": "Customer account saved"
+    }
   },
   "admin": {
     "shell": {
@@ -228,7 +264,8 @@
       "mobileTabStays": "Stays",
       "mobileTabReservations": "Bookings",
       "mobileTabMeters": "Meters",
-      "mobileTabMore": "More"
+      "mobileTabMore": "More",
+      "changePassword": "Change password"
     },
     "nav": {
       "rack": "Unified Room Rack",
@@ -318,7 +355,17 @@
       "confirmReactivateTitle": "Reactivate account",
       "confirmReactivateMessage": "The user can sign in again with the previous permissions",
       "toastDeactivated": "Account deactivated",
-      "toastReactivated": "Account reactivated"
+      "toastReactivated": "Account reactivated",
+      "btnResetPassword": "Reset password",
+      "fieldInitialPassword": "Initial password",
+      "initialPasswordHint": "At least {min} characters. It is never shown again after saving.",
+      "errorInitialPassword": "The password must be at least {min} characters",
+      "placeholderInitialPassword": "Enter an initial password",
+      "resetPasswordTitle": "Reset user password",
+      "resetPasswordDescription": "Set a new password for this user. They will be signed out on all devices.",
+      "confirmResetPasswordTitle": "Confirm password reset",
+      "confirmResetPasswordMessage": "Reset the password of {name}? All existing sessions will end.",
+      "toastPasswordReset": "Password reset"
     },
     "propertySwitcher": "Active Property",
     "roomRack": {
@@ -1839,7 +1886,8 @@
         "usage": "Utilities",
         "workOrders": "Repairs",
         "parcels": "Parcels",
-        "badge": "CLIENT"
+        "badge": "CLIENT",
+        "changePassword": "Change password"
       },
       "booking": {
         "fieldProperty": "Property",

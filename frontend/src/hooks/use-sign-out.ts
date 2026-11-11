@@ -4,21 +4,14 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
+import { buildLoginUrl } from "@/lib/auth/return-to";
+import { clearSession, getAuthState, getRefreshToken } from "@/lib/auth/session-store";
 
-const APP_STORAGE_PREFIX = "tan-pms";
-
-function clearBrowserSession() {
-  try {
-    window.sessionStorage.clear();
-    for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith(APP_STORAGE_PREFIX)) window.localStorage.removeItem(key);
-    }
-  } catch {
-    // Storage can be unavailable (private mode); nothing else to clear.
-  }
-}
-
-/** Central sign-out: tell the backend, drop browser session data and every cached query, then go to /login. */
+/**
+ * Central sign-out: revoke the refresh token on the backend, then drop the session (memory + sessionStorage),
+ * every cached query and other tabs' sessions (broadcast), and go to the matching login. A failed API call
+ * (offline, already expired) never blocks ending the local session.
+ */
 export function useSignOut() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -27,14 +20,16 @@ export function useSignOut() {
   const signOut = useCallback(async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
+    const scope = getAuthState().profile?.scope ?? "admin";
+    const refreshToken = getRefreshToken();
     try {
-      await apiClient.logout();
+      await apiClient.logout(refreshToken);
     } catch {
-      // A failed or 401 logout still ends the local session: the token is discarded client-side.
+      // The token is discarded client-side regardless; the server-side revoke is best effort.
     } finally {
-      clearBrowserSession();
+      clearSession();
       queryClient.clear();
-      router.push("/login");
+      router.push(buildLoginUrl(scope));
       setIsSigningOut(false);
     }
   }, [isSigningOut, queryClient, router]);

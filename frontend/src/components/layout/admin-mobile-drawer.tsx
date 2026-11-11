@@ -15,11 +15,13 @@ import { useAppLocale } from "@/components/shared/locale-provider";
 import { cn } from "@/lib/utils";
 import type { AdminModuleKey } from "./admin-sidebar";
 import { siteConfig } from "@/config/site";
+import { ChangePasswordDialog } from "@/components/forms/change-password-dialog";
 import {
   BedDouble,
   Building2,
   CalendarDays,
   Globe,
+  KeyRound,
   LogOut,
   Package,
   Percent,
@@ -105,6 +107,7 @@ export function AdminMobileDrawer({
   const tShell = useTranslations("admin.shell");
   const tCommon = useTranslations("common");
   const { signOut, isSigningOut } = useSignOut();
+  const [showChangePassword, setShowChangePassword] = React.useState(false);
   const pathname = usePathname();
 
   const isItemActive = (href: string, key: AdminModuleKey) => {
@@ -120,6 +123,7 @@ export function AdminMobileDrawer({
   };
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="left" className="w-[300px] p-0 flex flex-col justify-between">
         <div>
@@ -203,6 +207,17 @@ export function AdminMobileDrawer({
 
           <Button
             type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowChangePassword(true)}
+            className="w-full rounded-full text-xs h-9 justify-center gap-2 border-hairline"
+          >
+            <KeyRound className="h-3.5 w-3.5 text-body" />
+            <span>{tShell("changePassword")}</span>
+          </Button>
+
+          <Button
+            type="button"
             variant="ghost"
             size="sm"
             disabled={isSigningOut}
@@ -215,5 +230,7 @@ export function AdminMobileDrawer({
         </div>
       </SheetContent>
     </Sheet>
+    <ChangePasswordDialog open={showChangePassword} onOpenChange={setShowChangePassword} />
+    </>
   );
 }

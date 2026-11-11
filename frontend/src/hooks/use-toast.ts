@@ -1,6 +1,8 @@
 import { useCallback } from "react";
 import { useLocale } from "next-intl";
 import { ApiError } from "@/lib/api/api-error";
+import thMessages from "@/messages/th.json";
+import enMessages from "@/messages/en.json";
 import { getLocalizedErrorMessage } from "@/lib/problem-details";
 import {
   dispatchToast,
@@ -63,6 +65,10 @@ export function useToast() {
         // Business-rule rejections (last admin, self-deactivate, ...) arrive as validation.failed with a specific detail.
         if (err.errorCode === "validation.failed" && err.message && err.message !== err.errorCode) {
           resolvedMessage = err.message;
+        }
+        if (err.retryAfterSeconds !== undefined) {
+          const retry = (locale === "en" ? enMessages : thMessages).errors.retry_after;
+          resolvedMessage = `${resolvedMessage} (${retry.replace("{seconds}", String(err.retryAfterSeconds))})`;
         }
         if (resolvedMessage === "errors.generic" && err.message) {
           resolvedMessage = err.message;
