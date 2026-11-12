@@ -60,16 +60,23 @@ public static class TanPmsAuthenticationExtensions
             }
         }
 
+        var keyId = RequiredText(configuration, "Auth:Jwt:KeyId", "k1");
+        var previousKeys = ReadPreviousKeys(configuration, keyId);
+
         var jwt = new JwtSettings(
             signingKey,
             RequiredText(configuration, "Auth:Jwt:Issuer", "tan-pms"),
             RequiredText(configuration, "Auth:Jwt:Audience", "tan-pms-web"),
             PositiveInt(configuration, "Auth:Jwt:AccessTokenMinutes", 15),
-            configuration.GetValue("Auth:Jwt:RequireHttpsMetadata", !isDevOrTest));
+            configuration.GetValue("Auth:Jwt:RequireHttpsMetadata", !isDevOrTest),
+            keyId,
+            previousKeys);
         var security = new AuthSecuritySettings(
             LockoutThreshold: PositiveInt(configuration, "Auth:Lockout:Threshold", 5),
             LockoutMinutes: PositiveInt(configuration, "Auth:Lockout:Minutes", 15),
-            RefreshTokenDays: PositiveInt(configuration, "Auth:Jwt:RefreshTokenDays", 7));
+            RefreshTokenDays: PositiveInt(configuration, "Auth:Jwt:RefreshTokenDays", 7),
+            RefreshReuseGraceSeconds: PositiveInt(configuration, "Auth:Jwt:RefreshReuseGraceSeconds", 10),
+            RefreshTokenRetentionDays: PositiveInt(configuration, "Auth:Jwt:RefreshTokenRetentionDays", 30));
 
         var services = builder.Services;
         services.TryAddSingleton(TimeProvider.System);
@@ -101,7 +108,7 @@ public static class TanPmsAuthenticationExtensions
                         RequireExpirationTime = true,
                         RequireSignedTokens = true,
                         ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(jwt.SigningKey),
+                        IssuerSigningKeyResolver = (_, _, kid, _) => ResolveValidationKeys(jwt, kid),
                         ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
                         ClockSkew = TimeSpan.FromSeconds(30),
                         NameClaimType = AuthClaimNames.Subject
@@ -165,6 +172,50 @@ public static class TanPmsAuthenticationExtensions
         if (app.Environment.IsDevelopment())
         {
             await PmsDatabaseInitializer.InitializeIfPostgresAsync(app.Services, app.Configuration, app.Logger, devPassword);
+        }
+    }
+
+    // Tokens carry a kid: only the matching current/previous key is tried. A token without kid (issued before
+    // rotation was introduced) is tried against every accepted key; an unknown kid yields no key and is rejected.
+    internal static IEnumerable<SecurityKey> ResolveValidationKeys(JwtSettings jwt, string? kid)
+    {
+        var all = new List<SecurityKey> { new SymmetricSecurityKey(jwt.SigningKey) { KeyId = jwt.KeyId } };
+        all.AddRange(jwt.PreviousKeys.Select(k => (SecurityKey)new SymmetricSecurityKey(k.Key) { KeyId = k.KeyId }));
+        return string.IsNullOrEmpty(kid) ? all : all.Where(k => k.KeyId == kid);
+    }
+
+    // Auth:Jwt:PreviousSigningKeys:{n}:KeyId / :Key  (env: Auth__Jwt__PreviousSigningKeys__0__KeyId / __Key).
+    private static List<JwtPreviousKey> ReadPreviousKeys(IConfiguration configuration, string currentKeyId)
+    {
+        var result = new List<JwtPreviousKey>();
+        foreach (var section in configuration.GetSection("Auth:Jwt:PreviousSigningKeys").GetChildren())
+        {
+            var id = section["KeyId"]?.Trim();
+            var key = Encoding.UTF8.GetBytes(section["Key"] ?? string.Empty);
+            if (string.IsNullOrEmpty(id) || id == currentKeyId || result.Any(k => k.KeyId == id))
+            {
+                throw new InvalidOperationException($"Auth:Jwt:PreviousSigningKeys:{section.Key}:KeyId must be set and unique (and differ from Auth:Jwt:KeyId).");
+            }
+
+            if (key.Length < MinimumSigningKeyBytes)
+            {
+                throw new InvalidOperationException($"Auth:Jwt:PreviousSigningKeys:{section.Key}:Key must be at least {MinimumSigningKeyBytes} bytes.");
+            }
+
+            result.Add(new JwtPreviousKey(id, key));
+        }
+
+        return result;
+    }
+
+    // Outside Development/Testing a Postgres deployment must supply its own connection string (no committed default).
+    public static void EnsurePersistenceConfigured(this WebApplicationBuilder builder)
+    {
+        var inMemory = string.Equals(builder.Configuration["Persistence:Provider"], "InMemory", StringComparison.OrdinalIgnoreCase);
+        if (!inMemory && !builder.Environment.IsDevelopmentOrTesting()
+            && string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+        {
+            throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required outside Development/Testing (or set Persistence:Provider=InMemory).");
         }
     }
 

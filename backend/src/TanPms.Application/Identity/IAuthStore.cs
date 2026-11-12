@@ -26,6 +26,13 @@ public interface IAuthStore
 
     RefreshToken? FindRefreshToken(string tokenHash);
 
+    // Atomic compare-and-set: marks the token rotated (revoked + replaced-by) only if it is still unrevoked.
+    // Returns false when another request already claimed it; exactly one concurrent caller gets true.
+    bool TryRotateRefreshToken(string tokenHash, string replacedByTokenHash, DateTimeOffset nowUtc);
+
+    // Deletes tokens that expired, or were revoked, more than `retention` before nowUtc. Idempotent.
+    int DeleteStaleRefreshTokens(DateTimeOffset nowUtc, TimeSpan retention);
+
     void RevokeRefreshToken(string tokenHash, DateTimeOffset nowUtc, string? replacedByTokenHash = null);
 
     int RevokeRefreshTokenFamily(Guid familyId, DateTimeOffset nowUtc);

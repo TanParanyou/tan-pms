@@ -63,6 +63,14 @@ public sealed class JwtAuthPostgresTests
             var rotatedRes = await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(session.RefreshToken!));
             Assert.Equal(HttpStatusCode.OK, rotatedRes.StatusCode);
             var rotated = (await rotatedRes.Content.ReadFromJsonAsync<AuthSessionResponse>())!;
+            // Inside the grace window reuse is a benign race: rejected, family kept. Past it, reuse is theft and revokes the family.
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(session.RefreshToken!))).StatusCode);
+            using (var backdate = factory.Services.CreateScope())
+            {
+                var backdateDb = backdate.ServiceProvider.GetRequiredService<TanPmsDbContext>();
+                await backdateDb.Database.ExecuteSqlRawAsync("UPDATE \"RefreshTokens\" SET \"RevokedAt\" = \"RevokedAt\" - interval '1 minute' WHERE \"ReplacedByTokenHash\" IS NOT NULL");
+            }
+
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(session.RefreshToken!))).StatusCode);
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(rotated.RefreshToken!))).StatusCode);
 

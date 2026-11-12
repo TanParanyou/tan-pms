@@ -111,7 +111,7 @@ public sealed class PropertyHierarchyAndUnitMasterTests
         var unauthorizedContext = new TestCurrentUserContext
         {
             IsAdminScope = true,
-            Permissions = new HashSet<string> { "admin.rack.view" },
+            Permissions = new HashSet<string> { PermissionKeys.AdminStayCheckIn },
             AllowedPropertyIds = new HashSet<Guid> { PmsSeedConstants.BkkPropertyId }
         };
 

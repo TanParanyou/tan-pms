@@ -34,8 +34,8 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=tan_pms;Username=postgres;Password=postgres";
+        // No committed default: Development gets it from appsettings.Development.json, others from ConnectionStrings__DefaultConnection.
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         services.AddScoped<AuditableEntityInterceptor>();
 
@@ -43,7 +43,7 @@ public static class DependencyInjection
         {
             options
                 .UseNpgsql(
-                    connectionString,
+                    connectionString ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured."),
                     npgsql => npgsql.MigrationsAssembly(typeof(TanPmsDbContext).Assembly.FullName))
                 .AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
         });

@@ -1,5 +1,6 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
+using TanPms.Domain.Common;
 using TanPms.Domain.Identity;
 
 namespace TanPms.Application.Identity;
@@ -34,6 +35,12 @@ public sealed class AuthSessionIssuer
         var access = _accessTokenIssuer.Issue(subjectId, scope);
         var (rawRefresh, refreshHash) = RefreshTokenCodec.Generate();
         var refreshExpiresAt = now.AddDays(_settings.RefreshTokenDays);
+        // Claim the presented token first so concurrent refreshes cannot both rotate it.
+        if (rotatedTokenHash is not null && !_store.TryRotateRefreshToken(rotatedTokenHash, refreshHash, now))
+        {
+            return Result<AuthSessionResponse>.Failure(new Error(DomainErrorCodes.RefreshTokenInvalid, "Refresh token is invalid or expired."));
+        }
+
         _store.AddRefreshToken(new RefreshToken
         {
             TokenHash = refreshHash,
@@ -44,11 +51,6 @@ public sealed class AuthSessionIssuer
             CreatedByIp = Truncate(clientIp, 64),
             UserAgent = Truncate(userAgent, 512)
         });
-
-        if (rotatedTokenHash is not null)
-        {
-            _store.RevokeRefreshToken(rotatedTokenHash, now, refreshHash);
-        }
 
         return Result<AuthSessionResponse>.Success(session.Value with
         {

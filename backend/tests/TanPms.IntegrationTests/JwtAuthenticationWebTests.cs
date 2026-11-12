@@ -188,14 +188,73 @@ public sealed class JwtAuthenticationWebTests : IClassFixture<JwtWebApiFactory>
         Assert.NotEqual(first.RefreshToken, rotated.RefreshToken);
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, HttpMethod.Get, "/api/v1/auth/me", rotated.AccessToken)).StatusCode);
 
+        // Past the reuse grace window the reuse is theft: the whole family is revoked.
+        var before = _factory.Clock.Now;
+        _factory.Clock.Now = before.AddSeconds(11);
+        try
+        {
+            await AssertProblemAsync(
+                await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(first.RefreshToken!)),
+                HttpStatusCode.Unauthorized,
+                DomainErrorCodes.RefreshTokenInvalid);
+            await AssertProblemAsync(
+                await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(rotated.RefreshToken!)),
+                HttpStatusCode.Unauthorized,
+                DomainErrorCodes.RefreshTokenInvalid);
+        }
+        finally
+        {
+            _factory.Clock.Now = before;
+        }
+    }
+
+    [Fact]
+    public async Task Reuse_Of_A_Just_Rotated_Token_Within_The_Grace_Window_Should_Be_Rejected_Without_Revoking_The_Family()
+    {
+        using var client = _factory.CreateClient();
+        var first = await LoginAsync(client, "admin", "naphat.admin", DevPassword);
+        var rotated = (await (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(first.RefreshToken!))).Content.ReadFromJsonAsync<AuthSessionResponse>())!;
+
         await AssertProblemAsync(
             await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(first.RefreshToken!)),
             HttpStatusCode.Unauthorized,
             DomainErrorCodes.RefreshTokenInvalid);
-        await AssertProblemAsync(
-            await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(rotated.RefreshToken!)),
-            HttpStatusCode.Unauthorized,
-            DomainErrorCodes.RefreshTokenInvalid);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(rotated.RefreshToken!))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Concurrent_Refreshes_With_The_Same_Token_Should_Rotate_Exactly_Once()
+    {
+        using var client = _factory.CreateClient();
+        var session = await LoginAsync(client, "admin", "naphat.admin", DevPassword);
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 12)
+            .Select(_ => Task.Run(() => client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest(session.RefreshToken!)))));
+
+        Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.OK));
+        Assert.Equal(11, responses.Count(r => r.StatusCode == HttpStatusCode.Unauthorized));
+    }
+
+    [Fact]
+    public async Task Responses_Should_Carry_Security_Headers_And_Auth_Responses_Should_Not_Be_Cached()
+    {
+        using var client = _factory.CreateClient();
+        var session = await LoginAsync(client, "admin", "naphat.admin", DevPassword);
+
+        var login = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("admin", "naphat.admin", "wrong-password-1"));
+        var me = await SendAsync(client, HttpMethod.Get, "/api/v1/auth/me", session.AccessToken);
+        var unauthenticated = await client.GetAsync("/api/v1/admin/users");
+        var live = await client.GetAsync("/health/live");
+        foreach (var response in new[] { login, me, unauthenticated, live })
+        {
+            Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+            Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
+            Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
+        }
+
+        Assert.Contains("no-store", login.Headers.CacheControl!.ToString(), StringComparison.Ordinal);
+        Assert.Contains("no-store", me.Headers.CacheControl!.ToString(), StringComparison.Ordinal);
+        Assert.False(live.Headers.Contains("Strict-Transport-Security")); // Testing environment: no HSTS.
     }
 
     [Fact]

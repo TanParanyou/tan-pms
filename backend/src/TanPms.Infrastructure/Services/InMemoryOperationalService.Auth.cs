@@ -179,6 +179,30 @@ public sealed partial class InMemoryOperationalService
         }
     }
 
+    public bool TryRotateRefreshToken(string tokenHash, string replacedByTokenHash, DateTimeOffset nowUtc)
+    {
+        lock (_syncRoot)
+        {
+            var token = _refreshTokens.FirstOrDefault(t => t.TokenHash == tokenHash);
+            if (token is null || token.RevokedAt is not null || token.WasRotated)
+            {
+                return false;
+            }
+
+            token.Revoke(nowUtc, replacedByTokenHash);
+            return true;
+        }
+    }
+
+    public int DeleteStaleRefreshTokens(DateTimeOffset nowUtc, TimeSpan retention)
+    {
+        var cutoff = nowUtc - retention;
+        lock (_syncRoot)
+        {
+            return _refreshTokens.RemoveAll(t => t.ExpiresAt < cutoff || (t.RevokedAt is { } revoked && revoked < cutoff));
+        }
+    }
+
     public void RevokeRefreshToken(string tokenHash, DateTimeOffset nowUtc, string? replacedByTokenHash = null)
     {
         lock (_syncRoot)

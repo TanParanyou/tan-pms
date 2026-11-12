@@ -37,7 +37,7 @@ public sealed class JwtAccessTokenIssuer : IAccessTokenIssuer
                 new Claim(AuthClaimNames.Scope, scope),
                 new Claim(AuthClaimNames.TokenId, tokenId)
             ]),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(_settings.SigningKey), SecurityAlgorithms.HmacSha256)
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(_settings.SigningKey) { KeyId = _settings.KeyId }, SecurityAlgorithms.HmacSha256)
         });
         return new AccessTokenResult(token, expiresAt, tokenId);
     }

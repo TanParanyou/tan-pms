@@ -5,4 +5,6 @@ public sealed record JwtSettings(
     string Issuer,
     string Audience,
     int AccessTokenMinutes,
-    bool RequireHttpsMetadata);
+    bool RequireHttpsMetadata,
+    string KeyId,
+    IReadOnlyList<JwtPreviousKey> PreviousKeys);

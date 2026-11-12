@@ -90,7 +90,6 @@ public sealed class HttpCurrentUserContext : ICurrentUserContext
             {
                 return new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "admin.rack.view",
                     PermissionKeys.AdminStayCheckIn,
                     PermissionKeys.AdminUsersRead,
                     PermissionKeys.AdminUsersManage,

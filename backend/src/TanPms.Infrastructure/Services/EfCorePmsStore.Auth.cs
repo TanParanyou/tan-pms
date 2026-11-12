@@ -129,6 +129,21 @@ public sealed partial class EfCorePmsStore
     public RefreshToken? FindRefreshToken(string tokenHash) =>
         _dbContext.RefreshTokens.AsNoTracking().FirstOrDefault(t => t.TokenHash == tokenHash);
 
+    public bool TryRotateRefreshToken(string tokenHash, string replacedByTokenHash, DateTimeOffset nowUtc) =>
+        _dbContext.RefreshTokens
+            .Where(t => t.TokenHash == tokenHash && t.RevokedAt == null && t.ReplacedByTokenHash == null)
+            .ExecuteUpdate(s => s
+                .SetProperty(t => t.RevokedAt, nowUtc)
+                .SetProperty(t => t.ReplacedByTokenHash, replacedByTokenHash)) == 1;
+
+    public int DeleteStaleRefreshTokens(DateTimeOffset nowUtc, TimeSpan retention)
+    {
+        var cutoff = nowUtc - retention;
+        return _dbContext.RefreshTokens
+            .Where(t => t.ExpiresAt < cutoff || (t.RevokedAt != null && t.RevokedAt < cutoff))
+            .ExecuteDelete();
+    }
+
     public void RevokeRefreshToken(string tokenHash, DateTimeOffset nowUtc, string? replacedByTokenHash = null)
     {
         if (_dbContext.RefreshTokens.FirstOrDefault(t => t.TokenHash == tokenHash) is { } token)

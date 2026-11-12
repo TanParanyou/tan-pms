@@ -32,6 +32,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTanPmsInfrastructure(builder.Configuration);
+builder.EnsurePersistenceConfigured();
 var authMode = builder.AddTanPmsAuthentication();
 
 builder.Services.AddCors(options =>
@@ -128,6 +129,7 @@ builder.Services.AddScoped<ChangePasswordHandler>();
 builder.Services.AddScoped<ResetAdminUserPasswordHandler>();
 builder.Services.AddScoped<UpsertCustomerAccountHandler>();
 builder.Services.AddHostedService<OverdueInvoiceSweeper>();
+builder.Services.AddHostedService<RefreshTokenCleanupService>();
 builder.Services.AddScoped<GetAdminUserHandler>();
 builder.Services.AddScoped<DeactivateAdminUserHandler>();
 builder.Services.AddScoped<ReactivateAdminUserHandler>();
@@ -224,6 +226,7 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors(FrontendCorsPolicy);
 app.UseTanPmsAuthentication(authMode);
 

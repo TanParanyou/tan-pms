@@ -10,9 +10,11 @@ public sealed class RefreshAuthSessionHandler
     private readonly IAuthStore _store;
     private readonly AuthSessionIssuer _sessionIssuer;
     private readonly TimeProvider _timeProvider;
+    private readonly AuthSecuritySettings _settings;
 
-    public RefreshAuthSessionHandler(IAuthStore store, AuthSessionIssuer sessionIssuer, TimeProvider timeProvider)
+    public RefreshAuthSessionHandler(IAuthStore store, AuthSessionIssuer sessionIssuer, TimeProvider timeProvider, AuthSecuritySettings settings)
     {
+        _settings = settings;
         _store = store;
         _sessionIssuer = sessionIssuer;
         _timeProvider = timeProvider;
@@ -34,6 +36,12 @@ public sealed class RefreshAuthSessionHandler
 
         if (token.WasRotated)
         {
+            // Benign race (client retry / two tabs) inside the grace window: reject without revoking the family.
+            if (token.RevokedAt is { } rotatedAt && now - rotatedAt < TimeSpan.FromSeconds(_settings.RefreshReuseGraceSeconds))
+            {
+                return Invalid();
+            }
+
             _store.RevokeRefreshTokenFamily(token.FamilyId, now);
             return Invalid();
         }
@@ -50,7 +58,6 @@ public sealed class RefreshAuthSessionHandler
             return Invalid();
         }
 
-        // shortcut: two concurrent refreshes with the same token can both rotate; add a row lock if clients race.
         return _sessionIssuer.Issue(token.Scope, token.SubjectId, token.FamilyId, command.ClientIp, command.UserAgent, token.TokenHash);
     }
 
