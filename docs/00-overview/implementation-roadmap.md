@@ -85,3 +85,16 @@ flowchart TD
 4. **ยังไม่มี Remote/Push:** Repository ยังไม่ตั้ง Git Remote (ตรวจ `git remote -v` ว่าง) และไม่มี CI Pipeline ที่รัน Gate อัตโนมัติ
 5. **ยังไม่ผ่าน UAT และเกณฑ์ Production:** ไม่มีหลักฐาน UAT, การซ้อมกู้คืน (`backup-restore-and-release.md`), Load/Concurrency Test บนสภาพแวดล้อมจริง, Object Storage สำหรับไฟล์ (ตอนนี้ Local Disk), Virus Scan ไฟล์แนบ, Distributed Lock สำหรับ `OverdueInvoiceSweeper` เมื่อรันหลาย Instance
 6. **ข้อตัดสินใจที่ปิดแล้ว:** ชุดสิทธิ์เริ่มต้นของ Dev (รวม `admin.leases.settle_moveout` และ `admin.users.manage`) ใช้เฉพาะ `Auth:Mode=Headers` ซึ่งถูกปฏิเสธนอก Development/Testing และโหมด `Jwt` อ่านสิทธิ์จาก Store — ดู [permission-catalog.md](../03-contracts/permission-catalog.md) หัวข้อ 3; **ยังค้าง:** ค่า `admin.rack.view` ที่ไม่มีใน `PermissionKeys` (ใช้เฉพาะชุด Dev)
+
+### 3.3 การตัดสินใจของผู้ใช้ (User Decisions) วันที่ 2026-11-12
+
+| หัวข้อ | การตัดสินใจ | หลักฐาน/หมายเหตุ |
+|---|---|---|
+| ทดสอบเบราว์เซอร์/E2E กับ Backend จริง | **เลื่อนไปก่อน ("ยังไม่ทำ")** | ไม่มี `Playwright` ใน Repository; เกณฑ์ E2E ของ `PM-10` ยังไม่ผ่าน |
+| Notification Adapter `LINE`/`Email` | **เลื่อน ไม่เร่งด่วน** | ตรวจ `backend/src` ซ้ำแล้วไม่พบไลบรารี/โค้ดส่งจริง (มีเฉพาะ `NotificationMessage` ช่อง `InApp` และ Log ใน `EfCoreNotificationSender`) |
+| ESLint | **ยอมรับสถานะปัจจุบัน** — `npm run lint` ใน `frontend/` คือ `tsc --noEmit` (ไม่ใช่ ESLint) | `frontend/package.json` สคริปต์ `lint`; ความถูกต้องด้านสไตล์พึ่ง `code-hygiene.test.ts` และ TypeScript Strict |
+| Git Remote | **ยังไม่มี Remote จึง Push ไม่ได้** จนกว่าจะเพิ่ม Remote | `git remote -v` ว่าง |
+| Forgot-Password / MFA | **ยังไม่วางแผน** — Forgot-Password ต้องรอตัวส่ง Email/LINE (ซึ่งเลื่อนอยู่) | ดู [ADR-0011](../adr/0011-authentication-with-own-jwt.md) ข้อจำกัดที่ทราบ |
+| ภาษีค่าน้ำ-ค่าไฟ | Seed เป็น `VatIncluded` 7% (ยืนยันโดยผู้ใช้) เปลี่ยนภายหลังผ่านโปรไฟล์ภาษีได้ | [pricing-meter-and-tax-rules.md](../01-business/pricing-meter-and-tax-rules.md) |
+
+**งานเสริมความปลอดภัยของ Authentication ที่ "กำลังดำเนินการ" (In Progress — ยังไม่เสร็จ ห้ามอ้างว่าแล้วเสร็จ):** แก้ Race ของ Refresh Token พร้อมกัน, Job ลบ Refresh Token ที่หมดอายุ, กลไกหมุนกุญแจเซ็น (Key Rotation), Security Headers และการเก็บกวาด Connection String เริ่มต้นใน `appsettings.json` — ADR-0011 ยังระบุเป็นข้อจำกัดที่ทราบจนกว่ารายการเหล่านี้จะถูกตรวจรับและบันทึกกลับ

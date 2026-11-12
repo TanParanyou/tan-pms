@@ -10,8 +10,8 @@ Accepted — 2026-11-10
 
 ## Decision
 
-1. **`Property.PaymentTermsDays` (nullable)** เป็นจำนวนวันหลังวันออกบิล; ถ้าเป็น `null` ใช้ `Property.DefaultPaymentTermsDays = 7`; ตั้งค่าได้ผ่าน `GET/PUT /api/v1/admin/properties/{propertyId}/billing-settings`
-2. **`Invoice.Issue(issuedAt, dueDate)` กำหนด `DueDate` (`DateOnly`)** = วันที่ท้องถิ่นของเวลาที่ออกบิล + Payment Terms ของสาขา ณ เวลาออกบิล (`AnalyticsPeriod.LocalDate`) การแก้ Payment Terms ภายหลังไม่กระทบบิลที่ออกไปแล้ว; คอลัมน์ `DueDate` เพิ่มด้วย Migration `AddDueDatesReceiptsForStaysAndPaymentMethods` และ `PmsDatabaseInitializer` มีขั้น Backfill คอลัมน์ Billing ของข้อมูลเดิม (`BackfillLegacyBillingColumnsAsync`)
+1. **`Property.PaymentTermsDays` (nullable)** เป็นจำนวนวันหลังวันออกบิล; ถ้าเป็น `null` ใช้ `Property.DefaultPaymentTermsDays = 7`; ตั้งค่าได้ผ่าน `GET/PUT /api/v1/admin/properties/{propertyId}/billing-settings` (PUT ต้องมี `admin.properties.manage`; ค่าสูงสุด 365 วัน)
+2. **`Invoice.Issue(issuedAt, dueDate)` กำหนด `DueDate` (`DateOnly`)** = วันที่ท้องถิ่นของเวลาที่ออกบิล + Payment Terms ของสาขา ณ เวลาออกบิล (`AnalyticsPeriod.LocalDate` ใช้ Offset คงที่ UTC+7 ไม่ใช้ฐานข้อมูล Time Zone) การแก้ Payment Terms ภายหลังไม่กระทบบิลที่ออกไปแล้ว; คอลัมน์ `DueDate` เพิ่มด้วย Migration `AddDueDatesReceiptsForStaysAndPaymentMethods` และ `PmsDatabaseInitializer` มีขั้น Backfill คอลัมน์ Billing ของข้อมูลเดิม (`BackfillLegacyBillingColumnsAsync`)
 3. **`Overdue` เกิดจากกฎโดเมน:** `Invoice.MarkOverdueIfPastDue(today)` เปลี่ยน `Issued`/`PartiallyPaid` เป็น `Overdue` เมื่อ `today > DueDate` (Idempotent); `Overdue` ยังรับชำระได้ (`AcceptsPayment`)
 4. **`OverdueInvoiceSweeper` (`BackgroundService` ใน `TanPms.WebApi/Background/`)** รัน 1 รอบทันทีที่เริ่มระบบ แล้วทุก `Billing:OverdueSweepIntervalMinutes` (ค่าเริ่มต้น **60** นาที, ขั้นต่ำ 1) เรียก `IBillingStore.MarkOverdueInvoices` ใน Scope ใหม่ทุกรอบ; รอบที่ล้มเหลว (เช่น DB ยังไม่ Migrate) ถูก Log เป็น Warning และลองใหม่รอบถัดไป ไม่ทำให้โฮสต์ล่ม
 5. **แจ้งเตือน Overdue ครั้งเดียวต่อบิล:** `Invoice.OverdueNotifiedAt` + `TryMarkOverdueNotified` สร้าง `NotificationMessage` (ช่อง `InApp`) เพียงครั้งเดียว แม้ภายหลังชำระบางส่วนทำให้สถานะสลับไปมา

@@ -10,16 +10,31 @@ Accepted — 2026-11-08
 
 ## Decision
 
-1. **Hard/Soft Delete เฉพาะข้อมูลที่ยังไม่มีผลทางการเงิน:** เช่น `Invoice` สถานะ `Draft` และบรรทัดของ Draft, ใบจองสถานะ `Expired` ที่ไม่เคยชำระ (สถานะอื่นของใบจองต้อง `Cancel`), `HousekeepingTask`, ค่ามิเตอร์ของรอบที่ยังไม่ถูกล็อกด้วยบิล (รอบที่ล็อกแล้วต้องมี `admin.meters.override_locked` พร้อมเหตุผล), ผู้พักร่วม/รถ, สลิปสถานะ `Pending` ที่เจ้าของถอนเอง (Soft Delete) และ Master Data ที่ไม่มีข้อมูลอ้างอิง (ถ้ายังถูกอ้างอิง ตอบ `master_data.in_use` `409`)
-2. **ข้อมูลที่มีผลทางการเงิน/ตามกฎหมายใช้ Cancel หรือ Void แทนการลบ** ผ่าน `POST .../cancel` หรือ `POST .../void` (เช่น `Invoice` ที่ `Issued` ขึ้นไป -> `Void`, `Stay`, `Lease`, `WorkOrder`, `CashierShift` ที่ไม่มีเงินสด, `Parcel`, รายการ `Folio` Charge, การย้อนการชำระ) พร้อม Body `ReasonRequest { reason }`
-3. **เหตุผลบังคับ:** `reason` ว่างตอบ `validation.failed` (`400`); เหตุผลบันทึกใน `AuditEvent` พร้อม Before/After State ผ่าน `IAuditLogger.RecordMutation`
-4. **Frontend ต้องแสดง `ConfirmationModal`** และล็อกปุ่มด้วย `isLoading` ทุกครั้ง ตาม [AGENTS.md](../../AGENTS.md) หมวด 6
-5. **ข้อมูลที่ไม่ควรถูกแก้ไข (Immutable):**
-   - `Invoice` ที่ `Issued`/`Paid`/`Voided` แก้/ลบไม่ได้ -> `invoice.immutable_status` (`409`)
-   - `CashierShift` ที่ `Closed`/`Reconciled` (ยกเว้นหมายเหตุผลต่างก่อน Reconcile) และ `Receipt` ที่ออกแล้ว (ไม่มี Endpoint แก้/ลบ มีแต่ `GET` และ PDF)
-   - สลิปที่ถูกตรวจ (`Approved`/`Rejected`) แก้ไม่ได้ เพราะออก `Receipt` ไปแล้ว (Maker-Checker)
-6. **ผู้ใช้ (`AdminUser`) ไม่ลบ แต่ Deactivate/Reactivate** (`POST /users/{userId}/deactivate|reactivate` พร้อม `ReasonRequest` สำหรับ Deactivate) เพื่อคงประวัติ Audit; ห้ามปิดใช้งาน/ลดสิทธิ์ `OrganizationAdmin` คนสุดท้าย (`master_data.in_use`)
-7. **Soft Delete** ใช้คอลัมน์ `IsDeleted` ของ `AuditableEntity` และตัวกรอง Query/Index (Filtered Unique Index) ให้ข้ามแถวที่ถูกลบ
+> ข้อความส่วนนี้ตรวจกับโค้ดแล้ว (Domain methods, Store, `Program.cs`) ยกเว้นที่ระบุว่า "ไม่ได้ตรวจ"
+
+1. **ไม่มี Hard Delete ผ่าน API:** `DELETE` ทุก Endpoint เรียก `Remove` ของ EF ซึ่ง `AuditableEntityInterceptor` แปลงเป็น Soft Delete (`MarkDeleted` ตั้ง `IsDeleted`) และ Query มี Global Filter ซ่อนแถวที่ถูกลบ (ไม่ได้ตรวจว่ามี Job ลบจริงภายหลัง)
+2. **`DELETE` ใช้กับข้อมูลที่ยังไม่มีผลทางการเงินเท่านั้น (ตามกฎของแต่ละ Entity):**
+   - `Invoice` สถานะ `Draft` เท่านั้น (`EnsureCanDelete`, มิฉะนั้น `invoice.immutable_status`) และบรรทัดของ Draft
+   - ใบจอง (`Reservation`) เฉพาะสถานะ `Expired` ที่ไม่เคยชำระ (สถานะอื่นต้อง `Cancel`)
+   - `HousekeepingTask` เฉพาะสถานะ `Pending`
+   - ค่ามิเตอร์ของหน่วยในรอบ: ถ้ารอบถูกล็อกด้วยบิลต้องมี `admin.meters.override_locked` พร้อมเหตุผล (ไม่เช่นนั้น `auth.permission_denied`)
+   - ผู้พักร่วม/รถของ `Lease`/`Stay`, สลิปสถานะ `Pending` ที่เจ้าของถอนเอง (`EnsureCanWithdraw`), `LeaseIntent` ที่ลูกค้าถอน และ Master Data (`Unit`, `Building`, `Floor`, `UnitType`, `RatePlan`, `UtilityTariff`, `TaxProfile`) — Master Data ที่ยังถูกอ้างอิงตอบ `master_data.in_use` `409` (กฎของ Master Data รายตัวไม่ได้ไล่ตรวจทุกตัว)
+   - **ไม่มี `DELETE` ของ** `Lease`, `Stay`, `CashierShift`, `Receipt`, ผู้ใช้ — เอกสารเหล่านี้ใช้ Cancel/Void/Deactivate หรือแก้ไม่ได้เลย
+3. **Cancel/Void (`POST` + `ReasonRequest { reason }`) — เงื่อนไขจริงต่อ Entity:**
+   - `Lease.Cancel`: เฉพาะ `Active`; ต้องไม่มีบิลที่ออกแล้ว (ทุกใบต้องเป็น `Draft`/`Voided`); คืนมัดจำคงเหลือ (เงินสดผูกกะถ้ามี); `Draft` ของสัญญาถูก Soft Delete; ห้องถูกบันทึกเป็นออกแล้วและเพิ่มงานแม่บ้าน (`MarkCheckedOutOrMovedOut`)
+   - `Stay` (`CancelMistakenCheckIn`): เฉพาะ `Active`, ไม่ได้มาจากใบจอง (ต้อง CheckOut), ไม่มียอดชำระและไม่มีรายการ `Folio` เกินค่าห้องตั้งต้น
+   - `Invoice.Void`: ใช้กับสถานะที่ไม่ใช่ `Draft`, ต้องมี `admin.invoices.void`; **ถูกบล็อกถ้ามีใบเสร็จแล้วหรือมีสลิปที่ไม่ใช่ `Rejected`** (`invoice.immutable_status`) — ในทางปฏิบัติ Void ได้เฉพาะบิลที่ยังไม่มีการชำระ
+   - `CashierShift.Cancel`: เฉพาะ `Open`, ไม่มีกิจกรรมเงินสด, ไม่มีใบเสร็จผูกกะ (ดู [ADR-0009](./0009-cash-binding-to-cashier-shift.md)); กะที่มีกิจกรรมต้อง `Close`
+   - `WorkOrder.Cancel`: ไม่ใช่ `Cancelled` และไม่ใช่ `Completed` ที่โพสต์ค่าใช้จ่ายผู้เช่าแล้ว
+   - `Parcel.Void`: เฉพาะพัสดุสถานะ `Arrived` (ยังไม่ส่งมอบ); เนื่องจาก `ParcelStatus` ไม่มีค่า Cancelled ระบบบันทึก `VoidReason` แล้ว Soft Delete แถว
+   - รายการ `Folio` Charge (`void`) และการย้อนชำระ `Folio` (`payments/reverse`, ต้องมี `admin.invoices.void`) — ไม่ได้ตรวจเงื่อนไขภายในทุกกรณี
+4. **เหตุผลบังคับ:** `reason` ว่างตอบ `validation.failed` (`400`) และบันทึกใน `AuditEvent` ผ่าน `IAuditLogger.RecordMutation` (ตรวจ Handler ของ Cancel/Void หลัก; ไม่ได้ตรวจครบทุก Handler ว่ามี Audit)
+5. **Frontend ต้องแสดง `ConfirmationModal`** และล็อกปุ่มด้วย `isLoading` ตาม [AGENTS.md](../../AGENTS.md) หมวด 6 (เป็นกฎของโครงการ ไม่ได้ตรวจทุกหน้าจอในรอบนี้)
+6. **ข้อมูลที่แก้ไขไม่ได้ (Immutable):**
+   - `Invoice` ที่ไม่ใช่ `Draft` แก้บรรทัด/ลบไม่ได้ -> `invoice.immutable_status` (`409`); ใบเสร็จ (`Receipt`) ไม่มี Endpoint แก้/ลบ (มีแต่ `GET` และ PDF)
+   - `CashierShift`: ไม่มี Endpoint ลบ; กะ `Closed` แก้ได้เฉพาะหมายเหตุผลต่างก่อน `Reconcile`; กะ `Reconciled` ไม่มีเมธอดแก้ไขใน Domain
+   - สลิปที่ถูกตรวจ (`Approved`/`Rejected`) แก้/ถอนไม่ได้ (`EnsurePending` -> `validation.failed`)
+7. **ผู้ใช้ (`AdminUser`) ไม่ลบ แต่ `POST /users/{userId}/deactivate` (ต้องมี `ReasonRequest`) และ `reactivate`** (ไม่มี `DELETE` ผู้ใช้); ห้ามปิดใช้งาน/ลดสิทธิ์ `OrganizationAdmin` คนสุดท้าย (`master_data.in_use`)
 
 ## Consequences
 

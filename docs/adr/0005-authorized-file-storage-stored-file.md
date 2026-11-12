@@ -19,7 +19,8 @@ Accepted — 2026-11-08
    - ตอนเขียนข้อมูลที่อ้างไฟล์ (`ValidateAttachments`) ต้องเป็น Key ที่อัปโหลดผ่านระบบ, `purpose` ตรง, และเจ้าของถูกต้อง (admin: ไฟล์ของ `property` เดียวกันหรือไฟล์ที่ลูกค้าอัปโหลด; client: เฉพาะไฟล์ของ `CustomerId` ตนเอง)
    - ดาวน์โหลดฝั่ง `client` ต้องเป็นไฟล์ที่ลูกค้าอัปโหลดเองหรือถูกแนบกับเอกสารของลูกค้านั้น กรณี "ไม่มี" และ "ของคนอื่น" ตอบเหมือนกัน (`auth.permission_denied`) เพื่อกันการไล่เดา Key
    - Legacy Key ตอบ `file.not_found` (`404`) ไม่ใช่ `500`
-6. **Audit:** อัปโหลดฝั่ง `admin` บันทึก `AuditEvent` (`admin.files.upload`)
+6. **ดาวน์โหลดฝั่ง `admin`** (`GetAdminFileHandler`) ต้องเป็น Scope `admin` และเป็นผู้อัปโหลดเอง หรือไฟล์ผูกกับ `PropertyId` ที่อยู่ใน `AllowedPropertyIds` หรือไฟล์ถูกแนบกับ Entity ของสาขาที่เข้าถึงได้ มิฉะนั้นตอบ `auth.property_scope_denied` (Key ที่ไม่มี/รูปแบบผิด/Legacy ตอบ `file.not_found`)
+7. **Audit:** การอัปโหลดฝั่ง `admin` บันทึก `AuditEvent` (`admin.files.upload`); `UploadClientFileHandler` ก็เรียก `RecordMutation` เช่นกัน (ตรวจพบการเรียก แต่ไม่ได้ตรวจ `actionKey` ที่ใช้)
 
 ## Consequences
 
