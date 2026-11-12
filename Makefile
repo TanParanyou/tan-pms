@@ -11,7 +11,7 @@ SHELL := /bin/bash
 # Configurable Ports and Settings
 # -----------------------------------------------------------------
 FE_PORT       ?= 3000
-BE_PORT       ?= 5000
+BE_PORT       ?= 5050
 DB_PORT       ?= 5432
 DB_HOST       ?= localhost
 DB_NAME       ?= tan_pms
@@ -85,13 +85,13 @@ dev-frontend:
 
 dev-backend:
 	@echo "⚡ Starting .NET 10 WebApi on port $(BE_PORT)..."
-	@cd $(BACKEND_API) && dotnet run --urls "http://localhost:$(BE_PORT)"
+	@cd $(BACKEND_API) && ASPNETCORE_ENVIRONMENT=Development Persistence__Provider=$${PERSISTENCE_PROVIDER:-InMemory} dotnet run --urls "http://localhost:$(BE_PORT)"
 
 dev:
 	@echo "🚀 Launching tan-pms Frontend (:$(FE_PORT)) and Backend (:$(BE_PORT))..."
 	@trap 'kill 0' SIGINT SIGTERM EXIT; \
-	(cd $(BACKEND_API) && dotnet run --urls "http://localhost:$(BE_PORT)") & \
-	(cd $(FRONTEND_DIR) && npm run dev) & \
+	(cd $(BACKEND_API) && ASPNETCORE_ENVIRONMENT=Development Persistence__Provider=$${PERSISTENCE_PROVIDER:-InMemory} dotnet run --urls "http://localhost:$(BE_PORT)") & \
+	(cd $(FRONTEND_DIR) && NEXT_PUBLIC_API_URL=http://localhost:$(BE_PORT) npm run dev) & \
 	wait
 
 # -----------------------------------------------------------------
