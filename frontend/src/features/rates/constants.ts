@@ -5,6 +5,16 @@ export const UTILITY_TYPES = ["Water", "Electric"] as const;
 export const BILLING_MODES = ["PerUnit", "MinimumUnits", "FlatRate"] as const;
 export const TAX_MODES = ["Exempt", "VatIncluded", "VatExcluded"] as const;
 
+export const SYSTEM_CHARGE_CATEGORIES = [
+  "MONTHLY_ROOM_RENT",
+  "UTILITY_WATER",
+  "UTILITY_ELECTRIC",
+  "REPAIR_CHARGE",
+  "SHORT_STAY_ROOM",
+] as const;
+
+export type SystemChargeCategory = (typeof SYSTEM_CHARGE_CATEGORIES)[number];
+
 export const RATE_PLAN_FORM_DEFAULTS = {
   code: "",
   nameTh: "",

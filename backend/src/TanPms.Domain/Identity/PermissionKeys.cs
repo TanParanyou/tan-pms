@@ -27,6 +27,7 @@ public static class PermissionKeys
     public const string AdminWorkOrdersManage = "admin.workorders.manage";
     public const string AdminParcelsManage = "admin.parcels.manage";
     public const string AdminAnalyticsRead = "admin.analytics.read";
+    public const string AdminRackView = "admin.rack.view";
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -54,6 +55,7 @@ public static class PermissionKeys
         AdminHousekeepingUpdate,
         AdminWorkOrdersManage,
         AdminParcelsManage,
-        AdminAnalyticsRead
+        AdminAnalyticsRead,
+        AdminRackView
     ];
 }

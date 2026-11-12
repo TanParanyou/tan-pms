@@ -106,6 +106,11 @@ internal static class OperationsRecordMapper
         propertyProfiles.FirstOrDefault(p => p.IsActive && p.ChargeCategoryCode == WorkOrderRules.RepairChargeCategory)?.TaxMode
         ?? TaxMode.VatIncluded;
 
+    internal static (TaxMode TaxMode, decimal VatRate) ResolveRepairTaxRule(IEnumerable<TaxProfile> propertyProfiles) =>
+        propertyProfiles.FirstOrDefault(p => p.IsActive && p.ChargeCategoryCode == WorkOrderRules.RepairChargeCategory) is { } profile
+            ? (profile.TaxMode, profile.GetDecimalVatRate())
+            : (TaxMode.VatIncluded, ThaiTaxCalculator.StandardThaiVatRate);
+
     internal static Error NotFound(string entity, Guid propertyId, Guid id) =>
         new(DomainErrorCodes.ValidationFailed, $"{entity} '{id}' was not found in property '{propertyId}'.");
 

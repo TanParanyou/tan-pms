@@ -17,7 +17,8 @@
 | `PM-02` | `admin.properties.read` | ดูข้อมูล `Property`, `Building`, `Floor`, `UnitType`, `Unit` | ไม่ |
 | `PM-02` | `admin.properties.manage` | สร้าง/แก้ไขผังตึก ประเภทห้อง ห้องพัก และ `UnitAsset` | ใช่ |
 | `PM-03` | `admin.rates.manage` | ตั้งค่าเรตราคารายชั่วโมง/รายวัน/รายเดือน อัตราน้ำ-ไฟ และ `TaxProfile` | ใช่ |
-| `PM-04` | `admin.reservations.read` | ดูตารางห้องว่างรวม (`Unified Room Rack`) และรายการใบจอง | ไม่ |
+| `PM-04` | `admin.rack.view` | ดูตารางห้องว่างรวม (`Unified Room Rack`) | ไม่ |
+| `PM-04` | `admin.reservations.read` | ดูความพร้อมห้องพัก (`Availability`) และรายการใบจอง | ไม่ |
 | `PM-04` | `admin.reservations.manage` | สร้าง/แก้ไขใบจอง จัดสรรเลข `Unit` และยกเลิกใบจอง | ไม่ |
 | `PM-05` | `admin.stay.checkin` | เปิดห้องพักรายชั่วโมง/รายวัน (`Stay`) และจัดการ `Folio` | ไม่ |
 | `PM-05` | `admin.stay.checkout` | ทำรายการเช็กเอาต์และสรุปยอด `Folio` | ไม่ |
@@ -42,11 +43,11 @@
 
 ## 2. การตรวจสอบกับโค้ด (Verified against `PermissionKeys.cs`)
 
-ตรวจเทียบ `backend/src/TanPms.Domain/Identity/PermissionKeys.cs` (ค่าคงที่ 25 ตัว และรายการ `PermissionKeys.All`) กับตารางด้านบนแล้ว: **ครบ 25/25 คีย์** ตรงกันทุกตัว
+ตรวจเทียบ `backend/src/TanPms.Domain/Identity/PermissionKeys.cs` (ค่าคงที่ 26 ตัว และรายการ `PermissionKeys.All`) กับตารางด้านบนแล้ว: **ครบ 26/26 คีย์** ตรงกันทุกตัว
 
 - **High-Risk (`IsHighRisk = true` ใน `PmsRoleCatalog.Permissions`) มี 7 คีย์:** `admin.users.manage`, `admin.stay.override_dirty_checkin`, `admin.customer.unmask_pii`, `admin.leases.settle_moveout`, `admin.meters.override_locked`, `admin.cashier.reconcile_shift`, `admin.invoices.void` (ตรงกับแถวที่ทำตัวหนาในตาราง)
 - คีย์ที่ระบุ "ใช่" แต่ไม่หนา (`admin.properties.manage`, `admin.rates.manage`, `admin.regulatory.export`, `admin.billing.issue_batch`, `admin.payments.verify_slip`) = ต้องบันทึก `AuditEvent` ทุกครั้ง แต่ไม่ถูกตั้ง `IsHighRisk` ในโค้ด
-- **ข้อสังเกต:** ค่า `admin.rack.view` ปรากฏเฉพาะในชุดสิทธิ์เริ่มต้นของ Dev (ข้อ 3) และ**ไม่ได้ประกาศใน `PermissionKeys`** และไม่พบการตรวจสิทธิ์นี้ใน `backend/src` — ถือเป็นค่าตกค้าง ควรตัดสินใจว่าจะเพิ่มเป็นคีย์ทางการหรือลบ (ยังไม่ได้ตัดสินใจ)
+- **สิทธิ์ `admin.rack.view`:** ประกาศอย่างเป็นทางการใน `PermissionKeys.AdminRackView` บังคับตรวจที่ `GetAdminRoomRackHandler` (`GET /api/v1/admin/properties/{propertyId}/rack`) และมอบให้บทบาท `OrganizationAdmin`, `PropertyManager` และ `FrontDeskCashier`
 - **บทบาทมาตรฐาน** ในโค้ด (`PmsRoleCatalog`) คือ `OrganizationAdmin` (ทุกคีย์), `PropertyManager`, `FrontDeskCashier`, `PropertyAccountant`, `HousekeepingStaff`, `MaintenanceTechnician`, `ClientCustomer` (ไม่มีสิทธิ์ `admin.*`)
 
 ---

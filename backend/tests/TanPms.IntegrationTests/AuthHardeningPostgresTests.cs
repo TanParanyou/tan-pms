@@ -127,6 +127,15 @@ public sealed class AuthHardeningPostgresTests
         var excluded = Reprice("VatExcluded", 7m);
         Assert.Equal(decimal.Round(water.LineAmount * 0.07m, 2, MidpointRounding.AwayFromZero), excluded.Lines[1].VatAmount);
         Assert.Equal(water.LineAmount + excluded.Lines[1].VatAmount, excluded.Lines[1].NetAmount);
+        var excluded10 = Reprice("VatExcluded", 10m);
+        Assert.Equal(water.LineAmount, excluded10.Lines[1].SubTotal);
+        Assert.Equal(decimal.Round(water.LineAmount * 0.10m, 2, MidpointRounding.AwayFromZero), excluded10.Lines[1].VatAmount);
+        Assert.Equal(water.LineAmount + excluded10.Lines[1].VatAmount, excluded10.Lines[1].NetAmount);
+        var included10 = Reprice("VatIncluded", 10m);
+        var expectedSub10 = decimal.Round(water.LineAmount / 1.10m, 2, MidpointRounding.AwayFromZero);
+        Assert.Equal(expectedSub10, included10.Lines[1].SubTotal);
+        Assert.Equal(water.LineAmount - expectedSub10, included10.Lines[1].VatAmount);
+        Assert.Equal(water.LineAmount, included10.Lines[1].NetAmount);
         var included = Reprice("VatIncluded", 7m);
         Assert.Equal(water.VatAmount, included.Lines[1].VatAmount);
 

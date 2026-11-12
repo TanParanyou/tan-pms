@@ -102,7 +102,12 @@ public sealed class MasterDataAndStayLifecycleTests
         Assert.Equal("MONTHLY_ROOM_RENT", new GetAdminTaxProfileHandler(store, manage)
             .Handle(new GetAdminTaxProfileQuery(Bkk, PmsSeedConstants.MonthlyRentExemptTaxProfileId)).Value!.ChargeCategoryCode);
         Assert.Equal(DomainErrorCodes.MasterDataInUse, store.DeleteTaxProfile(Bkk, PmsSeedConstants.MonthlyRentExemptTaxProfileId).Error!.Code);
+        Assert.Equal(DomainErrorCodes.ValidationFailed, store.UpsertTaxProfile(Bkk, new UpsertTaxProfileRequest(
+            PmsSeedConstants.MonthlyRentExemptTaxProfileId, "MONTHLY_ROOM_RENT_NEW", new LocalizedTextDto("ค่าเช่า"), "Exempt", 0m, 5m, true)).Error!.Code);
+        Assert.Equal(DomainErrorCodes.ValidationFailed, store.UpsertTaxProfile(Bkk, new UpsertTaxProfileRequest(
+            PmsSeedConstants.WaterUtilityTaxProfileId, "WATER_NEW", new LocalizedTextDto("ค่าน้ำ"), "VatIncluded", 7m, 0m, true)).Error!.Code);
         var custom = store.UpsertTaxProfile(Bkk, new UpsertTaxProfileRequest(null, "PARKING", new LocalizedTextDto("ที่จอดรถ"), "VatIncluded", 7m, 0m, true)).Value!;
+        Assert.Equal("PARKING_VIP", store.UpsertTaxProfile(Bkk, new UpsertTaxProfileRequest(custom.Id, "PARKING_VIP", new LocalizedTextDto("ที่จอดรถ VIP"), "VatIncluded", 7m, 0m, true)).Value!.ChargeCategoryCode);
         Assert.True(new DeleteAdminTaxProfileHandler(store, manage, store).Handle(new DeleteAdminTaxProfileCommand(Bkk, custom.Id)).IsSuccess);
         Assert.Equal(DomainErrorCodes.MasterDataInUse, store.DeleteUtilityTariff(Bkk, PmsSeedConstants.BkkWaterTariffId).Error!.Code); // A-201 lease is billed with it
         Assert.Equal("Water", store.GetUtilityTariff(Bkk, PmsSeedConstants.BkkWaterTariffId).Value!.UtilityType);
@@ -218,6 +223,45 @@ public sealed class MasterDataAndStayLifecycleTests
         // MovedOut lease counts through its move-out date (UpdatedAt = now): 11 nights, plus 11 for the A-201 lease.
         var occupancy = store.GetOccupancyReport(Bkk, today.AddDays(-10), today).Value!;
         Assert.Equal(22, occupancy.ByStayMode.Single(m => m.StayMode == "Monthly").OccupiedUnitNights);
+    }
+
+    [Fact]
+    public void CheckInStayHandler_Should_Record_AuditEvent_When_AuditLogger_Provided()
+    {
+        var store = new InMemoryOperationalService();
+        var desk = BkkAdmin(PermissionKeys.AdminStayCheckIn, PermissionKeys.AdminCashierOperateShift);
+        store.OpenAdminCashierShift(Bkk, desk.UserId, new OpenCashierShiftRequest(500m));
+        var idDoc = TestFiles.Admin(store, StoredFilePurpose.IdentityDocument, Bkk);
+
+        var handler = new CheckInStayHandler(store, desk, store, store);
+        var result = handler.Handle(new CheckInStayCommand(
+            Bkk, PmsSeedConstants.CleanUnitA101Id, PmsSeedConstants.PrimaryCustomerId, "Hourly", 300m,
+            Occupants: [new CheckInOccupantInputDto("Audit Guest", "THA", "1100700000009", true, null, "0810000000", idDoc)]));
+
+        Assert.True(result.IsSuccess);
+        var audit = Assert.Single(store.AuditEvents, a => a.ActionKey == PermissionKeys.AdminStayCheckIn);
+        Assert.Equal(result.Value!.Id, audit.EntityId);
+        Assert.Contains("Checked in stay", audit.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TanPmsDbContextFactory_Should_Throw_In_Production_Without_ConnectionString()
+    {
+        var factory = new TanPms.Infrastructure.Persistence.TanPmsDbContextFactory();
+        var prevEnv = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        var prevConn = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+        try
+        {
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production");
+            Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", null);
+            var ex = Assert.Throws<InvalidOperationException>(() => factory.CreateDbContext([]));
+            Assert.Contains("ConnectionStrings__DefaultConnection", ex.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", prevEnv);
+            Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", prevConn);
+        }
     }
 
     private sealed class TestCurrentUserContext : ICurrentUserContext

@@ -120,6 +120,30 @@ public static class PmsDatabaseInitializer
         await dbContext.SaveChangesAsync(cancellationToken);
         await BackfillLegacyBillingColumnsAsync(dbContext, cancellationToken);
 
+        var rackRoles = new[] { RoleCodes.OrganizationAdmin, RoleCodes.PropertyManager, RoleCodes.FrontDeskCashier };
+        var admins = await dbContext.AdminUsers
+            .Where(u => rackRoles.Contains(u.RoleCode))
+            .ToListAsync(cancellationToken);
+        var upgradedAdmins = false;
+        foreach (var admin in admins)
+        {
+            if (!admin.Permissions.Contains(PermissionKeys.AdminRackView, StringComparer.OrdinalIgnoreCase))
+            {
+                admin.AssignRoleAndScope(
+                    admin.RoleCode,
+                    admin.RoleName,
+                    admin.AllowedPropertyIds,
+                    admin.Permissions.Append(PermissionKeys.AdminRackView),
+                    admin.IsActive);
+                upgradedAdmins = true;
+            }
+        }
+
+        if (upgradedAdmins)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         var propertyIdsByCode = await dbContext.Properties.IgnoreQueryFilters().AsNoTracking()
             .ToDictionaryAsync(p => p.Code.ToUpperInvariant(), p => p.Id, cancellationToken);
         var documentNumbers = new List<string>();

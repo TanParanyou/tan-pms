@@ -347,8 +347,20 @@ describe("PM-03 rates, tariffs and taxes", () => {
     fireEvent.click(await screen.findByRole("button", { name: `${rt.editTax} MONTHLY_ROOM_RENT` }));
     const dialog = await screen.findByRole("dialog", { name: rt.modalTitleEditTax });
     await waitFor(() => expect(within(dialog).getByDisplayValue("MONTHLY_ROOM_RENT")).toBeInTheDocument());
+    expect(within(dialog).getByDisplayValue("MONTHLY_ROOM_RENT")).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("button", { name: tc.save }));
     await waitFor(() => expect(upsert).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ id: "tx1", chargeCategoryCode: "MONTHLY_ROOM_RENT" })));
+  });
+
+  it("keeps chargeCategoryCode enabled when creating a new tax profile", async () => {
+    renderAdmin(<RateTariffTaxSection />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: rt.tabTaxProfiles }), { button: 0 });
+    fireEvent.click(screen.getByRole("tab", { name: rt.tabTaxProfiles }));
+    fireEvent.click(await screen.findByRole("button", { name: rt.createTax }));
+    const dialog = await screen.findByRole("dialog", { name: rt.modalTitleCreateTax });
+    const input = within(dialog).getByPlaceholderText(rt.placeholderCode);
+    expect(input).toBeInTheDocument();
+    expect(input).not.toBeDisabled();
   });
 
   it("validates and creates a rate plan sending the complete hourly, daily and monthly configuration", async () => {

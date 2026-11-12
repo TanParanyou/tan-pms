@@ -84,7 +84,7 @@ flowchart TD
 3. **Notification Adapter ภายนอก (`LINE`/`Email`) ยังไม่มี:** `NotificationChannel` มีค่า `Line` และ `Email` แต่ไม่พบ Adapter/ไลบรารีส่งจริงใน `backend/src`; `EfCoreNotificationSender` เพียงบันทึก Log และการแจ้งเตือนที่ทำงานจริงคือบันทึก `NotificationMessage` ช่อง `InApp` (เช่น ใบแจ้งหนี้ออก/Overdue)
 4. **ยังไม่มี Remote/Push:** Repository ยังไม่ตั้ง Git Remote (ตรวจ `git remote -v` ว่าง) และไม่มี CI Pipeline ที่รัน Gate อัตโนมัติ
 5. **ยังไม่ผ่าน UAT และเกณฑ์ Production:** ไม่มีหลักฐาน UAT, การซ้อมกู้คืน (`backup-restore-and-release.md`), Load/Concurrency Test บนสภาพแวดล้อมจริง, Object Storage สำหรับไฟล์ (ตอนนี้ Local Disk), Virus Scan ไฟล์แนบ, Distributed Lock สำหรับ `OverdueInvoiceSweeper` เมื่อรันหลาย Instance
-6. **ข้อตัดสินใจที่ปิดแล้ว:** ชุดสิทธิ์เริ่มต้นของ Dev (รวม `admin.leases.settle_moveout` และ `admin.users.manage`) ใช้เฉพาะ `Auth:Mode=Headers` ซึ่งถูกปฏิเสธนอก Development/Testing และโหมด `Jwt` อ่านสิทธิ์จาก Store — ดู [permission-catalog.md](../03-contracts/permission-catalog.md) หัวข้อ 3; **ยังค้าง:** ค่า `admin.rack.view` ที่ไม่มีใน `PermissionKeys` (ใช้เฉพาะชุด Dev)
+6. **ข้อตัดสินใจที่ปิดแล้ว:** ชุดสิทธิ์เริ่มต้นของ Dev (รวม `admin.leases.settle_moveout` และ `admin.users.manage`) ใช้เฉพาะ `Auth:Mode=Headers` ซึ่งถูกปฏิเสธนอก Development/Testing และโหมด `Jwt` อ่านสิทธิ์จาก Store — ดู [permission-catalog.md](../03-contracts/permission-catalog.md) หัวข้อ 3; สิทธิ์ `admin.rack.view` (`PermissionKeys.AdminRackView`) ถูกประกาศอย่างเป็นทางการใน `PermissionKeys` และ `PmsRoleCatalog` พร้อมบังคับตรวจที่ `GetAdminRoomRackHandler` แล้ว
 
 ### 3.3 การตัดสินใจของผู้ใช้ (User Decisions) วันที่ 2026-11-12
 

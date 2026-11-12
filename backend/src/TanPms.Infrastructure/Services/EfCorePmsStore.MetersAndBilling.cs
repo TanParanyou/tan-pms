@@ -152,7 +152,7 @@ public sealed partial class EfCorePmsStore
                 if (existing.Status == InvoiceStatus.Draft
                     && MeterBillingComposer.RefreshDraftInvoice(
                         existing,
-                        MeterBillingComposer.BuildAutoLines(context, period, water, electric, category => MeterBillingComposer.ResolveTaxMode(profiles, category)),
+                        MeterBillingComposer.BuildAutoLines(context, period, water, electric, category => MeterBillingComposer.ResolveTaxRule(profiles, category)),
                         removedLines,
                         addedLines))
                 {
@@ -174,7 +174,7 @@ public sealed partial class EfCorePmsStore
                 _documentNumberService.NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.INV, clockUtc).GetAwaiter().GetResult(),
                 water,
                 electric,
-                category => MeterBillingComposer.ResolveTaxMode(profiles, category));
+                category => MeterBillingComposer.ResolveTaxRule(profiles, category));
             _dbContext.Invoices.Add(invoice);
             _dbContext.Set<InvoiceLine>().AddRange(invoice.Lines);
             created.Add((invoice, context));

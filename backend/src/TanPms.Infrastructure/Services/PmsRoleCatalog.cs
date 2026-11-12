@@ -28,7 +28,8 @@ public static class PmsRoleCatalog
                 PermissionKeys.AdminCashierReconcileShift,
                 PermissionKeys.AdminInvoicesVoid,
                 PermissionKeys.AdminLeasesSettleMoveOut,
-                PermissionKeys.AdminAnalyticsRead
+                PermissionKeys.AdminAnalyticsRead,
+                PermissionKeys.AdminRackView
             ]),
         new RoleDefinitionDto(
             RoleCodes.FrontDeskCashier,
@@ -41,7 +42,8 @@ public static class PmsRoleCatalog
                 PermissionKeys.AdminStayCheckOut,
                 PermissionKeys.AdminCashierOperateShift,
                 PermissionKeys.AdminPaymentsVerifySlip,
-                PermissionKeys.AdminParcelsManage
+                PermissionKeys.AdminParcelsManage,
+                PermissionKeys.AdminRackView
             ]),
         new RoleDefinitionDto(
             RoleCodes.PropertyAccountant,

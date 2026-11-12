@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using TanPms.Application.Common.Contracts;
 using TanPms.Application.Identity;
+using TanPms.Application.Leases;
 using TanPms.Domain.Common;
 using TanPms.Domain.Identity;
 using TanPms.Infrastructure.Services;
@@ -255,6 +256,34 @@ public sealed class JwtAuthenticationWebTests : IClassFixture<JwtWebApiFactory>
         Assert.Contains("no-store", login.Headers.CacheControl!.ToString(), StringComparison.Ordinal);
         Assert.Contains("no-store", me.Headers.CacheControl!.ToString(), StringComparison.Ordinal);
         Assert.False(live.Headers.Contains("Strict-Transport-Security")); // Testing environment: no HSTS.
+
+        // PDF download must also be marked no-store
+        var leasesRes = await SendAsync(client, HttpMethod.Get, $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases", session.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, leasesRes.StatusCode);
+        var leases = await leasesRes.Content.ReadFromJsonAsync<LeaseListResponse>();
+        var leaseId = leases!.Items.First().Id;
+        var pdfResponse = await SendAsync(client, HttpMethod.Get, $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/leases/{leaseId}/contract.pdf", session.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, pdfResponse.StatusCode);
+        Assert.Equal("application/pdf", pdfResponse.Content.Headers.ContentType!.MediaType);
+        Assert.Contains("no-store", pdfResponse.Headers.CacheControl!.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Hsts_Header_Should_Be_Emitted_Outside_Development_Over_Https()
+    {
+        using var prodFactory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=localhost;Database=mock_not_used");
+            builder.UseSetting("Auth:Mode", "Jwt");
+            builder.UseSetting("Auth:Jwt:SigningKey", "at-least-32-characters-long-production-key-mock");
+        });
+
+        using var client = prodFactory.CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost/health/live");
+        var response = await client.SendAsync(request);
+        Assert.True(response.Headers.Contains("Strict-Transport-Security"));
+        Assert.Equal("max-age=31536000; includeSubDomains", response.Headers.GetValues("Strict-Transport-Security").Single());
     }
 
     [Fact]

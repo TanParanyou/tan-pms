@@ -1,6 +1,7 @@
 using TanPms.Application.Common.Abstractions;
 using TanPms.Application.Common.Results;
 using TanPms.Application.Common.Security;
+using TanPms.Domain.Identity;
 
 namespace TanPms.Application.Rack;
 
@@ -17,7 +18,7 @@ public sealed class GetAdminRoomRackHandler
 
     public Result<RoomRackResponse> Handle(GetAdminRoomRackQuery query)
     {
-        if (ScopeAuthorizationGuard.CheckAdminPropertyAccess(_currentUser, query.PropertyId) is { } authError)
+        if (ScopeAuthorizationGuard.CheckAdminPropertyScope(_currentUser, query.PropertyId, PermissionKeys.AdminRackView) is { } authError)
         {
             return Result<RoomRackResponse>.Failure(authError);
         }

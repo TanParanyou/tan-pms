@@ -148,7 +148,7 @@ public sealed class PostgresPersistenceIntegrationTests
             adminClient.DefaultRequestHeaders.Add("X-TanPms-Open-Shift", "true");
             adminClient.DefaultRequestHeaders.Add(
                 "X-TanPms-Permissions",
-                string.Join(",", PermissionKeys.AdminStayCheckIn, PermissionKeys.AdminStayCheckOut));
+                string.Join(",", PermissionKeys.AdminStayCheckIn, PermissionKeys.AdminStayCheckOut, PermissionKeys.AdminRackView));
 
             var rackRes = await adminClient.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rack");
             Assert.Equal(HttpStatusCode.OK, rackRes.StatusCode);

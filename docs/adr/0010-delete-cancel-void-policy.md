@@ -28,7 +28,7 @@ Accepted — 2026-11-08
    - `WorkOrder.Cancel`: ไม่ใช่ `Cancelled` และไม่ใช่ `Completed` ที่โพสต์ค่าใช้จ่ายผู้เช่าแล้ว
    - `Parcel.Void`: เฉพาะพัสดุสถานะ `Arrived` (ยังไม่ส่งมอบ); เนื่องจาก `ParcelStatus` ไม่มีค่า Cancelled ระบบบันทึก `VoidReason` แล้ว Soft Delete แถว
    - รายการ `Folio` Charge (`void`) และการย้อนชำระ `Folio` (`payments/reverse`, ต้องมี `admin.invoices.void`) — ไม่ได้ตรวจเงื่อนไขภายในทุกกรณี
-4. **เหตุผลบังคับ:** `reason` ว่างตอบ `validation.failed` (`400`) และบันทึกใน `AuditEvent` ผ่าน `IAuditLogger.RecordMutation` (ตรวจ Handler ของ Cancel/Void หลัก; ไม่ได้ตรวจครบทุก Handler ว่ามี Audit)
+4. **เหตุผลบังคับ:** `reason` ว่างตอบ `validation.failed` (`400`) และบันทึกใน `AuditEvent` ผ่าน `IAuditLogger.RecordMutation` (ตรวจสอบครบถ้วนทุก Handler สำหรับคำสั่ง Delete, Cancel, Void, Deactivate, และ Check-In/Check-Out ว่ามีการบันทึก `AuditEvent` พร้อมเหตุผลและ State ทุกครั้ง)
 5. **Frontend ต้องแสดง `ConfirmationModal`** และล็อกปุ่มด้วย `isLoading` ตาม [AGENTS.md](../../AGENTS.md) หมวด 6 (เป็นกฎของโครงการ ไม่ได้ตรวจทุกหน้าจอในรอบนี้)
 6. **ข้อมูลที่แก้ไขไม่ได้ (Immutable):**
    - `Invoice` ที่ไม่ใช่ `Draft` แก้บรรทัด/ลบไม่ได้ -> `invoice.immutable_status` (`409`); ใบเสร็จ (`Receipt`) ไม่มี Endpoint แก้/ลบ (มีแต่ `GET` และ PDF)

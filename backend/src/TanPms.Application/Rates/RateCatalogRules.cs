@@ -13,4 +13,22 @@ public static class RateCatalogRules
 
     public static Error NotFound(string entity, Guid propertyId, Guid id) =>
         new(DomainErrorCodes.ValidationFailed, $"{entity} '{id}' was not found in property '{propertyId}'.");
+
+    public static Error? CheckCategoryChangeAllowed(string currentCode, string requestedCode, bool hasReferencingInvoiceLines)
+    {
+        var normalizedRequested = requestedCode?.Trim() ?? string.Empty;
+        if (string.Equals(currentCode, normalizedRequested, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (ProtectedTaxCodes.Contains(currentCode) || hasReferencingInvoiceLines)
+        {
+            return new Error(
+                DomainErrorCodes.ValidationFailed,
+                $"ChargeCategoryCode '{currentCode}' cannot be changed because it is a system tax category or is referenced by invoice lines.");
+        }
+
+        return null;
+    }
 }

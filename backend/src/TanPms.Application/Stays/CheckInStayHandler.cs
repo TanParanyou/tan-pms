@@ -13,12 +13,18 @@ public sealed class CheckInStayHandler
     private readonly IStayStore _store;
     private readonly ICurrentUserContext _currentUser;
     private readonly IStoredFileStore _files;
+    private readonly IAuditLogger? _auditLogger;
 
-    public CheckInStayHandler(IStayStore store, ICurrentUserContext currentUser, IStoredFileStore files)
+    public CheckInStayHandler(
+        IStayStore store,
+        ICurrentUserContext currentUser,
+        IStoredFileStore files,
+        IAuditLogger? auditLogger = null)
     {
         _store = store;
         _currentUser = currentUser;
         _files = files;
+        _auditLogger = auditLogger;
     }
 
     public Result<StaySummaryDto> Handle(CheckInStayCommand command)
@@ -43,6 +49,24 @@ public sealed class CheckInStayHandler
         }
 
         var hasOverridePerm = _currentUser.Permissions.Contains(PermissionKeys.AdminStayOverrideDirtyCheckIn);
-        return _store.CheckInStay(command, hasOverridePerm, cashierUserId: _currentUser.UserId);
+        var result = _store.CheckInStay(command, hasOverridePerm, cashierUserId: _currentUser.UserId);
+        if (result.IsSuccess && result.Value is not null && _auditLogger is not null)
+        {
+            _auditLogger.RecordMutation(
+                propertyId: command.PropertyId,
+                actionKey: PermissionKeys.AdminStayCheckIn,
+                entityId: result.Value.Id,
+                reason: $"Checked in stay {result.Value.DocumentNumber} in unit {result.Value.Unit.UnitNumber}",
+                afterState: new
+                {
+                    result.Value.DocumentNumber,
+                    UnitId = result.Value.Unit.Id,
+                    UnitNumber = result.Value.Unit.UnitNumber,
+                    result.Value.StayMode,
+                    result.Value.Status
+                });
+        }
+
+        return result;
     }
 }

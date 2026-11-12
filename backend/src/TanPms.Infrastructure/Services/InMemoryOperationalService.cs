@@ -744,6 +744,14 @@ public sealed partial class InMemoryOperationalService
                             $"TaxProfile '{request.Id.Value}' not found."));
                     }
 
+                    var hasReferencingLines = _invoices
+                        .SelectMany(i => i.Lines)
+                        .Any(l => string.Equals(l.ChargeCategoryCode, existingProfile.ChargeCategoryCode, StringComparison.OrdinalIgnoreCase));
+                    if (RateCatalogRules.CheckCategoryChangeAllowed(existingProfile.ChargeCategoryCode, request.ChargeCategoryCode ?? string.Empty, hasReferencingLines) is { } categoryError)
+                    {
+                        return Result<TaxProfileItemDto>.Failure(categoryError);
+                    }
+
                     profile = existingProfile;
                 }
                 else
@@ -2641,7 +2649,8 @@ public sealed partial class InMemoryOperationalService
                     PermissionKeys.AdminCashierReconcileShift,
                     PermissionKeys.AdminInvoicesVoid,
                     PermissionKeys.AdminLeasesSettleMoveOut,
-                    PermissionKeys.AdminAnalyticsRead
+                    PermissionKeys.AdminAnalyticsRead,
+                    PermissionKeys.AdminRackView
                 ]),
             new RoleDefinitionDto(
                 RoleCodes.FrontDeskCashier,
@@ -2654,7 +2663,8 @@ public sealed partial class InMemoryOperationalService
                     PermissionKeys.AdminStayCheckOut,
                     PermissionKeys.AdminCashierOperateShift,
                     PermissionKeys.AdminPaymentsVerifySlip,
-                    PermissionKeys.AdminParcelsManage
+                    PermissionKeys.AdminParcelsManage,
+                    PermissionKeys.AdminRackView
                 ]),
             new RoleDefinitionDto(
                 RoleCodes.PropertyAccountant,

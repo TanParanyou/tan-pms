@@ -37,6 +37,19 @@ public sealed class UtilityVatChangeTests
         Assert.Equal(decimal.Round(water.LineAmount * 0.07m, 2, MidpointRounding.AwayFromZero), excluded.Lines[1].VatAmount);
         Assert.Equal(water.LineAmount + excluded.Lines[1].VatAmount, excluded.Lines[1].NetAmount);
 
+        var excluded10 = Reprice(store, profile, "VatExcluded", 10m, draft.Id);
+        Assert.Equal("VatExcluded", excluded10.Lines[1].TaxMode);
+        Assert.Equal(water.LineAmount, excluded10.Lines[1].SubTotal);
+        Assert.Equal(decimal.Round(water.LineAmount * 0.10m, 2, MidpointRounding.AwayFromZero), excluded10.Lines[1].VatAmount);
+        Assert.Equal(water.LineAmount + excluded10.Lines[1].VatAmount, excluded10.Lines[1].NetAmount);
+
+        var included10 = Reprice(store, profile, "VatIncluded", 10m, draft.Id);
+        Assert.Equal("VatIncluded", included10.Lines[1].TaxMode);
+        var expectedSub10 = decimal.Round(water.LineAmount / 1.10m, 2, MidpointRounding.AwayFromZero);
+        Assert.Equal(expectedSub10, included10.Lines[1].SubTotal);
+        Assert.Equal(water.LineAmount - expectedSub10, included10.Lines[1].VatAmount);
+        Assert.Equal(water.LineAmount, included10.Lines[1].NetAmount);
+
         var included = Reprice(store, profile, "VatIncluded", 7m, draft.Id);
         Assert.Equal(water, included.Lines[1] with { Id = water.Id });
 

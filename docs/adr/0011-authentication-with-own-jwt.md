@@ -31,7 +31,7 @@ Accepted — 2026-11-11
   - (แก้แล้ว) มี `RefreshTokenCleanupService` ลบแถวที่หมดอายุหรือถูกเพิกถอนเกิน `Auth:Jwt:RefreshTokenRetentionDays` (30 วัน) ทุก `Auth:Jwt:CleanupIntervalMinutes` (60 นาที)
   - ไม่มี Forgot-Password / Self-Service Reset สำหรับลูกค้า และไม่มี MFA
   - (แก้แล้ว) `appsettings.json` ไม่มี Connection String แล้ว (อยู่ใน `appsettings.Development.json`) นอก Development/Testing ระบบไม่สตาร์ทหากไม่ตั้ง `ConnectionStrings__DefaultConnection` (ยกเว้น `Persistence__Provider=InMemory`) ยกเว้น `TanPmsDbContextFactory` (เครื่องมือ `dotnet ef` ตอน Design-time) ที่ยังมีค่าสำรองของเครื่องพัฒนา
-  - Response Header ความปลอดภัย (`SecurityHeadersMiddleware`): `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Cache-Control: no-store` สำหรับ `/api/v1/auth/*` และไฟล์/PDF, HSTS นอก Development/Testing เมื่อเป็น HTTPS (`Security:Hsts:Enabled`) — ยังไม่ได้ทดสอบ HSTS บน HTTPS จริงและ `no-store` บน PDF/ไฟล์
+  - (แก้แล้ว) Response Header ความปลอดภัย (`SecurityHeadersMiddleware`): `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Cache-Control: no-store` สำหรับ `/api/v1/auth/*` และไฟล์/PDF (`application/pdf`), HSTS (`Strict-Transport-Security: max-age=31536000; includeSubDomains`) นอก Development/Testing เมื่อเรียกผ่าน HTTPS (`Security:Hsts:Enabled`) — ผ่านการทดสอบใน `JwtAuthenticationWebTests` ครบทุกกรณี
   - Rate Limit เป็นแบบต่อ Instance (In-Memory) ไม่แชร์ข้ามหลาย Instance
 
 ## Alternatives Considered

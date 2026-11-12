@@ -151,11 +151,11 @@ public sealed partial class InMemoryOperationalService
                 if (request.ChargeToTenant)
                 {
                     var (stay, lease) = FindActiveOccupancyLocked(workOrder.UnitId);
-                    var taxMode = OperationsRecordMapper.ResolveRepairTaxMode(_taxProfiles.Values.Where(p => p.PropertyId == propertyId));
+                    var (taxMode, vatRate) = OperationsRecordMapper.ResolveRepairTaxRule(_taxProfiles.Values.Where(p => p.PropertyId == propertyId));
                     var description = OperationsRecordMapper.RepairChargeDescription(workOrder);
                     if (stay is not null)
                     {
-                        EnsureFolioLocked(stay).AddCharge(description, request.RepairCostAmount, taxMode);
+                        EnsureFolioLocked(stay).AddCharge(description, request.RepairCostAmount, taxMode, WorkOrderRules.RepairChargeCategory);
                         chargeDocumentNumber = stay.DocumentNumber;
                     }
                     else if (lease is not null)
@@ -178,7 +178,7 @@ public sealed partial class InMemoryOperationalService
                             _invoices.Add(invoice);
                         }
 
-                        invoice.AddLine(description, request.RepairCostAmount, taxMode);
+                        invoice.AddLine(description, request.RepairCostAmount, taxMode, WorkOrderRules.RepairChargeCategory, vatRate);
                         chargeDocumentNumber = invoice.DocumentNumber;
                     }
                     else

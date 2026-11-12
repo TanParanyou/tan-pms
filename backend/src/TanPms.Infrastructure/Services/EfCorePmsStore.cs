@@ -713,6 +713,13 @@ public sealed partial class EfCorePmsStore : IPmsOperationalStore
                         $"TaxProfile '{request.Id.Value}' not found."));
                 }
 
+                var hasReferencingLines = _dbContext.Set<InvoiceLine>()
+                    .Any(l => l.ChargeCategoryCode == existingProfile.ChargeCategoryCode);
+                if (RateCatalogRules.CheckCategoryChangeAllowed(existingProfile.ChargeCategoryCode, normalizedCategory, hasReferencingLines) is { } categoryError)
+                {
+                    return Result<TaxProfileItemDto>.Failure(categoryError);
+                }
+
                 profile = existingProfile;
             }
             else

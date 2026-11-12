@@ -137,7 +137,7 @@ public sealed partial class InMemoryOperationalService
                     if (existing.Status == InvoiceStatus.Draft
                         && MeterBillingComposer.RefreshDraftInvoice(
                             existing,
-                            MeterBillingComposer.BuildAutoLines(context, period, water, electric, category => MeterBillingComposer.ResolveTaxMode(profiles, category)),
+                            MeterBillingComposer.BuildAutoLines(context, period, water, electric, category => MeterBillingComposer.ResolveTaxRule(profiles, category)),
                             [],
                             []))
                     {
@@ -157,7 +157,7 @@ public sealed partial class InMemoryOperationalService
                     NextDocumentNumberAsync(property.Id, property.Code, DocumentTypeCode.INV, clockUtc).GetAwaiter().GetResult(),
                     water,
                     electric,
-                    category => MeterBillingComposer.ResolveTaxMode(profiles, category));
+                    category => MeterBillingComposer.ResolveTaxRule(profiles, category));
                 _invoices.Add(invoice);
                 created.Add(invoice);
             }

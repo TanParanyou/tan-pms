@@ -22,20 +22,31 @@ public sealed class Invoice : AuditableEntity
     public decimal TotalVatAmount => Lines.Sum(l => l.VatAmount);
     public decimal TotalAmount => Lines.Sum(l => l.NetAmount);
 
-    public InvoiceLine AddLine(LocalizedText description, decimal lineAmount, TaxMode taxMode, string? chargeCategoryCode = null)
+    public InvoiceLine AddLine(
+        LocalizedText description,
+        decimal lineAmount,
+        TaxMode taxMode,
+        string? chargeCategoryCode = null,
+        decimal vatRate = ThaiTaxCalculator.StandardThaiVatRate)
     {
         EnsureMutable();
-        var line = BuildLine(description, lineAmount, taxMode, chargeCategoryCode);
+        var line = BuildLine(description, lineAmount, taxMode, chargeCategoryCode, vatRate);
         Lines.Add(line);
         return line;
     }
 
     // Replaces a Draft line in place (new line id, same position, same charge category).
-    public InvoiceLine ReplaceLine(Guid lineId, LocalizedText description, decimal lineAmount, TaxMode taxMode)
+    public InvoiceLine ReplaceLine(
+        Guid lineId,
+        LocalizedText description,
+        decimal lineAmount,
+        TaxMode taxMode,
+        decimal? vatRate = null)
     {
         EnsureMutable();
         var index = FindLineIndex(lineId);
-        var line = BuildLine(description, lineAmount, taxMode, Lines[index].ChargeCategoryCode);
+        var resolvedVatRate = vatRate ?? (Lines[index].VatRate > 0m ? Lines[index].VatRate : ThaiTaxCalculator.StandardThaiVatRate);
+        var line = BuildLine(description, lineAmount, taxMode, Lines[index].ChargeCategoryCode, resolvedVatRate);
         Lines[index] = line;
         return line;
     }
@@ -49,8 +60,14 @@ public sealed class Invoice : AuditableEntity
         return line;
     }
 
-    public InvoiceLine AddLine(string thaiDescription, decimal lineAmount, TaxMode taxMode, string? englishDescription = null, string? chargeCategoryCode = null) =>
-        AddLine(LocalizedText.Create(thaiDescription, englishDescription), lineAmount, taxMode, chargeCategoryCode);
+    public InvoiceLine AddLine(
+        string thaiDescription,
+        decimal lineAmount,
+        TaxMode taxMode,
+        string? englishDescription = null,
+        string? chargeCategoryCode = null,
+        decimal vatRate = ThaiTaxCalculator.StandardThaiVatRate) =>
+        AddLine(LocalizedText.Create(thaiDescription, englishDescription), lineAmount, taxMode, chargeCategoryCode, vatRate);
 
     // dueDate is computed by the caller from the property's payment terms (property-local issue date + terms).
     public void Issue(DateTimeOffset? issuedAt = null, DateOnly? dueDate = null)
@@ -166,9 +183,14 @@ public sealed class Invoice : AuditableEntity
                 httpStatus: 400);
     }
 
-    private static InvoiceLine BuildLine(LocalizedText description, decimal lineAmount, TaxMode taxMode, string? chargeCategoryCode)
+    private static InvoiceLine BuildLine(
+        LocalizedText description,
+        decimal lineAmount,
+        TaxMode taxMode,
+        string? chargeCategoryCode,
+        decimal vatRate)
     {
-        var breakdown = ThaiTaxCalculator.CalculateLine(lineAmount, taxMode);
+        var breakdown = ThaiTaxCalculator.CalculateLine(lineAmount, taxMode, vatRate);
         return new InvoiceLine
         {
             Description = description,

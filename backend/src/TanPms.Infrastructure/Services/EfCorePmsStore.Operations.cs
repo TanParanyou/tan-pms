@@ -151,14 +151,14 @@ public sealed partial class EfCorePmsStore
             if (request.ChargeToTenant)
             {
                 var (stay, lease) = FindActiveOccupancy(workOrder.UnitId);
-                var taxMode = OperationsRecordMapper.ResolveRepairTaxMode(
+                var (taxMode, vatRate) = OperationsRecordMapper.ResolveRepairTaxRule(
                     _dbContext.TaxProfiles.AsNoTracking().Where(p => p.PropertyId == propertyId).ToList());
                 var description = OperationsRecordMapper.RepairChargeDescription(workOrder);
                 if (stay is not null)
                 {
                     var folio = EnsureTrackedFolio(_dbContext.Stays.First(s => s.Id == stay.Id));
                     var existingChargeIds = folio.Charges.Select(c => c.Id).ToHashSet();
-                    folio.AddCharge(description, request.RepairCostAmount, taxMode);
+                    folio.AddCharge(description, request.RepairCostAmount, taxMode, WorkOrderRules.RepairChargeCategory);
                     _dbContext.Set<FolioCharge>().AddRange(folio.Charges.Where(c => !existingChargeIds.Contains(c.Id)));
                     chargeDocumentNumber = stay.DocumentNumber;
                 }
@@ -184,7 +184,7 @@ public sealed partial class EfCorePmsStore
                     }
 
                     var existingLineIds = invoice.Lines.Select(l => l.Id).ToHashSet();
-                    invoice.AddLine(description, request.RepairCostAmount, taxMode);
+                    invoice.AddLine(description, request.RepairCostAmount, taxMode, WorkOrderRules.RepairChargeCategory, vatRate);
                     _dbContext.Set<InvoiceLine>().AddRange(invoice.Lines.Where(l => !existingLineIds.Contains(l.Id)));
                     chargeDocumentNumber = invoice.DocumentNumber;
                 }

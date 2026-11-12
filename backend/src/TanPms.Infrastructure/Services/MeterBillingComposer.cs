@@ -26,7 +26,8 @@ internal sealed record AutoInvoiceLine(
     LocalizedText Description,
     decimal Amount,
     TaxMode TaxMode,
-    string ChargeCategoryCode);
+    string ChargeCategoryCode,
+    decimal VatRate = ThaiTaxCalculator.StandardThaiVatRate);
 
 // Shared by the EF Core and in-memory stores so meter sheets, bulk saves and draft invoices compute identically.
 internal static class MeterBillingComposer
@@ -183,7 +184,7 @@ internal static class MeterBillingComposer
         string documentNumber,
         MeterReading water,
         MeterReading electric,
-        Func<string, TaxMode> taxModeForCategory)
+        Func<string, (TaxMode TaxMode, decimal VatRate)> taxRuleForCategory)
     {
         var invoice = new Invoice
         {
@@ -193,9 +194,9 @@ internal static class MeterBillingComposer
             LeaseId = context.Lease.Id,
             BillingPeriodYearMonth = period
         };
-        foreach (var line in BuildAutoLines(context, period, water, electric, taxModeForCategory))
+        foreach (var line in BuildAutoLines(context, period, water, electric, taxRuleForCategory))
         {
-            invoice.AddLine(line.Description, line.Amount, line.TaxMode, line.ChargeCategoryCode);
+            invoice.AddLine(line.Description, line.Amount, line.TaxMode, line.ChargeCategoryCode, line.VatRate);
         }
 
         return invoice;
@@ -212,16 +213,18 @@ internal static class MeterBillingComposer
         foreach (var auto in autoLines)
         {
             var existing = draft.Lines.FirstOrDefault(l => l.ChargeCategoryCode == auto.ChargeCategoryCode);
+            var expectedVatRate = auto.TaxMode == TaxMode.Exempt ? 0m : auto.VatRate;
             if (existing is null
                 || (existing.LineAmount == decimal.Round(auto.Amount, 2, MidpointRounding.AwayFromZero)
                     && existing.TaxMode == auto.TaxMode
+                    && existing.VatRate == expectedVatRate
                     && existing.Description == auto.Description))
             {
                 continue;
             }
 
             removedLines.Add(existing);
-            addedLines.Add(draft.ReplaceLine(existing.Id, auto.Description, auto.Amount, auto.TaxMode));
+            addedLines.Add(draft.ReplaceLine(existing.Id, auto.Description, auto.Amount, auto.TaxMode, auto.VatRate));
         }
 
         return addedLines.Count > 0;
@@ -232,7 +235,7 @@ internal static class MeterBillingComposer
         string period,
         MeterReading water,
         MeterReading electric,
-        Func<string, TaxMode> taxModeForCategory)
+        Func<string, (TaxMode TaxMode, decimal VatRate)> taxRuleForCategory)
     {
         var unitNumber = context.UnitRef.UnitNumber;
         BillingPeriod.Parse(period, out var periodStart, out var periodEnd);
@@ -242,23 +245,28 @@ internal static class MeterBillingComposer
             : LocalizedText.Create(
                 $"ค่าเช่าห้อง {unitNumber} รอบบิล {period} (คิดตามจริง {billableDays}/{daysInMonth} วัน)",
                 $"Room rent {unitNumber} ({period}, prorated {billableDays}/{daysInMonth} days)");
+        var rentTax = taxRuleForCategory(UtilityChargeCategories.MonthlyRoomRent);
+        var waterTax = taxRuleForCategory(UtilityChargeCategories.Water);
+        var electricTax = taxRuleForCategory(UtilityChargeCategories.Electric);
         return
         [
-            new(rentDescription, rentAmount, taxModeForCategory(UtilityChargeCategories.MonthlyRoomRent), UtilityChargeCategories.MonthlyRoomRent),
+            new(rentDescription, rentAmount, rentTax.TaxMode, UtilityChargeCategories.MonthlyRoomRent, rentTax.VatRate),
             new(
                 LocalizedText.Create(
                     $"ค่าน้ำประปา {water.UsageUnits:0.##} หน่วย ({water.PreviousReading:0.##} - {water.CurrentReading:0.##})",
                     $"Water {water.UsageUnits:0.##} units ({water.PreviousReading:0.##} - {water.CurrentReading:0.##})"),
                 water.ChargeAmount,
-                taxModeForCategory(UtilityChargeCategories.Water),
-                UtilityChargeCategories.Water),
+                waterTax.TaxMode,
+                UtilityChargeCategories.Water,
+                waterTax.VatRate),
             new(
                 LocalizedText.Create(
                     $"ค่าไฟฟ้า {electric.UsageUnits:0.##} หน่วย ({electric.PreviousReading:0.##} - {electric.CurrentReading:0.##})",
                     $"Electricity {electric.UsageUnits:0.##} units ({electric.PreviousReading:0.##} - {electric.CurrentReading:0.##})"),
                 electric.ChargeAmount,
-                taxModeForCategory(UtilityChargeCategories.Electric),
-                UtilityChargeCategories.Electric)
+                electricTax.TaxMode,
+                UtilityChargeCategories.Electric,
+                electricTax.VatRate)
         ];
     }
 
@@ -280,6 +288,11 @@ internal static class MeterBillingComposer
     internal static TaxMode ResolveTaxMode(IEnumerable<TaxProfile> propertyProfiles, string chargeCategoryCode) =>
         propertyProfiles.FirstOrDefault(p => p.IsActive && p.ChargeCategoryCode == chargeCategoryCode)?.TaxMode
         ?? TaxMode.Exempt;
+
+    internal static (TaxMode TaxMode, decimal VatRate) ResolveTaxRule(IEnumerable<TaxProfile> propertyProfiles, string chargeCategoryCode) =>
+        propertyProfiles.FirstOrDefault(p => p.IsActive && p.ChargeCategoryCode == chargeCategoryCode) is { } profile
+            ? (profile.TaxMode, profile.GetDecimalVatRate())
+            : (TaxMode.Exempt, 0m);
 
     internal static InvoiceItemDto MapInvoice(
         Invoice invoice,

@@ -113,7 +113,7 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         var catalog = await rolesRes.Content.ReadFromJsonAsync<RoleCatalogResponse>();
         Assert.NotNull(catalog);
         Assert.Equal(7, catalog.Roles.Count);
-        Assert.Equal(25, catalog.Permissions.Count);
+        Assert.Equal(26, catalog.Permissions.Count);
 
         var deniedScopeRes = await bkkOnlyClient.GetAsync($"/api/v1/admin/users?propertyId={PmsSeedConstants.CnxPropertyId}");
         Assert.Equal(HttpStatusCode.Forbidden, deniedScopeRes.StatusCode);
@@ -238,6 +238,16 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         Assert.Equal(403, problem.Status);
         Assert.Equal("ไม่มีสิทธิ์เข้าถึงสาขาที่ระบุ", problem.Title);
         Assert.False(string.IsNullOrWhiteSpace(problem.TraceId));
+
+        using var noRackPermClient = _factory.CreateClient();
+        noRackPermClient.DefaultRequestHeaders.Add("X-TanPms-Scope", "admin");
+        noRackPermClient.DefaultRequestHeaders.Add("X-TanPms-Allowed-Properties", PmsSeedConstants.BkkPropertyId.ToString());
+        noRackPermClient.DefaultRequestHeaders.Add("X-TanPms-Permissions", PermissionKeys.AdminPropertiesRead);
+        var noRackPermResponse = await noRackPermClient.GetAsync($"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rack");
+        Assert.Equal(HttpStatusCode.Forbidden, noRackPermResponse.StatusCode);
+        var noRackPermProblem = await noRackPermResponse.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(noRackPermProblem);
+        Assert.Equal(DomainErrorCodes.PermissionDenied, noRackPermProblem.ErrorCode);
     }
 
     [Fact]
@@ -726,6 +736,34 @@ public sealed class WebApiContractAndScopeTests : IClassFixture<InMemoryWebApiFa
         var createdTax = await validTaxRes.Content.ReadFromJsonAsync<TaxProfileItemDto>();
         Assert.NotNull(createdTax);
         Assert.Equal("LAUNDRY_SERVICE", createdTax.ChargeCategoryCode);
+
+        var waterProfile = catalog.TaxProfiles.Single(tp => tp.ChargeCategoryCode == "UTILITY_WATER");
+        var renameProtectedRes = await rateAdminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/taxes",
+            new UpsertTaxProfileRequest(
+                Id: waterProfile.Id,
+                ChargeCategoryCode: "UTILITY_WATER_RENAMED",
+                Name: waterProfile.Name,
+                TaxMode: waterProfile.TaxMode,
+                VatRatePercent: waterProfile.VatRatePercent,
+                DefaultWithholdingTaxPercent: waterProfile.DefaultWithholdingTaxPercent,
+                IsActive: waterProfile.IsActive));
+        Assert.Equal(HttpStatusCode.BadRequest, renameProtectedRes.StatusCode);
+        var renameProblem = await renameProtectedRes.Content.ReadFromJsonAsync<ApiProblemDetails>();
+        Assert.NotNull(renameProblem);
+        Assert.Equal(DomainErrorCodes.ValidationFailed, renameProblem.ErrorCode);
+
+        var updateProtectedValuesRes = await rateAdminClient.PostAsJsonAsync(
+            $"/api/v1/admin/properties/{PmsSeedConstants.BkkPropertyId}/rates/taxes",
+            new UpsertTaxProfileRequest(
+                Id: waterProfile.Id,
+                ChargeCategoryCode: waterProfile.ChargeCategoryCode,
+                Name: waterProfile.Name,
+                TaxMode: waterProfile.TaxMode,
+                VatRatePercent: waterProfile.VatRatePercent,
+                DefaultWithholdingTaxPercent: waterProfile.DefaultWithholdingTaxPercent,
+                IsActive: waterProfile.IsActive));
+        Assert.Equal(HttpStatusCode.OK, updateProtectedValuesRes.StatusCode);
 
         var simReq = new RateSimulationRequest(
             RatePlanId: createdPlan.Id,

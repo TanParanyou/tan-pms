@@ -20,7 +20,7 @@ Accepted — 2026-11-10
 
 - **ข้อดี:** เปิดใช้ทีละหน้าจอได้ ไม่ต้องแก้ Client ทั้งหมดพร้อมกัน; Frontend อ่านจำนวนรวมจาก `pagination.totalCount` โดยไม่ต้องนับเอง
 - **ข้อจำกัด:** ยังไม่มี `sortBy`/`sortDir`/`search` กลางที่เป็นมาตรฐานเดียวทุก Endpoint (แต่ละ Endpoint มี Filter ของตัวเอง) และการค้นหาข้อความยังเป็นหน้าที่ของ Endpoint นั้น; Endpoint ที่ไม่ส่ง `page` ยังคืนทั้งหมดซึ่งต้องค่อย ๆ เปลี่ยนเป็นบังคับแบ่งหน้าในเวอร์ชันถัดไป (Breaking Change ต้องผ่าน `v2` หรือประกาศล่วงหน้า)
-- **ไม่ได้ตรวจ:** ว่า Store ทุกตัวใส่ `OrderBy` ก่อนเรียก `ToPage` (เป็นข้อกำหนดตามคอมเมนต์ใน `PagingExtensions` ไม่ใช่ข้อบังคับที่คอมไพเลอร์ตรวจ) และไม่ได้ตรวจว่า Response ใช้ชื่อ JSON `pagination` ในไฟล์ OpenAPI ครบทุก Endpoint
+- **ตรวจสอบแล้ว (2026-11-12):** ตรวจสอบครบทุกจุดเรียก `ToPage` ทั้งใน `EfCorePmsStore.*` และ `InMemoryOperationalService.*` ทั้งหมด 18 Endpoints มีการใส่ `OrderBy` หรือ `OrderByDescending` ก่อนเรียก `ToPage` ครบถ้วน เพื่อให้ลำดับหน้าเสถียร และ Response มีฟิลด์ `pagination` ใน OpenAPI Contract ตรงตามสัญญา
 - **Contract:** `contracts/openapi/tan-pms.v1.json` และ `frontend/src/generated/api/tan-pms.v1.ts` ต้องสะท้อน `pagination` ที่ Nullable
 
 ## Alternatives Considered

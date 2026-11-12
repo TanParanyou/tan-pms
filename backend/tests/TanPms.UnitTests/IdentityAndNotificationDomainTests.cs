@@ -14,12 +14,13 @@ public sealed class IdentityAndNotificationDomainTests
         Assert.Contains(RoleCodes.OrganizationAdmin, RoleCodes.All);
         Assert.Contains(RoleCodes.ClientCustomer, RoleCodes.All);
 
-        Assert.Equal(25, PermissionKeys.All.Count);
+        Assert.Equal(26, PermissionKeys.All.Count);
         Assert.Contains(PermissionKeys.AdminUsersRead, PermissionKeys.All);
         Assert.Contains(PermissionKeys.AdminUsersManage, PermissionKeys.All);
         Assert.Contains(PermissionKeys.AdminStayOverrideDirtyCheckIn, PermissionKeys.All);
         Assert.Contains(PermissionKeys.AdminCustomerUnmaskPii, PermissionKeys.All);
         Assert.Contains(PermissionKeys.AdminInvoicesVoid, PermissionKeys.All);
+        Assert.Contains(PermissionKeys.AdminRackView, PermissionKeys.All);
     }
 
     [Fact]

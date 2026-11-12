@@ -31,7 +31,14 @@ import {
   type UtilityTariffFormValues,
   type TaxProfileFormValues,
 } from "../schemas/rate-schemas";
-import { BILLING_MODES, TARIFF_FORM_DEFAULTS, TAX_FORM_DEFAULTS, TAX_MODES, UTILITY_TYPES } from "../constants";
+import {
+  BILLING_MODES,
+  SYSTEM_CHARGE_CATEGORIES,
+  TARIFF_FORM_DEFAULTS,
+  TAX_FORM_DEFAULTS,
+  TAX_MODES,
+  UTILITY_TYPES,
+} from "../constants";
 import type { TaxProfileItemDto, UtilityTariffItemDto } from "../types";
 
 interface DialogProps {
@@ -208,6 +215,9 @@ function TaxForm({ propertyId, tax, onDone }: { propertyId: string; tax?: TaxPro
   const { toastSuccess, toastApiError } = useToast();
   const mutation = useUpsertTaxProfileMutation(propertyId);
   const inFlight = useRef(false);
+  const isSystemCategory = Boolean(
+    tax && SYSTEM_CHARGE_CATEGORIES.includes(tax.chargeCategoryCode as (typeof SYSTEM_CHARGE_CATEGORIES)[number])
+  );
   const form = useForm<TaxProfileFormValues>({
     resolver: zodResolver(taxProfileSchema),
     defaultValues: tax
@@ -229,7 +239,7 @@ function TaxForm({ propertyId, tax, onDone }: { propertyId: string; tax?: TaxPro
     try {
       await mutation.mutateAsync({
         id: tax?.id,
-        chargeCategoryCode: v.chargeCategoryCode,
+        chargeCategoryCode: isSystemCategory && tax ? tax.chargeCategoryCode : v.chargeCategoryCode,
         name: toLocalizedText(v.nameTh, v.nameEn),
         taxMode: v.taxMode,
         vatRatePercent: v.vatRatePercent,
@@ -247,7 +257,13 @@ function TaxForm({ propertyId, tax, onDone }: { propertyId: string; tax?: TaxPro
   return (
     <form onSubmit={submit} className="space-y-4">
       <FormField id="tx-category" label={t("colChargeCategory")} required error={form.formState.errors.chargeCategoryCode ? tCommon("required") : undefined}>
-        <Input id="tx-category" placeholder={t("placeholderCode")} disabled={mutation.isPending} className="h-10 rounded-full font-mono text-xs" {...form.register("chargeCategoryCode")} />
+        <Input
+          id="tx-category"
+          placeholder={t("placeholderCode")}
+          disabled={isSystemCategory || mutation.isPending}
+          className="h-10 rounded-full font-mono text-xs"
+          {...form.register("chargeCategoryCode")}
+        />
       </FormField>
       <LocalizedTextFields
         idPrefix="tx-name"
