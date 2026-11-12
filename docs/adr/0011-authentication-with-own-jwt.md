@@ -25,12 +25,13 @@ Accepted — 2026-11-11
 ## Consequences
 
 - **ข้อดี:** ไม่พึ่งบริการภายนอก, สิทธิ์และการ Deactivate มีผลทันที, Token รั่วมีอายุสั้นและการขโมย Refresh Token ถูกตรวจจับได้, ทดสอบได้ (`JwtAuthenticationWebTests`, `AuthStartupGuardTests`, `JwtAuthPostgresTests`, `AuthSecurityUnitTests`, `OpenApiContractTests`, frontend `pm-auth-jwt.test.tsx`)
-- **ต้นทุน:** ทุก Request มี Query แก้สิทธิ์ 1 ครั้ง (ยังไม่มี Cache); ต้องดูแลกุญแจเซ็น (Secret) และการหมุนกุญแจเอง — ยังไม่มีกลไก Key Rotation (เปลี่ยนกุญแจ = ทุก Access Token เดิมใช้ไม่ได้)
+- **ต้นทุน:** ทุก Request มี Query แก้สิทธิ์ 1 ครั้ง (ยังไม่มี Cache); ต้องดูแลกุญแจเซ็น (Secret) เอง — รองรับการหมุนกุญแจด้วย `kid` (`Auth:Jwt:KeyId` กุญแจปัจจุบัน และ `Auth:Jwt:PreviousSigningKeys:{n}:KeyId|Key` ที่รับเฉพาะตอนตรวจสอบ) โดย Token ที่ไม่มี `kid` จะถูกลองกับทุกกุญแจเพื่อให้ Token ก่อนการ Deploy ยังใช้ได้
 - **ข้อจำกัดที่ทราบ (Known Limits):**
-  - Refresh พร้อมกันด้วย Token เดียวกันอาจหมุนซ้ำได้ 2 ครั้ง (โค้ดมี `shortcut` comment; ต้องเพิ่ม Row Lock หาก Client แข่งกัน)
-  - ไม่มี Job ลบ Refresh Token ที่หมดอายุ (ตารางโตขึ้นเรื่อย ๆ)
+  - (แก้แล้ว) Refresh พร้อมกันด้วย Token เดียวกัน: การหมุนเป็น Atomic Claim (`IAuthStore.TryRotateRefreshToken`) ชนะได้ครั้งเดียว และ Token ที่เพิ่งถูกหมุนภายใน `Auth:Jwt:RefreshReuseGraceSeconds` (ค่าเริ่มต้น 10 วินาที) ถูกปฏิเสธด้วย `auth.refresh_token_invalid` โดยไม่เพิกถอนทั้ง Family ส่วนการใช้ซ้ำเมื่อเลยช่วงนี้ยังเพิกถอนทั้ง Family
+  - (แก้แล้ว) มี `RefreshTokenCleanupService` ลบแถวที่หมดอายุหรือถูกเพิกถอนเกิน `Auth:Jwt:RefreshTokenRetentionDays` (30 วัน) ทุก `Auth:Jwt:CleanupIntervalMinutes` (60 นาที)
   - ไม่มี Forgot-Password / Self-Service Reset สำหรับลูกค้า และไม่มี MFA
-  - `appsettings.json` มี Connection String เริ่มต้นสำหรับเครื่องพัฒนา (`postgres/postgres`) ต้อง Override ด้วย `ConnectionStrings__DefaultConnection` ทุกสภาพแวดล้อมที่ Deploy
+  - (แก้แล้ว) `appsettings.json` ไม่มี Connection String แล้ว (อยู่ใน `appsettings.Development.json`) นอก Development/Testing ระบบไม่สตาร์ทหากไม่ตั้ง `ConnectionStrings__DefaultConnection` (ยกเว้น `Persistence__Provider=InMemory`) ยกเว้น `TanPmsDbContextFactory` (เครื่องมือ `dotnet ef` ตอน Design-time) ที่ยังมีค่าสำรองของเครื่องพัฒนา
+  - Response Header ความปลอดภัย (`SecurityHeadersMiddleware`): `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Cache-Control: no-store` สำหรับ `/api/v1/auth/*` และไฟล์/PDF, HSTS นอก Development/Testing เมื่อเป็น HTTPS (`Security:Hsts:Enabled`) — ยังไม่ได้ทดสอบ HSTS บน HTTPS จริงและ `no-store` บน PDF/ไฟล์
   - Rate Limit เป็นแบบต่อ Instance (In-Memory) ไม่แชร์ข้ามหลาย Instance
 
 ## Alternatives Considered
